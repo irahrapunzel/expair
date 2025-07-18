@@ -18,7 +18,7 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 
-export default function Navbar() {
+export default function MainNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (    
