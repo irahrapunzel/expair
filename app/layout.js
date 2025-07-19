@@ -1,16 +1,11 @@
-import './globals.css'
-import { Inter } from 'next/font/google'
+import './globals.css';
+import { Inter } from 'next/font/google';
 
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-inter',
-})
-
-export const metadata = {
-  title: 'Expair',
-  description: 'expair',
-}
+});
 
 export default function RootLayout({ children }) {
   return (
@@ -19,5 +14,5 @@ export default function RootLayout({ children }) {
         {children}
       </body>
     </html>
-  )
+  );
 }
