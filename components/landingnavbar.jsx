@@ -12,7 +12,6 @@ export default function LandingNavbar() {
         {/* Left side: Logo */}
         <div className="flex items-center gap-2">
           <Image src="/expair.png" alt="Expair Logo" width={24} height={24} />
-          <span className="text-white text-[24px] font-bold">Expair</span>
         </div>
 
         {/* Middle: Menu */}
