@@ -1,4 +1,4 @@
-import LandingNavbar from '@/components/landingnavbar'
+import LandingNavbar from '@/components/mainnavbar'
 import Footer from '@/components/footer'
 
 export const metadata = {

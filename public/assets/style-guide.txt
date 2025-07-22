@@ -1,0 +1,54 @@
+MAIN PALETTE
+
+Primary Blue (CTA): 	0038FF	// Primary actions (e.g, Buttons, highlights, notifs)
+
+Secondary Indigo: 	906EFF	// Secondary actions (e.g., levels, stars)
+
+Tertiary Orchid:	D78DE5	// Accent color 1
+Tertiary Cyan:		6DDFFF	// Accent color 2, links
+Tertiary Salmon: 	FB9696	// Accent color 3
+
+
+UI PALETTE
+
+White: 			FFFFFF	// Default text color
+Base Black:		050015	// Page color
+Dark Blue:		120A2A	// Container fills
+Medium Blue:		1A0F3E	// Container active state/on hover
+Dark Purple:		1C0A2A	// Component fills (e.g., sliders)
+Medium Purple		413663	// Placeholder text
+
+
+GRADIENT GUIDE
+
+Chromatic: 	Salmon-Pink-Indigo-Blue-Cyan		// AI-assisted components and features
+		FB9696-D78DE5-906EFF-0038FF-6DDFFF	
+
+Purple: 	Indigo-White-Indigo			// Popup window outlines
+		906EFF-FFFFFF-906EFF
+
+Blue:		Dark Blue-Medium Purple			// Card fills
+		120A2A-413663
+
+
+HEADING GUIDE
+
+Desktop
+H1:    49px / 120%     // Main Page Titles
+H2:    39px / 120%     // Section Headers
+H3:    31px / 120%     // Subsection Headers
+H4:    25px / 120%     // Card or Modal Titles
+H5:    20px / 120%     // Minor Headings or Labels
+Body:  16px / 120%     // Paragraphs and body text
+C1:    13px / 120%     // Small captions or form labels
+C2:    10px / 120%     // Extra small notes or disclaimers
+
+Mobile
+H1:    32px / 120%     // Main Page Titles
+H2:    26px / 120%     // Section Headers
+H3:    24px / 120%     // Subsection Headers
+H4:    20px / 120%     // Card or Modal Titles
+H5:    16px / 120%     // Minor Headings or Labels
+Body:  12px / 120%     // Paragraphs and body text
+C1:    10px / 120%     // Small captions or form labels
+C2:    8px / 120%      // Extra small notes or disclaimers
