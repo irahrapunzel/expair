@@ -31,7 +31,6 @@ export default function Footer() {
           </ul>
         </div>
 
-        
         <div className="flex flex-col items-start md:items-end text-sm gap-2">
           <Link
             href="/help"
@@ -51,9 +50,8 @@ export default function Footer() {
         </div>
       </div>
 
-      
       <div className="mt-10 text-center">
-        <p className="self-stretch text-white text-center text-[16px] leading-[120%] font-normal mb-3">Follow us!</p>
+        <p className="text-white text-center text-[16px] leading-[120%] font-normal mb-3">Follow us!</p>
         <div className="flex justify-center gap-6">
           <a href="mailto:hello@expair.com" className="hover:text-purple-300 transition" aria-label="Email">
             <Icon icon="mdi:email-outline" width="30" />
@@ -67,7 +65,6 @@ export default function Footer() {
         </div>
       </div>
 
-      
       <div className="mt-8 text-[10px] leading-[12px] font-normal text-white text-center opacity-50 px-4 max-w-[845px] mx-auto">
         <p>© 2025 Expair. All rights reserved.</p>
         <p className="mt-1">
