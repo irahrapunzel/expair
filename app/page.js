@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { Button } from "../components/ui/button";
 import { Inter, Archivo } from "next/font/google";
-import FaqSection from "./landing/faqs";
+import FaqSection from "./(landing)/faqs";
 import LandingNav from "../components/landingnav";
+import Link from "next/link";
 
 const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
@@ -14,6 +15,7 @@ export default function LandingPage() {
     <section
       className={`min-h-screen flex flex-col justify-between bg-[#050015] text-white font-sans ${inter.className}`}
     >
+      {/* Hero Section */}
       {/* Hero Section */}
       <div className="flex flex-col items-center justify-center text-center px-6 pt-0 pb-20 md:pb-32 gap-6">
         <div className="flex flex-col items-center gap-0 w-full max-w-md md:max-w-3xl">
@@ -39,13 +41,17 @@ export default function LandingPage() {
             Meet people who need what you have, and have what you don’t.
           </p>
         </div>
-        <Button
-          variant="default"
-          size="default"
-          className="mt-[20px] w-[160px] h-[50px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0px_0px_15px_0px_#284CCC] text-base md:text-lg"
-        >
-          Join us
-        </Button>
+
+        {/* Button na may Link */}
+        <Link href="/signin">
+          <Button
+            variant="default"
+            size="default"
+            className="mt-[20px] w-[160px] h-[50px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0px_0px_15px_0px_#284CCC] text-base md:text-lg"
+          >
+            Join us
+          </Button>
+        </Link>
       </div>
 
       {/* Our Goal Section */}
