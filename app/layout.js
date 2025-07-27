@@ -1,10 +1,10 @@
-import "./globals.css";
-import Head from "next/head";
-import ClientLayout from "../components/client-layout";
+import './globals.css';
+import Head from 'next/head';
+import ClientLayout from '../components/client-layout';
 
 export const metadata = {
-  title: "Expair",
-  description: "Fair skill exchange platform",
+  title: 'Expair',
+  description: 'Fair skill exchange platform',
 };
 
 export default function RootLayout({ children }) {
@@ -16,7 +16,9 @@ export default function RootLayout({ children }) {
           href="https://fonts.googleapis.com/css2?family=Inter&display=swap"
         />
       </Head>
-      <ClientLayout>{children}</ClientLayout>
+      <body className="bg-[#0B0521] text-white font-sans flex flex-col min-h-screen">
+        <ClientLayout>{children}</ClientLayout>
+      </body>
     </html>
   );
 }
