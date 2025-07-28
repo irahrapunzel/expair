@@ -16,7 +16,7 @@ export default function RootLayout({ children }) {
           href="https://fonts.googleapis.com/css2?family=Inter&display=swap"
         />
       </Head>
-      <body className="bg-[#0B0521] text-white font-sans flex flex-col min-h-screen">
+      <body className="bg-[#050015] text-white font-sans flex flex-col min-h-screen">
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
