@@ -11,17 +11,28 @@ export default function ClientLayout({ children }) {
   const pathname = usePathname();
   const [queryClient] = useState(() => new QueryClient());
 
-  const isLanding = pathname === '/' || pathname === '/landing';
+  // no navbar and footer
   const isAuthPage =
-    pathname.startsWith('/signin') || pathname.startsWith('/forgot-password') || pathname.startsWith('/verify-code') || pathname.startsWith('/reset-password');
+    pathname.startsWith('/signin') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/verify-code') ||
+    pathname.startsWith('/reset-password');
+
+  // w landingNav and Footer
+  const isLanding =
+    pathname === '/' ||
+    pathname === '/landing' ||
+    pathname.startsWith('/help');
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Layout only, not full <body> */}
+      {/* Navbar */}
       {!isAuthPage && (isLanding ? <LandingNav /> : <Navbar />)}
 
+      {/* Content */}
       <main className="flex-grow">{children}</main>
 
+      {/* Footer */}
       {!isAuthPage && (
         <div className="bg-[#050015]">
           <Footer />

@@ -34,13 +34,13 @@ export default function Footer() {
         <div className="flex flex-col items-start md:items-end text-sm gap-2">
           <Link
             href="/help"
-            className="text-white text-[20px] leading-[120%] font-normal hover:underline"
+            className="text-white text-[20px] leading-[120%] font-[500] hover:underline"
           >
             Help
           </Link>
           <Link
             href="/signin"
-            className="text-white text-[20px] leading-[120%] font-normal hover:underline"
+            className="text-white text-[20px] leading-[120%] font-[700] hover:underline"
             style={{
               textShadow: '0px 0px 15px #284CCC',
             }}

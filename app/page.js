@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Button } from "../components/ui/button";
 import { Inter, Archivo } from "next/font/google";
-import FaqSection from "./landing/faqs";
+import FaqSection from "./(landing)/faqs";
 import LandingNav from "../components/landingnav";
 import Link from "next/link";
 
