@@ -16,7 +16,8 @@ export default function ClientLayout({ children }) {
     pathname.startsWith('/signin') ||
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/verify-code') ||
-    pathname.startsWith('/reset-password');
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/register');
 
   // w landingNav and Footer
   const isLanding =

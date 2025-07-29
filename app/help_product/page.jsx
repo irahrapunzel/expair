@@ -8,7 +8,9 @@ export default function ProductInfoUsagePage() {
     <HelpLayout>
       <div className="space-y-10 pb-[116px]">
         {/* Title */}
-        <h1 className="text-[31px] font-[700] mb-[20px]">📦 Product Information and Usage</h1>
+        <h1 className="text-[31px] font-[700] mb-[20px] flex items-center gap-2">
+          <img src="/assets/icons/product.png" alt="Icon" className="w-[32px] h-[32px]" />
+           Product Information and Usage</h1>
 
         {/* Section: Understanding Skill Matching */}
         <div>

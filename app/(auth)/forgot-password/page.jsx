@@ -68,6 +68,7 @@ export default function ForgotPasswordPage() {
           }}
           className="w-full space-y-4 flex flex-col items-center"
         >
+          <p className="text-white font-normal mb-[15px] self-start pl-6">Email</p>
           <Input
             placeholder="Enter your email"
             type="email"

@@ -66,17 +66,17 @@ export default function LoginPage() {
         </div>
 
         {/* Username */}
+        <p className="text-white font-normal mb-[15px]">Username or email address</p>
         <Input
-          placeholder="Username or email address"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="mb-[35px]"
+          className="mb-[20px]"
         />
 
         {/* Password */}
+        <p className="text-white font-normal mb-[15px]">Password</p>
         <div className="relative mb-[20px] ">
           <Input
-            placeholder="Password"
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}

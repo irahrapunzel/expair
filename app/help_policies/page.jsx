@@ -8,7 +8,9 @@ export default function PoliciesLegalPage() {
     <HelpLayout>
       <div className="space-y-10 pb-[116px]">
         {/* Title */}
-        <h1 className="text-[31px] font-[700] mb-[20px]">🛠️ Policies & Legal</h1>
+        <h1 className="text-[31px] font-[700] mb-[20px] flex items-center gap-2">
+          <img src="/assets/icons/policies.png" alt="Icon" className="w-[32px] h-[32px]" />
+           Policies & Legal</h1>
 
         {/* Section: Privacy Policy Overview */}
         <div>
