@@ -88,7 +88,7 @@ export default function LandingNav() {
         {/* Right: Sign In Button */}
         <div className="flex-shrink-0 ml-[50px]">
           <Link href="/signin">
-            <Button className="font-normal w-[160px] h-[40px] px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
+            <Button className="cursor-pointer font-normal w-[160px] h-[40px] px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
               Sign in
             </Button>
           </Link>

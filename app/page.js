@@ -47,7 +47,7 @@ export default function LandingPage() {
           <Button
             variant="default"
             size="default"
-            className="mt-[20px] w-[160px] h-[50px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0px_0px_15px_0px_#284CCC] text-base md:text-lg"
+            className=" cursor-pointer mt-[20px] w-[160px] h-[50px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0px_0px_15px_0px_#284CCC] text-base md:text-lg"
           >
             Join us
           </Button>

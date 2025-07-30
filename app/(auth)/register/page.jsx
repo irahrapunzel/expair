@@ -131,7 +131,7 @@ export default function SafetyGuidelines() {
         <div className="mt-4 flex justify-center items-center">
           <Button
             onClick={handleAgree}
-            className="w-[240px] h-[50px] px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[20px] font-normal transition rounded-[15px]"
+            className="cursor-pointer w-[240px] h-[50px] px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[20px] font-normal transition rounded-[15px]"
           >
             I agree
           </Button>

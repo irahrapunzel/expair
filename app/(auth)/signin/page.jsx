@@ -117,7 +117,7 @@ export default function LoginPage() {
 
         {/* Sign In Button */}
         <Button
-          className="flex w-[400px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-normal transition rounded-[15px] mb-[20px]"
+          className="cursor-pointer flex w-[400px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-normal transition rounded-[15px] mb-[20px]"
           onClick={handleLogin}
         >
           Sign in
@@ -126,7 +126,7 @@ export default function LoginPage() {
         {/* Google Login */}
         <Button
           variant="outline"
-          className="flex w-full md:w-[400px] h-[50px] justify-center items-center gap-2 mt-3 text-black text-[20px] font-medium rounded-[15px] border border-gray-300 hover:bg-gray-100 mb-[35px]"
+          className="cursor-pointer flex w-full md:w-[400px] h-[50px] justify-center items-center gap-2 mt-3 text-black text-[20px] font-medium rounded-[15px] border border-gray-300 hover:bg-gray-100 mb-[35px]"
           onClick={handleGoogleLogin}
         >
           <img
