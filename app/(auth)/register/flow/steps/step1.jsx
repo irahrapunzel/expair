@@ -9,7 +9,7 @@ import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export default function SignUpStepOne() {
+export default function Step1({ onNext }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,14 +23,7 @@ export default function SignUpStepOne() {
   const handleContinue = () => {
     setErrorMessage("");
 
-    if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !username ||
-      !password ||
-      !repeatPassword
-    ) {
+    if (!firstName || !lastName || !email || !username || !password || !repeatPassword) {
       setErrorMessage("Please fill in all fields.");
       return;
     }
@@ -40,128 +33,141 @@ export default function SignUpStepOne() {
       return;
     }
 
-    // Proceed to step 2
-    console.log("Go to step 2...");
+    onNext();
   };
 
   return (
     <div
-      className={`flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
+      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center px-4 ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
-      <div className="w-full max-w-md p-6 text-white">
+      <div className="relative z-10 w-full max-w-4xl text-center">
         {/* Header */}
-        <div className="flex flex-col items-center space-y-2 mb-[20px]">
+        <div className="flex flex-col items-center">
           <Image
             src="/assets/logos/Logotype=Logotype M.png"
             alt="Logo"
             width={250}
             height={76}
-            className="rounded-full"
+            className="rounded-full mb-[30px]"
           />
-          <h1 className="font-bold text-[25px] text-center mb-[20px]">
+          <h1 className="font-[600] text-[25px] text-center mb-[90px]">
             Let’s get your account started.
           </h1>
         </div>
 
-        {/* First Name */}
-        <p className="text-white font-normal mb-[15px]">First name</p>
-        <Input
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          className="mb-[20px]"
-          placeholder="First name"
-        />
+        {/* Form Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-[44px] gap-y-[20px] justify-center">
+          {/* First Name */}
+          <div className="w-full max-w-[400px] text-left">
+            <p className="text-white font-normal mb-[8px]">First name</p>
+            <Input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="w-full h-[50px] p-4"
+            />
+          </div>
 
-        {/* Last Name */}
-        <p className="text-white font-normal mb-[15px]">Last name</p>
-        <Input
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          className="mb-[20px]"
-          placeholder="Last name"
-        />
+          {/* Last Name */}
+          <div className="w-full max-w-[400px] text-left">
+            <p className="text-white font-normal mb-[8px]">Last name</p>
+            <Input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="w-full h-[50px] p-4"
+            />
+          </div>
 
-        {/* Email */}
-        <p className="text-white font-normal mb-[15px]">Email address</p>
-        <Input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="mb-[20px]"
-          placeholder="you@example.com"
-        />
+          {/* Username */}
+          <div className="w-full max-w-[400px] text-left">
+            <p className="text-white font-normal mb-[8px]">Username</p>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full h-[50px] p-4"
+            />
+          </div>
 
-        {/* Username */}
-        <p className="text-white font-normal mb-[15px]">Username</p>
-        <Input
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="mb-[20px]"
-          placeholder="Choose a username"
-        />
+          {/* Email */}
+          <div className="w-full max-w-[400px] text-left">
+            <p className="text-white font-normal mb-[8px]">Email address</p>
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full h-[50px] p-4"
+            />
+          </div>
 
-        {/* Password */}
-        <p className="text-white font-normal mb-[15px]">Password</p>
-        <div className="relative mb-[20px]">
-          <Input
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="pr-10"
-            placeholder="••••••••"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-white"
-          >
-            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-          </button>
+          {/* Password */}
+          <div className="relative w-full max-w-[400px] text-left">
+            <p className="text-white font-normal mb-[8px]">Password</p>
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full h-[50px] p-4 pr-12"
+            />
+            <div className="absolute inset-y-0 right-3 flex items-center">
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-gray-400 hover:text-white"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Repeat Password */}
+          <div className="relative w-full max-w-[400px] text-left">
+            <p className="text-white font-normal mb-[8px]">Repeat password</p>
+            <Input
+              type={showRepeatPassword ? "text" : "password"}
+              value={repeatPassword}
+              onChange={(e) => setRepeatPassword(e.target.value)}
+              className="w-full h-[50px] p-4 pr-12"
+            />
+            <div className="absolute inset-y-0 right-3 flex items-center">
+              <button
+                type="button"
+                onClick={() => setShowRepeatPassword(!showRepeatPassword)}
+                className="text-gray-400 hover:text-white"
+              >
+                {showRepeatPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Repeat Password */}
-        <p className="text-white font-normal mb-[15px]">Repeat password</p>
-        <div className="relative mb-[20px]">
-          <Input
-            type={showRepeatPassword ? "text" : "password"}
-            value={repeatPassword}
-            onChange={(e) => setRepeatPassword(e.target.value)}
-            className="pr-10"
-            placeholder="••••••••"
-          />
-          <button
-            type="button"
-            onClick={() => setShowRepeatPassword(!showRepeatPassword)}
-            className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-white"
-          >
-            {showRepeatPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-          </button>
-        </div>
-
-        {/* Error */}
+        {/* Error Message */}
         {errorMessage && (
-          <p className="text-red-500 text-sm mb-3">{errorMessage}</p>
+          <p className="text-red-500 text-sm mt-4">{errorMessage}</p>
         )}
 
         {/* Already have account */}
-        <p className="underline text-center text-sm mb-[20px] text-[16px]">
-          <a href="/signin" className="text-[#6DDFFF] hover:underline">
+        <p className="underline text-center text-sm text-[16px] mt-[44px] mb-[100px]">
+          <a href="/signin" className="text-[#6DDFFF]">
             I have an account already.
           </a>
         </p>
 
         {/* Continue Button */}
-        <Button
-          className="flex w-full h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-normal transition rounded-[15px] mb-[20px]"
-          onClick={handleContinue}
-        >
-          Continue
-        </Button>
+        <div className="flex justify-center mb-[47.5px]">
+          <Button
+            className="flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-normal transition rounded-[15px]"
+            onClick={handleContinue}
+          >
+            Continue
+          </Button>
+        </div>
 
         {/* Pagination */}
-        <div className="flex justify-between items-center text-sm text-white opacity-60">
+        <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60">
           <span>1 of 7</span>
-          <ChevronRight className="w-5 h-5 cursor-pointer hover:text-white text-gray-300" />
+          <ChevronRight
+            className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
+            onClick={onNext}
+          />
         </div>
       </div>
     </div>
