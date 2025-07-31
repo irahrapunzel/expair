@@ -98,6 +98,16 @@ export default function HomePage() {
               selected={selectedExploreSort}
               onChange={setSelectedExploreSort}
             />
+
+            <button
+              onClick={() => setSortAsc((prev) => !prev)}
+              className="w-9 h-9 bg-[#120A2A] rounded-full flex items-center justify-center hover:bg-[#1A0F3E] transition"
+            >
+              <Icon
+                icon={sortAsc ? "mdi:arrow-up" : "mdi:arrow-down"}
+                className="text-lg"
+              />
+            </button>
           </div>
         </div>
 
