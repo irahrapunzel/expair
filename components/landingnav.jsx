@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
-
-// Section IDs to observe
 const sections = ["our-goal", "how-it-works", "FAQs"];
 
 export default function LandingNav() {
   const [activeSection, setActiveSection] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -23,9 +23,7 @@ export default function LandingNav() {
           }
         });
       },
-      {
-        threshold: 0.5,
-      }
+      { threshold: 0.5 }
     );
 
     sections.forEach((id) => {
@@ -35,6 +33,10 @@ export default function LandingNav() {
 
     return () => observer.disconnect();
   }, []);
+
+  const handleAnchorClick = (sectionId) => {
+    router.push(`/#${sectionId}`);
+  };
 
   return (
     <header
@@ -46,11 +48,12 @@ export default function LandingNav() {
         WebkitBackdropFilter: "blur(50px)",
       }}
     >
-      <div
-        className="flex items-center justify-between mx-auto max-w-[1440px] px-6 md:px-[80px]"
-      >
-        {/* Left: Logo */}
-        <div className="flex-shrink-0">
+      <div className="flex items-center justify-between mx-auto max-w-[1440px] px-6 md:px-[80px]">
+        {/* Logo */}
+        <div
+          className="flex-shrink-0 cursor-pointer"
+          onClick={() => router.push("/landing")}
+        >
           <Image
             src="/expair.png"
             alt="Expair Logo"
@@ -60,12 +63,12 @@ export default function LandingNav() {
           />
         </div>
 
-        {/* Center: Menu */}
+        {/* Center Menu */}
         <nav className="flex items-center gap-[50px] px-[35px] py-[20px] rounded-[20px] bg-[#120A2A]">
           {sections.map((section) => (
-            <a
+            <button
               key={section}
-              href={`#${section}`}
+              onClick={() => handleAnchorClick(section)}
               className={`transition text-white hover:text-[#6C8BFF] ${
                 activeSection === section ? "font-semibold text-[#0038FF]" : ""
               }`}
@@ -75,7 +78,7 @@ export default function LandingNav() {
                 : section
                     .replaceAll("-", " ")
                     .replace(/\b\w/g, (char) => char.toUpperCase())}
-            </a>
+            </button>
           ))}
           <Link
             href="/help"
@@ -85,7 +88,7 @@ export default function LandingNav() {
           </Link>
         </nav>
 
-        {/* Right: Sign In Button */}
+        {/* Sign In */}
         <div className="flex-shrink-0 ml-[50px]">
           <Link href="/signin">
             <Button className="font-normal w-[160px] h-[40px] px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
