@@ -11,7 +11,7 @@ export default function ClientLayout({ children }) {
   const pathname = usePathname();
   const [queryClient] = useState(() => new QueryClient());
 
-  // no navbar and footer
+  // Pages na walang navbar at footer
   const isAuthPage =
     pathname.startsWith('/signin') ||
     pathname.startsWith('/forgot-password') ||
@@ -19,16 +19,20 @@ export default function ClientLayout({ children }) {
     pathname.startsWith('/reset-password') ||
     pathname.startsWith('/register');
 
-  // w landingNav and Footer
+  // Landing pages (landing home + landing help)
   const isLanding =
     pathname === '/' ||
     pathname === '/landing' ||
-    pathname.startsWith('/help');
+    // Landing help lang; exclude /home/help
+    (pathname.startsWith('/help') && !pathname.startsWith('/home/help'));
+
+  // Signed-in pages (/home/**)
+  const isHome = pathname.startsWith('/home');
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Navbar */}
-      {!isAuthPage && (isLanding ? <LandingNav /> : <Navbar />)}
+      {!isAuthPage && !isHome && (isLanding ? <LandingNav /> : <Navbar />)}
 
       {/* Content */}
       <main className="flex-grow">{children}</main>

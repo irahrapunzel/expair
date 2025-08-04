@@ -101,40 +101,44 @@ export default function Step1({ onNext }) {
           {/* Password */}
           <div className="relative w-full max-w-[400px] text-left">
             <p className="text-white font-normal mb-[8px]">Password</p>
-            <Input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-[50px] p-4 pr-12"
-            />
-            <div className="absolute inset-y-0 right-3 flex items-center">
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-gray-400 hover:text-white"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+            <div className="relative flex items-center">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full h-[50px] p-4 pr-12"
+              />
+              <div className="absolute right-4 top-0 h-full flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Repeat Password */}
           <div className="relative w-full max-w-[400px] text-left">
             <p className="text-white font-normal mb-[8px]">Repeat password</p>
-            <Input
-              type={showRepeatPassword ? "text" : "password"}
-              value={repeatPassword}
-              onChange={(e) => setRepeatPassword(e.target.value)}
-              className="w-full h-[50px] p-4 pr-12"
-            />
-            <div className="absolute inset-y-0 right-3 flex items-center">
-              <button
-                type="button"
-                onClick={() => setShowRepeatPassword(!showRepeatPassword)}
-                className="text-gray-400 hover:text-white"
-              >
-                {showRepeatPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+            <div className="relative flex items-center">
+              <Input
+                type={showRepeatPassword ? "text" : "password"}
+                value={repeatPassword}
+                onChange={(e) => setRepeatPassword(e.target.value)}
+                className="w-full h-[50px] p-4 pr-12"
+              />
+              <div className="absolute right-4 top-0 h-full flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowRepeatPassword(!showRepeatPassword)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  {showRepeatPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -163,7 +167,7 @@ export default function Step1({ onNext }) {
 
         {/* Pagination */}
         <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60">
-          <span>1 of 7</span>
+          <span>1 of 6</span>
           <ChevronRight
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
             onClick={onNext}

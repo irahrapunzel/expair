@@ -53,7 +53,7 @@ export default function FaqSection() {
   const collapseAll = () => setOpenItems([]);
 
   return (
-    <section className="w-full flex flex-col items-center justify-center px-6 py-20 relative">
+    <section id="FAQs" className="w-full flex flex-col items-center justify-center px-6 py-20 relative">
       {/* Indigo glow background */}
       <div className="absolute inset-0 bg-indigo-600 blur-[200px] opacity-20 -z-10" />
 

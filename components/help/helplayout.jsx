@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] });
 export default function HelpLayout({ children }) {
   return (
     <div className={`min-h-screen bg-[#050015] text-white ${inter.className}`}>
-      <section className="mx-[250px] pt-[55px]" style={{ width: "941px" }}>
+      <section className="mx-auto max-w-[1440px] px-6 md:px-[80px] pt-[55px]">
         {/* Title */}
         <h1 className="text-[25px] font-semibold mb-[25px]">
           What do you need help with?

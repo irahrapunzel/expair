@@ -40,7 +40,7 @@ export default function LoginPage() {
     }
 
     // Redirect if successful
-    window.location.href = "/dashboard";
+    window.location.href = "/home";
   };
 
   const handleGoogleLogin = () => {

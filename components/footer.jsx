@@ -2,14 +2,25 @@
 
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 export default function Footer() {
+  const pathname = usePathname();
+  const isHomePage = pathname.startsWith('/home');
   return (
     <footer className="w-full bg-[#120A2A] text-white pt-[39px] pb-[20px] px-[67px] rounded-t-[50px] shadow-[0px_-10px_4px_0px_rgba(0,0,0,0.25)]">
       <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between gap-10">
         
         <div>
-          <div className="mb-6">
+          <div className="mb-6 flex items-center">
             <img src="/expair.png" alt="Expair Logo" className="w-[150px] h-[46px]" />
           </div>
           <ul className="space-y-2 text-[16px] leading-[120%] text-white font-normal opacity-50">
@@ -31,23 +42,61 @@ export default function Footer() {
           </ul>
         </div>
 
-        <div className="flex flex-col items-start md:items-end text-sm gap-2">
-          <Link
-            href="/help"
-            className="text-white text-[20px] leading-[120%] font-[500] hover:underline"
-          >
-            Help
-          </Link>
-          <Link
-            href="/signin"
-            className="text-white text-[20px] leading-[120%] font-[700] hover:underline"
-            style={{
-              textShadow: '0px 0px 15px #284CCC',
-            }}
-          >
-            Sign in
-          </Link>
-        </div>
+        {isHomePage ? (
+          <div className="flex flex-col items-start md:items-end text-sm gap-3">
+            <Link
+              href="/home"
+              className="text-white text-[20px] leading-[120%] font-[500] hover:underline"
+            >
+              Home
+            </Link>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="text-white text-[20px] leading-[120%] font-[500] hover:underline flex items-center gap-1">
+                  Trades <ChevronDown className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-[#15042C] text-white border border-[#2B124C]">
+                <Link href="/home/trades/pending">
+                  <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                    Pending
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/home/trades/active">
+                  <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                    Active
+                  </DropdownMenuItem>
+                </Link>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Link
+              href="/home/help"
+              className="text-white text-[20px] leading-[120%] font-[500] hover:underline"
+            >
+              Help
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col items-start md:items-end text-sm gap-2">
+            <Link
+              href="/help"
+              className="text-white text-[20px] leading-[120%] font-[500] hover:underline"
+            >
+              Help
+            </Link>
+            <Link
+              href="/signin"
+              className="text-white text-[20px] leading-[120%] font-[700] hover:underline"
+              style={{
+                textShadow: '0px 0px 15px #284CCC',
+              }}
+            >
+              Sign in
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="mt-10 text-center">

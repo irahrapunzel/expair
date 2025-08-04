@@ -43,19 +43,20 @@ export default function SafetyGuidelines() {
         <div className="flex flex-col md:flex-row items-center justify-center gap-10">
           {/* Be Safe */}
           <div className="flex flex-col items-center text-center w-[270px]">
-            <Image
-              src="/assets/icons/shield.png"
-              alt="Be Safe"
-              width={43}
-              height={43}
-              className="mb-6"
-            />
+            <div className="h-[44px] flex items-center justify-center mb-6">
+              <Image
+                src="/assets/icons/shield.png"
+                alt="Be Safe"
+                width={43}
+                height={43}
+              />
+            </div>
             <h4 className="text-[25px] font-bold mb-[20px] text-[#FFF] [text-shadow:0_0_25px_rgba(109,223,255,0.7)]">
               Be safe
             </h4>
             <p className="text-[16px] leading-[120%] text-white [text-shadow:0_0_25px_rgba(109,223,255,0.7)]">
               Exercise caution. If users want to conduct trades in their own homes, we highly encourage to check out
-              each other’s profiles first, such as their past trades, certificates, connected socials, links, etc.
+              each other's profiles first, such as their past trades, certificates, connected socials, links, etc.
             </p>
           </div>
 
@@ -70,13 +71,14 @@ export default function SafetyGuidelines() {
 
           {/* Stay Safe */}
           <div className="flex flex-col items-center text-center w-[270px]">
-            <Image
-              src="/assets/icons/smile.png"
-              alt="Stay Safe"
-              width={43}
-              height={43}
-              className="mb-6"
-            />
+            <div className="h-[44px] flex items-center justify-center mb-6">
+              <Image
+                src="/assets/icons/smile.png"
+                alt="Stay Safe"
+                width={43}
+                height={43}
+              />
+            </div>
             <h4 className="text-[25px] font-bold mb-[20px] text-[#FFF] [text-shadow:0_0_25px_var(--Orchid,#D78DE5)]">
               Stay safe
             </h4>
@@ -97,13 +99,14 @@ export default function SafetyGuidelines() {
 
           {/* Keep Safe */}
           <div className="flex flex-col items-center text-center w-[270px]">
-            <Image
-              src="/assets/icons/start.png"
-              alt="Keep Safe"
-              width={43}
-              height={43}
-              className="mb-6"
-            />
+            <div className="h-[44px] flex items-center justify-center mb-6">
+              <Image
+                src="/assets/icons/start.png"
+                alt="Keep Safe"
+                width={43}
+                height={43}
+              />
+            </div>
             <h4 className="text-[25px] font-bold mb-[20px] text-white [text-shadow:0_0_25px_var(--Salmon,#FB9696)]">
               Keep safe
             </h4>

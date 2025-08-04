@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { Inter } from 'next/font/google';
+import PasswordResetSuccessDialog from '../../../components/auth/password-reset-success-dialog';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -16,7 +17,7 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -27,21 +28,16 @@ export default function ResetPasswordPage() {
         throw new Error('Passwords do not match.');
       }
 
-      const res = await fetch('/api/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-
-      if (!res.ok) throw new Error('Failed to reset password');
-      return res.json();
+      // For demo purposes, we'll simulate a successful response
+      // In a real application, you would make an API call here
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return { success: true };
     },
     onSuccess: () => {
       setErrorMessage('');
-      setSuccessMessage('Password reset successfully!');
+      setIsSuccessDialogOpen(true);
     },
     onError: (error) => {
-      setSuccessMessage('');
       setErrorMessage(error.message);
     },
   });
@@ -67,7 +63,6 @@ export default function ResetPasswordPage() {
           onSubmit={(e) => {
             e.preventDefault();
             setErrorMessage('');
-            setSuccessMessage('');
             mutation.mutate();
           }}
           className="w-full space-y-4 flex flex-col items-center"
@@ -108,13 +103,10 @@ export default function ResetPasswordPage() {
             </button>
           </div>
 
-          {/* Error / Success Message */}
+          {/* Error Message */}
           <div className="w-[400px] max-w-full text-left mb-2 min-h-[20px]">
             {errorMessage && (
               <p className="text-sm text-red-500">{errorMessage}</p>
-            )}
-            {successMessage && (
-              <p className="text-sm text-[#6DDFFF]">{successMessage}</p>
             )}
           </div>
 
@@ -143,6 +135,12 @@ export default function ResetPasswordPage() {
           <span className="w-[120px] h-[10px] rounded-[15px] bg-[#0038FF]" />
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <PasswordResetSuccessDialog 
+        isOpen={isSuccessDialogOpen} 
+        onClose={() => setIsSuccessDialogOpen(false)} 
+      />
     </div>
   );
 }

@@ -43,7 +43,7 @@ export function HelpCategoryCard({ title, desc, iconSrc, className, href }) {
 
       {/* Button */}
       <div className="absolute bottom-[25px]">
-        <Link href={href || "#"}>
+        <Link href={href}>
           <Button className="font-normal w-[120px] h-[30px] px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[10px]">
             View
           </Button>

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Button } from "../../../../../components/ui/button";
 import { ChevronRight, ChevronLeft, Search, MapPin } from "lucide-react";
 import { Inter } from "next/font/google";
-import Map, { Marker, NavigationControl, GeolocateControl } from "react-map-gl";
+import MapWrapper from "../../../../../components/map/map-wrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,28 +16,31 @@ export default function Step2({ onNext, onPrev }) {
     zoom: 14,
   });
 
-  const [marker, setMarker] = useState({
-    latitude: 14.5995,
-    longitude: 120.9842,
-  });
+  const [marker, setMarker] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
 
   // Auto locate user
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        setViewport((prev) => ({
-          ...prev,
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        }));
-        setMarker({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-      });
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setViewport((prev) => ({ ...prev, latitude, longitude, zoom: 14 }));
+          setMarker({ latitude, longitude });
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          // Keep default location if user denies permission
+          if (!marker) {
+            setMarker({
+                latitude: 14.5995,
+                longitude: 120.9842,
+            });
+          }
+        }
+      );
     }
   }, []);
 
@@ -76,14 +79,15 @@ export default function Step2({ onNext, onPrev }) {
   // Select suggestion
   const handleSelectSuggestion = (place) => {
     setSearchQuery(place.place_name);
+    const [longitude, latitude] = place.center;
     setViewport({
-      latitude: place.center[1],
-      longitude: place.center[0],
+      latitude,
+      longitude,
       zoom: 14,
     });
     setMarker({
-      latitude: place.center[1],
-      longitude: place.center[0],
+      latitude,
+      longitude,
     });
     setSuggestions([]);
   };
@@ -104,14 +108,14 @@ export default function Step2({ onNext, onPrev }) {
       console.log("Search result:", data);
 
       if (data.features && data.features.length > 0) {
-        const [lng, lat] = data.features[0].center;
+        const [longitude, latitude] = data.features[0].center;
         setViewport((prev) => ({
           ...prev,
-          latitude: lat,
-          longitude: lng,
+          latitude,
+          longitude,
           zoom: 14,
         }));
-        setMarker({ latitude: lat, longitude: lng });
+        setMarker({ latitude, longitude });
       } else {
         alert("Location not found.");
       }
@@ -119,6 +123,11 @@ export default function Step2({ onNext, onPrev }) {
       console.error("Search error:", error);
     }
   };
+
+  const handleMarkerChange = (newMarker) => {
+    setMarker(newMarker);
+    setViewport(prev => ({...prev, latitude: newMarker.latitude, longitude: newMarker.longitude}));
+  }
 
   return (
     <div
@@ -185,25 +194,12 @@ export default function Step2({ onNext, onPrev }) {
 
         {/* Map */}
         <div className="w-full max-w-[800px] h-[288px] mx-auto rounded-[30px] overflow-hidden">
-          <Map
-            mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-            viewState={viewport}
-            mapStyle="mapbox://styles/mapbox/streets-v12"
-            onMove={(evt) => setViewport(evt.viewState)}
-            style={{ width: "100%", height: "100%" }}
-            onClick={(e) =>
-              setMarker({ latitude: e.lngLat.lat, longitude: e.lngLat.lng })
-            }
-          >
-            {/* marker */}
-            <Marker
-              latitude={marker.latitude}
-              longitude={marker.longitude}
-              color="#000000"
-            />
-            <NavigationControl position="top-left" />
-            <GeolocateControl position="top-left" />
-          </Map>
+         <MapWrapper
+            viewport={viewport}
+            onViewportChange={setViewport}
+            marker={marker}
+            onMarkerChange={handleMarkerChange}
+          />
         </div>
 
         <p className="font-[500] text-[20px] text-center mb-[25px] mt-[79px]">
