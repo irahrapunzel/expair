@@ -5,18 +5,24 @@ import { Button } from "./ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { usePathname } from 'next/navigation';
+import { usePathname } from "next/navigation";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Section IDs to observe
 const sections = ["our-goal", "how-it-works", "FAQs"];
-
-// Help page section IDs
-const helpSections = ["technical", "reporting", "product", "account", "tutorials", "policies", "contact"];
+const helpSections = [
+  "technical",
+  "reporting",
+  "product",
+  "account",
+  "tutorials",
+  "policies",
+  "contact",
+];
 
 export default function LandingNav() {
   const [activeSection, setActiveSection] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false); // <-- for mobile menu toggle
   const pathname = usePathname();
 
   useEffect(() => {
@@ -33,14 +39,12 @@ export default function LandingNav() {
       }
     );
 
-    // Observe landing page sections
     sections.forEach((id) => {
       const el = document.getElementById(id);
       if (el) observer.observe(el);
     });
-    
-    // Observe help page sections if on help page
-    if (pathname === '/help') {
+
+    if (pathname === "/help") {
       helpSections.forEach((id) => {
         const el = document.getElementById(id);
         if (el) observer.observe(el);
@@ -49,6 +53,8 @@ export default function LandingNav() {
 
     return () => observer.disconnect();
   }, [pathname]);
+
+  const isOnHelpPage = pathname === "/help";
 
   return (
     <header
@@ -60,28 +66,25 @@ export default function LandingNav() {
         WebkitBackdropFilter: "blur(50px)",
       }}
     >
-      <div
-        className="flex items-center justify-between mx-auto max-w-[1440px] px-6 md:px-[80px]"
-      >
+      <div className="flex items-center justify-between mx-auto max-w-[1440px] px-6 md:px-[80px]">
         {/* Left: Logo */}
         <div className="flex-shrink-0">
-          <Image
-            src="/expair.png"
-            alt="Expair Logo"
-            width={120}
-            height={40}
-            className="w-auto h-[40px]"
-          />
+          <Link href="/#hero" scroll={true}>
+            <Image
+              src="/expair.png"
+              alt="Expair Logo"
+              width={120}
+              height={40}
+              className="cursor-pointer"
+            />
+          </Link>
         </div>
 
-        {/* Center: Menu */}
-        <nav className="flex items-center gap-[50px] px-[35px] py-[20px] rounded-[20px] bg-[#120A2A]">
+        {/* Desktop Menu */}
+        <nav className="hidden md:flex items-center gap-[50px] px-[35px] py-[20px] rounded-[20px] bg-[#120A2A]">
           {sections.map((section) => {
-            // Check if we're on the help page
-            const isOnHelpPage = pathname === '/help';
-            // If on help page, navigate to root with hash, otherwise use local hash
             const href = isOnHelpPage ? `/#${section}` : `#${section}`;
-            
+
             return (
               <a
                 key={section}
@@ -101,22 +104,95 @@ export default function LandingNav() {
           <Link
             href="/help"
             className={`transition text-white hover:text-[#6C8BFF] ${
-              activeSection && helpSections.includes(activeSection) ? "font-semibold text-[#0038FF]" : ""
+              activeSection && helpSections.includes(activeSection)
+                ? "font-semibold text-[#0038FF]"
+                : ""
             }`}
           >
             Help
           </Link>
         </nav>
 
-        {/* Right: Sign In Button */}
-        <div className="flex-shrink-0 ml-[50px]">
+        {/* Sign In Button (Desktop) */}
+        <div className="hidden md:flex flex-shrink-0 ml-[50px]">
           <Link href="/signin">
             <Button className="cursor-pointer font-normal w-[160px] h-[40px] px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
               Sign in
             </Button>
           </Link>
         </div>
+
+        {/* Mobile Menu Button */}
+        <button
+          className="md:hidden text-white"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          {/* Hamburger Icon */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            className="w-8 h-8"
+          >
+            {menuOpen ? (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            ) : (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            )}
+          </svg>
+        </button>
       </div>
+
+      {/* Mobile Dropdown Menu */}
+      {menuOpen && (
+        <div className="md:hidden bg-[#120A2A] px-6 py-4 flex flex-col gap-4">
+          {sections.map((section) => {
+            const href = isOnHelpPage ? `/#${section}` : `#${section}`;
+            return (
+              <a
+                key={section}
+                href={href}
+                onClick={() => setMenuOpen(false)}
+                className={`transition text-white hover:text-[#6C8BFF] ${
+                  activeSection === section ? "font-semibold text-[#0038FF]" : ""
+                }`}
+              >
+                {section === "FAQs"
+                  ? "FAQs"
+                  : section
+                      .replaceAll("-", " ")
+                      .replace(/\b\w/g, (char) => char.toUpperCase())}
+              </a>
+            );
+          })}
+          <Link
+            href="/help"
+            onClick={() => setMenuOpen(false)}
+            className={`transition text-white hover:text-[#6C8BFF] ${
+              activeSection && helpSections.includes(activeSection)
+                ? "font-semibold text-[#0038FF]"
+                : ""
+            }`}
+          >
+            Help
+          </Link>
+          <Link href="/signin" onClick={() => setMenuOpen(false)}>
+            <Button className="mt-2 w-full bg-[#0038FF] hover:bg-[#1a4dff] transition rounded-[15px] text-white text-sm sm:text-[16px]">
+              Sign in
+            </Button>
+          </Link>
+        </div>
+      )}
     </header>
   );
 }
