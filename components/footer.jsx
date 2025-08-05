@@ -4,9 +4,7 @@ import { Icon } from '@iconify/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Inter } from 'next/font/google';
-
 const inter = Inter({ subsets: ['latin'] });
-import { usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -16,8 +14,6 @@ import {
 } from "./ui/dropdown-menu";
 
 export default function Footer() {
-  const pathname = usePathname();
-
   const pathname = usePathname();
   const isHomePage = pathname.startsWith('/home');
   
