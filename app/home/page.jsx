@@ -6,6 +6,8 @@ import { Archivo } from "next/font/google";
 import { Button } from "../../components/ui/button";
 import { Icon } from "@iconify/react";
 import ActiveTradeCardHome from "../../components/trade-cards/active-home";
+import SortDropdown from "../../components/shared/sortdropdown";
+import ExploreCard from "../../components/trade-cards/explore-card";
 
 const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
@@ -121,13 +123,13 @@ export default function HomePage() {
     const hour = new Date().getHours();
 
     if (hour >= 5 && hour < 12) {
-      setGreeting("Bright morning, voyager");
+      setGreeting("Bright morning, voyager ☀️");
     } else if (hour >= 12 && hour < 17) {
-      setGreeting("Good afternoon, voyager");
+      setGreeting("Good afternoon, voyager ☁️");
     } else if (hour >= 17 && hour < 22) {
-      setGreeting("Stellar evening, voyager");
+      setGreeting("Stellar evening, voyager 🌙");
     } else {
-      setGreeting("Starry night, voyager");
+      setGreeting("Starry night, voyager ⭐");
     }
   }, []);
 
@@ -151,37 +153,10 @@ export default function HomePage() {
 
         <div className="flex items-center gap-4">
           {/* Sort Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowSortOptions((prev) => !prev)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm"
-            >
-              <Icon icon="mdi:sort" className="text-lg" />
-              {selectedSort}
-              <Icon icon="mdi:chevron-down" className="text-base" />
-            </button>
-
-            {showSortOptions && (
-              <div className="absolute z-10 mt-2 w-full bg-[#15042C] rounded-[10px] border border-[#2B124C] shadow-md">
-                {["Date", "Level", "Rating"].map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => {
-                      setSelectedSort(option);
-                      setShowSortOptions(false);
-                    }}
-                    className={`block w-full text-left px-4 py-2 text-sm text-white hover:bg-[#1A0F3E] ${
-                      selectedSort === option
-                        ? "font-semibold text-[#6C8BFF]"
-                        : ""
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <SortDropdown
+            selected={selectedActiveSort}
+            onChange={setSelectedActiveSort}
+          />
 
           {/* Asc/Desc Toggle */}
           <button

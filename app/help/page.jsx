@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { HelpCategoryCard } from "../../../components/help/category-card";
-import { HelpForm } from "../../../components/help/help-form";
-import HelpLayout from "../../../components/help/helplayout";
+import { HelpCategoryCard } from "../../components/help/category-card";
+import { HelpForm } from "../../components/help/help-form";
+import HelpLayout from "../../components/help/helplayout";
 import Link from "next/link";
 
 export default function HelpLanding() {

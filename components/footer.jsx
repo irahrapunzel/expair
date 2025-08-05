@@ -3,6 +3,10 @@
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
+import { usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -13,30 +17,48 @@ import {
 
 export default function Footer() {
   const pathname = usePathname();
+
+  const pathname = usePathname();
   const isHomePage = pathname.startsWith('/home');
   
   return (
-    <footer className="w-full bg-[#120A2A] text-white pt-[39px] pb-[20px] px-6 sm:px-10 md:px-[67px] rounded-t-[30px] sm:rounded-t-[50px] shadow-[0px_-10px_4px_0px_rgba(0,0,0,0.25)]">
+    <footer className={`${inter.className} w-full bg-[#120A2A] text-white pt-[39px] pb-[20px] px-6 sm:px-10 md:px-[67px] rounded-t-[30px] sm:rounded-t-[50px] shadow-[0px_-10px_4px_0px_rgba(0,0,0,0.25)]`}>
       <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between gap-10 md:gap-0 text-center md:text-left">
-        
+
+        {/* Left Section: Logo + Links */}
         {/* Logo & Policies */}
         <div>
           <div className="mb-6 flex justify-center md:justify-start items-center">
             <img src="/expair.png" alt="Expair Logo" className="w-[120px] sm:w-[150px] h-auto" />
           </div>
-          <ul className="space-y-2 text-[14px] sm:text-[16px] leading-[120%] text-white font-normal opacity-50">
+          <ul className="space-y-2 text-[16px] leading-[120%] font-normal">
             <li>
-              <Link href="/privacy-policy" className="hover:underline">
+              <Link
+                href="/privacy-policy"
+                className={`hover:underline ${
+                  pathname === '/privacy-policy' ? 'text-white' : 'text-white/50'
+                }`}
+              >
                 Privacy Policy
               </Link>
             </li>
             <li>
-              <Link href="/terms" className="hover:underline">
+              <Link
+                href="/terms"
+                className={`hover:underline ${
+                  pathname === '/terms' ? 'text-white' : 'text-white/50'
+                }`}
+              >
                 Terms and Conditions
               </Link>
             </li>
             <li>
-              <Link href="/about" className="hover:underline">
+              <Link
+                href="/about"
+                className={`hover:underline ${
+                  pathname === '/about' ? 'text-white' : 'text-white/50'
+                }`}
+              >
                 About Us
               </Link>
             </li>
