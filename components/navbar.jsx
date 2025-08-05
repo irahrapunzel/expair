@@ -14,7 +14,6 @@ import Link from "next/link";
 import { NotificationPortal } from "./notifications/notification-portal";
 
 import { Inter } from "next/font/google";
-
 const inter = Inter({ subsets: ["latin"] });
 
 export default function Navbar() {
@@ -58,15 +57,22 @@ export default function Navbar() {
 
   return (
     <header
-      className={`${inter.className} w-full sticky top-0 z-50 py-6 sm:py-10 text-[16px] leading-[120%]`}
+      className={`${inter.className} w-full py-6 sm:py-10 text-[16px] leading-[120%]`}
       style={{
-        background:
-          "linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0) 100%)",
-        backdropFilter: "blur(50px)",
-        WebkitBackdropFilter: "blur(50px)",
+        backgroundColor: "#050015",
+        backdropFilter: "blur(25px)",
+        WebkitBackdropFilter: "blur(25px)",
       }}
     >
-      <div className="flex items-center justify-between mx-auto max-w-[1440px] px-6 md:px-[80px]">
+      <div
+        className="flex items-center justify-between"
+        style={{
+          width: "1440px",
+          padding: "0px 250px",
+          margin: "0 auto",
+          alignItems: "center",
+        }}
+      >
         {/* Logo and Button */}
         <div className="flex items-center gap-4 sm:gap-6">
           <Image
@@ -83,7 +89,7 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Navigation */}
+        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center bg-[#120A2A] rounded-[20px] w-[337px] h-[60px] overflow-hidden">
           <Link href="/home" className="flex-1 h-full">
             <button className="w-full h-full text-white font-normal hover:bg-[#1A0F3E] rounded-[20px]">
@@ -98,13 +104,7 @@ export default function Navbar() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                className={`flex-1 h-full flex items-center justify-center gap-1 hover:bg-[#1A0F3E] font-normal ${
-                  isGroupActive("/trades")
-                    ? "text-[#0038FF] font-semibold"
-                    : "text-white"
-                }`}
-              >
+              <button className="flex-1 h-full text-white font-normal flex items-center justify-center gap-1 hover:bg-[#1A0F3E] rounded-[20px]">
                 Trades <ChevronDown className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
