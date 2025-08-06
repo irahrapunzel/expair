@@ -99,7 +99,7 @@ export default function OffersPopup({ isOpen, onClose, service }) {
                 <div className="flex justify-between items-start w-full">
                   {/* User Info */}
                   <div className="flex items-start gap-[10px]">
-                    <div className="w-[25px] h-[25px] rounded-full bg-gray-400"></div>
+                    <div className="w-[25px] h-[25px] rounded-full bg-gray-400"></div> 
                     <div className="flex flex-col items-start gap-[5px]">
                       <span className="text-[16px] text-white">{offer.name}</span>
                       <div className="flex items-center gap-[15px]">
