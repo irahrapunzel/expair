@@ -17,7 +17,6 @@ export default function ClientLayout({ children }) {
   }, []);
 
   if (!mounted) {
-    // Render nothing (or a skeleton) until hydrated
     return null;
   }
 
@@ -31,7 +30,10 @@ export default function ClientLayout({ children }) {
   const isLanding =
     pathname === '/' ||
     pathname === '/landing' ||
-    (pathname.startsWith('/help') && !pathname.startsWith('/home/help'));
+    (pathname.startsWith('/help') && !pathname.startsWith('/home/help')) ||
+    pathname.startsWith('/privacy-policy') ||
+    pathname.startsWith('/terms') ||
+    pathname.startsWith('/about');
 
   const isHome = pathname.startsWith('/home');
 

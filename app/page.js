@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import { Button } from "../components/ui/button";
 import { Inter, Archivo } from "next/font/google";
@@ -10,6 +11,22 @@ const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
 
 export default function LandingPage() {
+  // Smooth scroll when navigating with hash (e.g., from /help)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash; // e.g., #our-goal
+      if (hash) {
+        // Wait for content to render first
+        setTimeout(() => {
+          const el = document.querySelector(hash);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 100);
+      }
+    }
+  }, []);
+
   return (
     <section
       className={`min-h-screen flex flex-col justify-between bg-[#050015] text-white font-sans ${inter.className}`}

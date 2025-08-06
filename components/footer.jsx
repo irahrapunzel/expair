@@ -15,24 +15,27 @@ import {
 
 export default function Footer() {
   const pathname = usePathname();
-  const isHomePage = pathname.startsWith('/home');
-  
+  const isHomePage = pathname.startsWith('/home'); 
+
   return (
-    <footer className={`${inter.className} w-full bg-[#120A2A] text-white pt-[39px] pb-[20px] px-6 sm:px-10 md:px-[67px] rounded-t-[30px] sm:rounded-t-[50px] shadow-[0px_-10px_4px_0px_rgba(0,0,0,0.25)]`}>
+    <footer
+      className={`${inter.className} w-full bg-[#120A2A] text-white pt-[39px] pb-[20px] px-6 sm:px-10 md:px-[67px] rounded-t-[30px] sm:rounded-t-[50px] shadow-[0px_-10px_4px_0px_rgba(0,0,0,0.25)]`}
+    >
       <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between gap-10 md:gap-0 text-center md:text-left">
 
         {/* Left Section: Logo + Links */}
-        {/* Logo & Policies */}
         <div>
           <div className="mb-6 flex justify-center md:justify-start items-center">
             <img src="/expair.png" alt="Expair Logo" className="w-[120px] sm:w-[150px] h-auto" />
           </div>
+
+          {/* Conditional links (Landing vs Home) */}
           <ul className="space-y-2 text-[16px] leading-[120%] font-normal">
             <li>
               <Link
-                href="/privacy-policy"
+                href={isHomePage ? "/home/privacy-policy" : "/privacy-policy"}
                 className={`hover:underline ${
-                  pathname === '/privacy-policy' ? 'text-white' : 'text-white/50'
+                  pathname.endsWith('privacy-policy') ? 'text-white' : 'text-white/50'
                 }`}
               >
                 Privacy Policy
@@ -40,9 +43,9 @@ export default function Footer() {
             </li>
             <li>
               <Link
-                href="/terms"
+                href={isHomePage ? "/home/terms" : "/terms"}
                 className={`hover:underline ${
-                  pathname === '/terms' ? 'text-white' : 'text-white/50'
+                  pathname.endsWith('terms') ? 'text-white' : 'text-white/50'
                 }`}
               >
                 Terms and Conditions
@@ -50,9 +53,9 @@ export default function Footer() {
             </li>
             <li>
               <Link
-                href="/about"
+                href={isHomePage ? "/home/about" : "/about"}
                 className={`hover:underline ${
-                  pathname === '/about' ? 'text-white' : 'text-white/50'
+                  pathname.endsWith('about') ? 'text-white' : 'text-white/50'
                 }`}
               >
                 About Us
@@ -61,7 +64,7 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Navigation Links */}
+        {/* Right Section: Navigation links */}
         {isHomePage ? (
           <div className="flex flex-col items-center md:items-end text-sm gap-3">
             <Link
@@ -70,7 +73,7 @@ export default function Footer() {
             >
               Home
             </Link>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="text-white text-[18px] sm:text-[20px] leading-[120%] font-[500] hover:underline flex items-center gap-1">
@@ -90,7 +93,7 @@ export default function Footer() {
                 </Link>
               </DropdownMenuContent>
             </DropdownMenu>
-            
+
             <Link
               href="/home/help"
               className="text-white text-[18px] sm:text-[20px] leading-[120%] font-[500] hover:underline"
@@ -121,9 +124,11 @@ export default function Footer() {
 
       {/* Social Links */}
       <div className="mt-10 text-center">
-        <p className="text-white text-[14px] sm:text-[16px] leading-[120%] font-normal mb-3">Follow us!</p>
+        <p className="text-white text-[14px] sm:text-[16px] leading-[120%] font-normal mb-3">
+          Contact us!
+        </p>
         <div className="flex justify-center gap-6">
-          <a href="mailto:hello@expair.com" className="hover:text-purple-300 transition" aria-label="Email">
+          <a href="mailto:expaircs@gmail.com" className="hover:text-purple-300 transition" aria-label="Email">
             <Icon icon="mdi:email-outline" width="26" className="sm:w-[30px]" />
           </a>
           <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-purple-300 transition" aria-label="LinkedIn">

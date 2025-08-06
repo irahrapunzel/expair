@@ -3,10 +3,9 @@
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
-import { Upload } from "lucide-react";
+import { Upload, ChevronDown } from "lucide-react";
 import { useState, Fragment } from "react";
 import { Listbox } from "@headlessui/react";
-import { ChevronDown } from "lucide-react";
 
 export function HelpForm() {
   const [category, setCategory] = useState("");
@@ -64,31 +63,37 @@ export function HelpForm() {
   const maxChars = 500;
 
   return (
-    <div id="contact" className="max-w-3xl mx-auto pt-[50px] text-white">
-      <h2 className="text-[25px] font-semibold mb-[30px] text-center">Create a ticket</h2>
+    <div id="contact" className="max-w-3xl mx-auto pt-[50px] text-white px-4 sm:px-6">
+      <h2 className="text-[22px] sm:text-[25px] font-semibold mb-[30px] text-center">
+        Create a ticket
+      </h2>
 
       <form className="space-y-[30px] flex flex-col">
+        {/* Name Input */}
         <div>
           <p className="text-white font-normal mb-[15px]">Your name *</p>
           <Input
             placeholder="John Doe"
-            className="w-[450px] h-[50px] rounded-[15px] border border-white/40 bg-[#120A2A] placeholder-[#413663] placeholder:text-[16px] text-white"
+            className="w-full max-w-[450px] h-[50px] rounded-[15px] border border-white/40 bg-[#120A2A] placeholder-[#413663] placeholder:text-[16px] text-white"
           />
         </div>
 
+        {/* Email Input */}
         <div>
           <p className="text-white font-normal mb-[15px]">Your email *</p>
           <Input
             type="email"
             placeholder="youremail@example.com"
-            className="w-[450px] h-[50px] rounded-[15px] border border-white/40 bg-[#120A2A] placeholder-[#413663] placeholder:text-[16px] text-white"
+            className="w-full max-w-[450px] h-[50px] rounded-[15px] border border-white/40 bg-[#120A2A] placeholder-[#413663] placeholder:text-[16px] text-white"
           />
         </div>
 
         {/* Select Dropdown */}
         <div>
-          <p className="text-white font-normal mb-[15px]">What's your problem, concern, or suggestion? *</p>
-          <div className="w-[450px]">
+          <p className="text-white font-normal mb-[15px]">
+            What's your problem, concern, or suggestion? *
+          </p>
+          <div className="w-full max-w-[450px]">
             <Listbox value={category} onChange={setCategory}>
               <div className="relative">
                 <Listbox.Button
@@ -129,7 +134,7 @@ export function HelpForm() {
         {/* Upload Photo Box */}
         <div>
           <p className="text-white font-normal mb-[15px]">Upload a photo for context</p>
-          <div className="w-[450px] h-[50px] rounded-[15px] border border-white/40 bg-[#120A2A] px-4 flex items-center justify-between cursor-pointer hover:bg-[#1c1238]">
+          <div className="w-full max-w-[450px] h-[50px] rounded-[15px] border border-white/40 bg-[#120A2A] px-4 flex items-center justify-between cursor-pointer hover:bg-[#1c1238]">
             <span className="text-[#413663] text-[16px]">Upload photo</span>
             <Upload className="text-white" />
           </div>
@@ -138,9 +143,9 @@ export function HelpForm() {
         {/* Textarea with Counter */}
         <div>
           <p className="text-white font-normal mb-[15px]">Describe the ticket in detail *</p>
-          <div className="relative w-[656px]">
+          <div className="relative w-full max-w-[656px]">
             <Textarea
-              placeholder="Example: I am submitting a report concerning a potential scam incident. I was contacted by an individual claiming to be a licensed accountant, who requested that I provide my bank account details and a copy of my financial records. After complying, I have reason to believe the interaction was fraudulent. I have attached a detailed account of the events, including dates, communications, and any relevant transaction information to assist with the investigation."
+              placeholder="Example: I am submitting a report concerning a potential scam incident..."
               rows={6}
               maxLength={maxChars}
               value={text}

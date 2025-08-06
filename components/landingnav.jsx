@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import Image from "next/image";
 import Link from "next/link";
@@ -23,7 +22,7 @@ const helpSections = [
 
 export default function LandingNav() {
   const [activeSection, setActiveSection] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false); // <-- for mobile menu toggle
+  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -35,7 +34,9 @@ export default function LandingNav() {
           }
         });
       },
-      { threshold: 0.5 }
+      {
+        threshold: 0.5,
+      }
     );
 
     sections.forEach((id) => {
@@ -65,7 +66,7 @@ export default function LandingNav() {
         WebkitBackdropFilter: "blur(50px)",
       }}
     >
-      <div className="flex items-center justify-between mx-auto max-w-[1440px] px-6 md:px-[80px]">
+      <div className="flex items-center justify-between mx-auto max-w-[1440px] px-6 md:px-[80px] relative z-50">
         {/* Left: Logo */}
         <div className="flex-shrink-0">
           <Link href="/#hero" scroll={true}>
@@ -82,7 +83,7 @@ export default function LandingNav() {
         {/* Desktop Menu */}
         <nav className="hidden md:flex items-center gap-[50px] px-[35px] py-[20px] rounded-[20px] bg-[#120A2A]">
           {sections.map((section) => {
-            const href = isOnHelpPage ? `/#${section}` : `#${section}`;
+            const href = `/#${section}`; 
 
             return (
               <a
@@ -122,47 +123,75 @@ export default function LandingNav() {
         </div>
 
         {/* Mobile Menu Button */}
-        <button
-          className="md:hidden text-white"
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          {/* Hamburger Icon */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            className="w-8 h-8"
+        <div className="md:hidden bg-black p-2 rounded">
+          <button
+            className="text-white"
+            onClick={() => setMenuOpen(true)}
           >
-            {menuOpen ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-8 h-8"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 d="M4 6h16M4 12h16M4 18h16"
               />
-            )}
-          </svg>
-        </button>
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {/* Mobile Dropdown Menu */}
+      {/* Backdrop Dim */}
       {menuOpen && (
-        <div className="md:hidden bg-[#120A2A] px-6 py-4 flex flex-col gap-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setMenuOpen(false)}
+        ></div>
+      )}
+
+      {/* Mobile Slide-in Menu */}
+      <div
+        className={`fixed top-0 right-0 h-full w-[70%] max-w-[320px] z-50 transform transition-transform duration-300 ease-in-out ${
+          menuOpen ? "translate-x-0" : "translate-x-full"
+        } md:hidden`}
+      >
+        <div className="flex flex-col h-full bg-black p-6">
+          {/* Close button */}
+          <button
+            className="self-end mb-6 text-white"
+            onClick={() => setMenuOpen(false)}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-8 h-8"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+
+          {/* Nav Links */}
           {sections.map((section) => {
-            const href = isOnHelpPage ? `/#${section}` : `#${section}`;
+            const href = `/#${section}`; 
+
             return (
               <a
                 key={section}
                 href={href}
                 onClick={() => setMenuOpen(false)}
-                className={`transition text-white hover:text-[#6C8BFF] ${
+                className={`transition text-white hover:text-[#6C8BFF] mb-4 ${
                   activeSection === section ? "font-semibold text-[#0038FF]" : ""
                 }`}
               >
@@ -174,10 +203,12 @@ export default function LandingNav() {
               </a>
             );
           })}
+
+          {/* Help Link */}
           <Link
             href="/help"
             onClick={() => setMenuOpen(false)}
-            className={`transition text-white hover:text-[#6C8BFF] ${
+            className={`transition text-white hover:text-[#6C8BFF] mb-4 ${
               activeSection && helpSections.includes(activeSection)
                 ? "font-semibold text-[#0038FF]"
                 : ""
@@ -185,13 +216,15 @@ export default function LandingNav() {
           >
             Help
           </Link>
+
+          {/* Sign In Button */}
           <Link href="/signin" onClick={() => setMenuOpen(false)}>
-            <Button className="mt-2 w-full bg-[#0038FF] hover:bg-[#1a4dff] transition rounded-[15px] text-white text-sm sm:text-[16px]">
+            <Button className="cursor-pointer font-normal w-[160px] h-[40px] px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
               Sign in
             </Button>
           </Link>
         </div>
-      )}
+      </div>
     </header>
   );
 }
