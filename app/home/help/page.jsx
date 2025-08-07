@@ -73,7 +73,7 @@ export default function HelpLanding() {
       </div>
 
       {/* Help Form */}
-      <HelpForm />
+      <HelpForm id="help-form"/>
     </HelpLayout>
   );
 }
