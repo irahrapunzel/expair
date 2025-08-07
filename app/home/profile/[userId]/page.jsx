@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import { Inter } from "next/font/google";
 import { Icon } from "@iconify/react";
 import clsx from "clsx";
-import { ChevronDownIcon, PencilIcon, Star, Heart, MoreVertical, Trash2, Flag } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, PencilIcon, Star, Heart, Flag } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -40,11 +40,9 @@ const TradePill = ({ content }) => {
 
 
 // Inline ReviewCard component with updated design
-const ReviewCard = ({ review, onDelete }) => {
+const ReviewCard = ({ review }) => {
   const { requester, tradePartner, tradeCompletionDate, requestTitle, offerTitle, rating, reviewDescription, likes } = review;
   const [isLiked, setIsLiked] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false); // State for the delete confirmation modal
 
   // Function to render stars based on a rating
   const renderStars = (rating) => {
@@ -78,20 +76,14 @@ const ReviewCard = ({ review, onDelete }) => {
     }
     return stars;
   };
-  
-  // Function to handle actions from the dropdown menu
-  const handleDropdownAction = (action) => {
-    setShowDropdown(false); // Close dropdown first
-    if (action === "Delete") {
-      setShowDeleteModal(true); // Open the delete modal
-    } else if (action === "Report") {
-      // Simulate navigating to a help form on the help page
-      // In a real app, this would be a client-side navigation or a more complex interaction
-      console.log(`Navigating to help form for reporting review by ${requester}`);
-      window.location.href = "/help#help-form"; 
-    }
+
+  // Function to handle the report action
+  const handleReport = () => {
+    // In a real app, this would be a client-side navigation or a more complex interaction
+    console.log(`Navigating to help form for reporting review by ${requester}`);
+    window.location.href = "/help#help-form";
   };
-  
+
   return (
     <div
       className="flex flex-col gap-[20px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] relative transition-all duration-300 hover:scale-[1.01]"
@@ -99,38 +91,12 @@ const ReviewCard = ({ review, onDelete }) => {
         background: 'radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)'
       }}
     >
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#120A2A] rounded-xl p-8 border border-white/20 shadow-lg max-w-sm w-full mx-4">
-            <h3 className="text-xl font-bold mb-4 text-white">Confirm Deletion</h3>
-            <p className="text-white/80 mb-6">Are you sure you want to delete this review? This action cannot be undone.</p>
-            <div className="flex justify-end gap-4">
-              <Button
-                onClick={() => setShowDeleteModal(false)}
-                className="bg-white/10 hover:bg-white/20 text-white rounded-lg px-6"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  onDelete(review);
-                  setShowDeleteModal(false);
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-6"
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex justify-between items-start">
         {/* User and Partner Avatars with 'X' separator, names, and date */}
         <div className="flex items-start gap-[15px]">
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
+              {/* Use the defaultavatar.png for the review cards */}
               <Image
                 src="/assets/defaultavatar.png"
                 alt={`${tradePartner}'s avatar`}
@@ -139,6 +105,7 @@ const ReviewCard = ({ review, onDelete }) => {
                 className="rounded-full object-cover"
               />
               <Icon icon="ic:baseline-close" className="w-4 h-4 text-white" />
+              {/* Use the defaultavatar.png for the review cards */}
               <Image
                 src="/assets/defaultavatar.png"
                 alt={`${requester}'s avatar`}
@@ -153,36 +120,16 @@ const ReviewCard = ({ review, onDelete }) => {
             </div>
           </div>
         </div>
-        
+
         <div className="relative flex items-center gap-5 text-white text-sm">
           {/* Rating number on the left */}
           <span className="text-lg">{rating.toFixed(1)}</span>
           <div className="flex items-center gap-[5px]">
             {renderStars(rating)}
           </div>
-          <button onClick={() => setShowDropdown(!showDropdown)} className="p-1 rounded-full hover:bg-white/10 transition">
-            <MoreVertical className="w-5 h-5 cursor-pointer text-white/50" />
+          <button onClick={handleReport} className="p-1 rounded-full hover:bg-white/10 transition">
+            <Flag className="w-5 h-5 cursor-pointer text-white/50" />
           </button>
-
-          {/* Dropdown Menu */}
-          {showDropdown && (
-            <div className="absolute top-8 right-0 z-10 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1">
-              <button 
-                onClick={() => handleDropdownAction("Delete")}
-                className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition"
-              >
-                <Trash2 className="w-4 h-4 text-white/80" />
-                Delete
-              </button>
-              <button 
-                onClick={() => handleDropdownAction("Report")}
-                className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition"
-              >
-                <Flag className="w-4 h-4 text-white/80" />
-                Report
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -213,7 +160,7 @@ const ReviewCard = ({ review, onDelete }) => {
       <div className="flex justify-between items-center mt-2">
         <div className="flex items-center gap-1.5 text-white text-sm">
           <button onClick={() => setIsLiked(!isLiked)} className="transition-transform transform hover:scale-110">
-            <Heart 
+            <Heart
               className={clsx(
                 "w-5 h-5 transition-colors duration-300",
                 isLiked ? "fill-[#906EFF] stroke-[#906EFF]" : "stroke-white"
@@ -238,9 +185,9 @@ const ReviewCard = ({ review, onDelete }) => {
 
 export default function ProfilePage() {
   const [expanded, setExpanded] = useState(Array(5).fill(false)); // Initialize state for all categories
-  const [sortOption, setSortOption] = useState("Most Recent");
-  
-  // Use a state variable for the reviews so they can be modified (deleted)
+  const [sortOption, setSortOption] = useState("Latest");
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+
   const [reviews, setReviews] = useState([
     {
       requester: "David Chen",
@@ -294,13 +241,6 @@ export default function ProfilePage() {
     },
   ]);
 
-  // Function to handle the deletion of a review
-  const handleDeleteReview = (reviewToDelete) => {
-    // Filter out the review to be deleted and update the state
-    setReviews(reviews.filter(review => review !== reviewToDelete));
-  };
-
-
   const toggleCategory = (index) => {
     setExpanded((prev) => {
       const newState = [...prev];
@@ -319,7 +259,7 @@ export default function ProfilePage() {
     rank: "Rising Star",
     level: 15,
     bio: "Passionate video editor with 4+ years of experience crafting engaging content for creators and small brands. Always up to trade skills and help others grow—le's connect and collaborate!",
-    avatar: "/assets/defaultavatar.png",
+    avatar: "/assets/image_d31b47.png", // Corrected path
   };
 
   // Mock data for review ratings to match a 4.3 average for 25 reviews
@@ -396,7 +336,7 @@ export default function ProfilePage() {
     "Film Analysis",
   ];
 
-  // Mock credentials
+  // Mock credentials with duplicates removed and new ones added
   const credentials = [
     {
       title: "Adobe Certified Expert (ACE)",
@@ -417,17 +357,54 @@ export default function ProfilePage() {
       skills: ["Graphic Design", "Illustration"],
     },
     {
-      title: "Certified Professional Tutor (CPT)",
-      org: "National Tutoring Association (NTA)",
-      issueDate: "January 2024",
-      expiryDate: "January 2027",
-      id: "CPT-456789123",
-      url: "https://ntatutor.com/cert/CPT-456789123",
-      skills: ["Tutoring", "Test Preparation"],
+      title: "Google Analytics Certified",
+      org: "Google",
+      issueDate: "August 2023",
+      expiryDate: "August 2026",
+      id: "GA-123456789",
+      url: "https://skillshop.exceedlms.com/student/award/GA-123456789",
+      skills: ["Data Analysis", "Marketing", "SEO"],
+    },
+    {
+      title: "Certified Photographer (CP)",
+      org: "Professional Photographers of America (PPA)",
+      issueDate: "December 2023",
+      expiryDate: "December 2026",
+      id: "PPA-11223344",
+      url: "https://ppa.com/cert/PPA-11223344",
+      skills: ["Photography", "Studio Lighting"],
+    },
+    {
+      title: "Storytelling for Video Certificate",
+      org: "Coursera",
+      issueDate: "February 2024",
+      expiryDate: "N/A",
+      id: "COUR-987654321",
+      url: "https://coursera.org/verify/COUR-987654321",
+      skills: ["Video Editing", "Creative Writing"],
     },
   ];
 
   const [showAllCreds, setShowAllCreds] = useState(false);
+
+  // Memoize the sorted reviews to prevent re-sorting on every render
+  const sortedReviews = useMemo(() => {
+    let sorted = [...reviews];
+    if (sortOption === "Latest") {
+      // Assuming `tradeCompletionDate` can be sorted as strings, or we would need a proper date object
+      sorted.sort((a, b) => new Date(b.tradeCompletionDate) - new Date(a.tradeCompletionDate));
+    } else if (sortOption === "Highest Rating") {
+      sorted.sort((a, b) => b.rating - a.rating);
+    } else if (sortOption === "Lowest Rating") {
+      sorted.sort((a, b) => a.rating - b.rating);
+    }
+    return sorted;
+  }, [reviews, sortOption]);
+  
+  const handleSortChange = (option) => {
+    setSortOption(option);
+    setShowSortDropdown(false);
+  };
 
   return (
     <div
@@ -440,8 +417,9 @@ export default function ProfilePage() {
       <div className="flex gap-[50px] relative">
         {/* Profile Picture */}
         <div className="w-[200px] h-[200px] relative flex-shrink-0">
+          {/* Use the defaultavatar.png for the main profile picture */}
           <Image
-            src="/assets/defaultavatar.png" // Updated to use the local asset
+            src="/assets/defaultavatar.png"
             alt={`${user.name}'s avatar`}
             width={200}
             height={200}
@@ -493,8 +471,9 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Use the lvlrank_icon.png for the rank icon */}
               <Image
-                src="/assets/lvlrank_icon.png" // Updated to use the local asset
+                src="/assets/lvlrank_icon.png"
                 alt="Rank"
                 width={20}
                 height={20}
@@ -503,8 +482,9 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Use the lvlbar.png for the level bar */}
               <Image
-                src="/assets/lvlbar.png" // Updated to use the local asset
+                src="/assets/lvlbar.png"
                 alt="Level bar"
                 width={220}
                 height={20}
@@ -611,7 +591,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Divider */}
-        <div className="border-t border-white/20" />
+        <div className="border-t border-white/20 mt-[50px]" />
 
         {/* SECTION 3 - Licenses & Certifications */}
         <div className="flex flex-col gap-[25px] mt-[25px]">
@@ -622,13 +602,11 @@ export default function ProfilePage() {
             </h5>
           </div>
 
-          {/* Grid */}
+          {/* The scrollable container for the credentials */}
           <div
             className={clsx(
               "grid gap-[25px] grid-cols-2",
-              !showAllCreds &&
-                credentials.length > 4 &&
-                "max-h-[420px] overflow-y-auto"
+              !showAllCreds && "max-h-[420px] overflow-y-auto"
             )}
           >
             {credentials.map((cred, index) => (
@@ -684,14 +662,24 @@ export default function ProfilePage() {
           </div>
 
           {/* View All Button */}
-          {!showAllCreds && credentials.length > 4 && (
-            <div className="w-full flex justify-center">
-              <Button
-                onClick={() => setShowAllCreds(true)}
-                className="bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm rounded-[20px] px-5 py-2 shadow-[0px_0px_15px_#284CCC]"
+          {credentials.length > 4 && (
+            <div className="w-full flex justify-center mt-4">
+              <button
+                onClick={() => setShowAllCreds(!showAllCreds)}
+                className="flex items-center gap-2 text-white/70 hover:text-white transition-colors font-medium text-base"
               >
-                View All
-              </Button>
+                {showAllCreds ? (
+                  <>
+                    Show Less
+                    <ChevronUpIcon className="w-4 h-4" />
+                  </>
+                ) : (
+                  <>
+                    View All
+                    <ChevronDownIcon className="w-4 h-4" />
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -707,9 +695,28 @@ export default function ProfilePage() {
               <span className="text-[16px] text-white/50 mt-[5px]">25 trades & reviews</span>
             </div>
             <div className="relative">
-              <button className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3">
+              <button
+                onClick={() => setShowSortDropdown(!showSortDropdown)}
+                className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3"
+              >
                 {sortOption} <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
               </button>
+              {showSortDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
+                  {["Latest", "Highest Rating", "Lowest Rating"].map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => handleSortChange(option)}
+                      className={clsx(
+                        "block w-full text-left px-4 py-2 text-sm transition-colors",
+                        option === sortOption ? "text-[#906EFF] bg-white/10" : "text-white hover:bg-white/10"
+                      )}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -745,11 +752,11 @@ export default function ProfilePage() {
               ))}
             </div>
           </div>
-          
+
           {/* Reviews section using the new ReviewCard component */}
           <div className="mt-8 flex flex-col gap-6">
-            {reviews.map((review, index) => (
-              <ReviewCard key={index} review={review} onDelete={handleDeleteReview} />
+            {sortedReviews.map((review, index) => (
+              <ReviewCard key={index} review={review} />
             ))}
           </div>
         </div>
