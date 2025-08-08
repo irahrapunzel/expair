@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { Inter } from "next/font/google";
 import { Icon } from "@iconify/react";
+import { useParams } from "next/navigation";
 import clsx from "clsx";
 import {
   ChevronDownIcon,
@@ -736,16 +738,24 @@ export default function ProfilePage() {
   };
 
   const [user, setUser] = useState({
-    name: "John Doe",
+    firstName: "John",
+    lastName: "Doe",
     bio: "Passionate video editor with 4+ years of experience crafting engaging content for creators and small brands. Always up to trade skills and help others grow—let's connect and collaborate!",
     username: "johndoe",
-    joined: "January 2025",
+    joined: "March 2025",
     rating: 4.8,
     reviews: 24,
-    rank: "Expert",
+    rank: "Rising Star",
     level: 7,
     verified: false,
   });
+
+  // Determine if viewing own profile
+  // Replace with actual logged-in user ID logic from your auth system
+  const loggedInUserId = "123"; // Example: get from auth context
+  const isOwnProfile = true;
+
+  const params = useParams();
 
   // Mock data for review ratings to match a 4.3 average for 25 reviews
   const reviewRatings = {
@@ -963,7 +973,10 @@ export default function ProfilePage() {
 
   // For Basic Information editing
   const [basicInfoEditing, setBasicInfoEditing] = useState(false);
-  const [editableName, setEditableName] = useState(user?.name || "");
+  const [editableFirstName, setEditableFirstName] = useState(
+    user.firstName || ""
+  );
+  const [editableLastName, setEditableLastName] = useState(user.lastName || "");
   const [editableBio, setEditableBio] = useState(user?.bio || "");
 
   // editing toggles
@@ -1161,14 +1174,24 @@ export default function ProfilePage() {
           {/* Top Row: Name + Verified Badge */}
           <div className="flex items-center gap-3 mb-[5px]">
             {basicInfoEditing ? (
-              <input
-                type="text"
-                value={editableName}
-                onChange={(e) => setEditableName(e.target.value)}
-                className="bg-[#120A2A] border border-white/30 rounded-[15px] p-2 text-white text-[20px] font-semibold w-full max-w-[300px]"
-              />
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  placeholder="First name"
+                  value={editableFirstName}
+                  onChange={(e) => setEditableFirstName(e.target.value)}
+                  className="bg-[#120A2A] border border-white/30 rounded-[15px] p-2 text-white text-[20px] font-semibold w-full max-w-[150px]"
+                />
+                <input
+                  type="text"
+                  placeholder="Last name"
+                  value={editableLastName}
+                  onChange={(e) => setEditableLastName(e.target.value)}
+                  className="bg-[#120A2A] border border-white/30 rounded-[15px] p-2 text-white text-[20px] font-semibold w-full max-w-[150px]"
+                />
+              </div>
             ) : (
-              <h3 className="text-[26px] font-semibold">{user.name}</h3>
+              <h3 className="text-[26px] font-semibold">{`${user.firstName} ${user.lastName}`}</h3>
             )}
             {user.verified && (
               <Icon
@@ -1180,23 +1203,36 @@ export default function ProfilePage() {
 
           {/* Username + Joined Date */}
           <div className="flex text-white/50 text-[16px] mb-[20px] gap-[25px]">
-            <span>{user.username}</span>
+            <span>@{user.username}</span>
             <span>Joined {user.joined}</span>
           </div>
 
-          {/* Buttons: Edit, Settings */}
-          <div className="absolute top-0 right-0 flex gap-4">
-            <button
-              className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition"
-              onClick={() => setBasicInfoEditing((prev) => !prev)}
-            >
-              <Icon icon="mdi:pencil" className="w-5 h-5" />
-              {basicInfoEditing ? "Close" : "Edit"}
-            </button>
-            <button className="text-white hover:bg-[#1A0F3E] p-2 rounded-[10px] transition">
-              <Icon icon="mdi:cog" className="w-5 h-5" />
-            </button>
-          </div>
+          {/* Buttons: Edit, Settings (only if own profile) */}
+          {isOwnProfile ? (
+            <div className="absolute top-0 right-0 flex gap-4">
+              <button
+                className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition"
+                onClick={() => setBasicInfoEditing(true)}
+              >
+                <Icon icon="mdi:pencil" className="w-5 h-5" />
+                Edit
+              </button>
+              <Link href={`/home/profile/${params.userId}/settings`}>
+                <button className="text-white hover:bg-[#1A0F3E] p-2 rounded-[10px] transition">
+                  <Icon icon="mdi:cog" className="w-5 h-5" />
+                </button>
+              </Link>
+            </div>
+          ) : (
+            <div className="absolute top-0 right-0">
+              <Link href="/home/messages">
+                <Button className="bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[16px] rounded-[15px] px-5 py-2 shadow-[0px_0px_15px_#284CCC] flex items-center gap-2">
+                  <Icon icon="mdi:email-outline" className="w-4 h-4" />
+                  Message
+                </Button>
+              </Link>
+            </div>
+          )}
 
           {/* Rating + Rank + Level */}
           <div className="flex items-center gap-6 mb-[20px]">
@@ -1253,7 +1289,9 @@ export default function ProfilePage() {
                 onClick={() => {
                   setUser((prev) => ({
                     ...prev,
-                    name: editableName,
+                    firstName: editableFirstName,
+                    lastName: editableLastName,
+                    name: `${editableFirstName} ${editableLastName}`,
                     bio: editableBio,
                   }));
                   setBasicInfoEditing(false);
@@ -1264,7 +1302,8 @@ export default function ProfilePage() {
               </Button>
               <Button
                 onClick={() => {
-                  setEditableName(user.name);
+                  setEditableFirstName(user.firstName || "");
+                  setEditableLastName(user.lastName || "");
                   setEditableBio(user.bio);
                   setBasicInfoEditing(false);
                 }}
@@ -1276,25 +1315,15 @@ export default function ProfilePage() {
           )}
 
           {/* Get Verified Button */}
-          {!user.verified && (
+          {isOwnProfile && !user.verified && (
             <div className="w-full flex justify-end">
-              {verificationStatus === "unverified" && (
-                <Button
-                  className="bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm rounded-[15px] px-5 py-2 shadow-[0px_0px_15px_#284CCC] flex items-center gap-2"
-                  onClick={() => setShowVerificationPopup(true)}
-                >
-                  <Icon icon="material-symbols:verified" className="w-4 h-4" />
-                  Get Verified
-                </Button>
-              )}
-              {verificationStatus === "pending" && (
-                <Button
-                  disabled
-                  className="bg-gray-500 text-white text-sm rounded-[15px] px-5 py-2"
-                >
-                  Waiting for Verification
-                </Button>
-              )}
+              <Button
+                className="bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm rounded-[15px] px-5 py-2 shadow-[0px_0px_15px_#284CCC] flex items-center gap-2"
+                onClick={() => setShowVerificationPopup(true)}
+              >
+                <Icon icon="material-symbols:verified" className="w-4 h-4" />
+                Get Verified
+              </Button>
             </div>
           )}
         </div>
@@ -1305,21 +1334,23 @@ export default function ProfilePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[15px]">
             <h5 className="text-lg font-semibold">Your Skills</h5>
-            <button
-              onClick={() => {
-                setSkillsEditing((s) => !s);
-                setShowAddSkillForm(false);
-              }}
-              aria-label="Edit skills"
-            >
-              <PencilIcon
-                className={
-                  skillsEditing
-                    ? "w-5 h-5 text-[#906EFF]"
-                    : "w-5 h-5 text-white"
-                }
-              />
-            </button>
+            {isOwnProfile && (
+              <button
+                onClick={() => {
+                  setSkillsEditing((s) => !s);
+                  setShowAddSkillForm(false);
+                }}
+                aria-label="Edit skills"
+              >
+                <PencilIcon
+                  className={
+                    skillsEditing
+                      ? "w-5 h-5 text-[#906EFF]"
+                      : "w-5 h-5 text-white"
+                  }
+                />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1489,21 +1520,23 @@ export default function ProfilePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[15px]">
             <h5 className="text-lg font-semibold">Your Interests</h5>
-            <button
-              onClick={() => {
-                setInterestsEditing((s) => !s);
-                setShowAddInterestForm(false);
-              }}
-              aria-label="Edit interests"
-            >
-              <PencilIcon
-                className={
-                  interestsEditing
-                    ? "w-5 h-5 text-[#906EFF]"
-                    : "w-5 h-5 text-white"
-                }
-              />
-            </button>
+            {isOwnProfile && (
+              <button
+                onClick={() => {
+                  setInterestsEditing((s) => !s);
+                  setShowAddInterestForm(false);
+                }}
+                aria-label="Edit interests"
+              >
+                <PencilIcon
+                  className={
+                    interestsEditing
+                      ? "w-5 h-5 text-[#906EFF]"
+                      : "w-5 h-5 text-white"
+                  }
+                />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1594,9 +1627,11 @@ export default function ProfilePage() {
             <h5 className="text-white text-lg font-semibold flex items-center gap-[15px]">
               Your Licenses & Certifications
               {/* Edit all credentials button */}
-              <button onClick={handleEditAllCredentials}>
-                <PencilIcon className="w-5 h-5 text-white cursor-pointer" />
-              </button>
+              {isOwnProfile && (
+                <button onClick={handleEditAllCredentials}>
+                  <PencilIcon className="w-5 h-5 text-white cursor-pointer" />
+                </button>
+              )}
             </h5>
           </div>
 
@@ -1613,12 +1648,14 @@ export default function ProfilePage() {
                 className="border border-white/20 rounded-[15px] p-[25px] flex flex-col justify-between relative"
               >
                 {/* Pencil icon for editing a single credential */}
-                <button
-                  onClick={() => handleEditSingleCredential(cred)}
-                  className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
-                >
-                  <PencilIcon className="w-4 h-4 cursor-pointer" />
-                </button>
+                {isOwnProfile && (
+                  <button
+                    onClick={() => handleEditSingleCredential(cred)}
+                    className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
+                  >
+                    <PencilIcon className="w-4 h-4 cursor-pointer" />
+                  </button>
+                )}
                 {/* Group 1 */}
                 <div>
                   <h6 className="text-[20px] font-semibold mb-[5px]">
