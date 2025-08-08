@@ -28,20 +28,22 @@ export default function Navbar() {
     function handleClickOutside(event) {
       if (bellRef.current && !bellRef.current.contains(event.target)) {
         // Check if the click is on the notification portal
-        const notificationPortal = document.querySelector("[data-notification-portal]");
+        const notificationPortal = document.querySelector(
+          "[data-notification-portal]"
+        );
         if (notificationPortal && notificationPortal.contains(event.target)) {
           return;
         }
         setNotificationOpen(false);
       }
     }
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-  
+
   // Handle notification toggle
   const toggleNotification = () => {
     if (!notificationOpen && bellRef.current) {
@@ -49,7 +51,7 @@ export default function Navbar() {
     }
     setNotificationOpen(!notificationOpen);
   };
-  
+
   // Function to handle when all notifications are read
   const handleAllNotificationsRead = () => {
     setHasUnreadNotifications(false);
@@ -59,9 +61,7 @@ export default function Navbar() {
     <header
       className={`${inter.className} w-full py-6 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
     >
-      <div
-        className="flex items-center justify-between max-w-[1440px] mx-auto px-6 sm:px-[250px]"
-      >
+      <div className="flex items-center justify-between max-w-[1440px] mx-auto px-6 sm:px-[250px]">
         {/* Logo and Button */}
         <div className="flex items-center gap-4 sm:gap-6">
           <Image
@@ -121,29 +121,28 @@ export default function Navbar() {
             </div>
           </Link>
           <div className="relative" ref={bellRef}>
-            <div 
-              className="cursor-pointer" 
-              onClick={toggleNotification}
-            >
+            <div className="cursor-pointer" onClick={toggleNotification}>
               <Bell className="text-white w-5 h-5" />
               {hasUnreadNotifications && (
                 <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full" />
               )}
             </div>
           </div>
-          <NotificationPortal 
-            isOpen={notificationOpen} 
+          <NotificationPortal
+            isOpen={notificationOpen}
             onClose={() => setNotificationOpen(false)}
             onMarkAllAsRead={handleAllNotificationsRead}
             anchorRect={bellRect}
           />
-          <Image
-            src="/defaultavatar.png"
-            alt="User Avatar"
-            width={25}
-            height={25}
-            className="rounded-full border border-white"
-          />
+          <Link href="/home/profile/anything">
+            <Image
+              src="/defaultavatar.png"
+              alt="User Avatar"
+              width={25}
+              height={25}
+              className="rounded-full border border-white cursor-pointer"
+            />
+          </Link>
         </div>
       </div>
     </header>
