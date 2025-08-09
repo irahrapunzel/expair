@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "../../../../../components/ui/button";
 import { Input } from "../../../../../components/ui/input";
 import Image from "next/image";
-import { Eye, EyeOff, ChevronRight } from "lucide-react";
+import { Eye, EyeOff, ChevronRight, Check, X } from "lucide-react";
 import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -20,6 +20,17 @@ export default function Step1({ onNext }) {
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Password rules
+  const passwordRules = [
+    { label: "At least one lowercase letter", test: /[a-z]/ },
+    { label: "At least one uppercase letter", test: /[A-Z]/ },
+    { label: "At least one number", test: /\d/ },
+    { label: "Minimum 8 characters", test: /.{8,}/ },
+  ];
+
+  const isEmailValid = (email) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
   const handleContinue = () => {
     setErrorMessage("");
 
@@ -28,8 +39,20 @@ export default function Step1({ onNext }) {
       return;
     }
 
+    if (!isEmailValid(email)) {
+      setErrorMessage("Please enter a valid email address.");
+      return;
+    }
+
     if (password !== repeatPassword) {
       setErrorMessage("Passwords do not match.");
+      return;
+    }
+
+    // Check if all password rules are met
+    const allValid = passwordRules.every(rule => rule.test.test(password));
+    if (!allValid) {
+      setErrorMessage("Password does not meet all requirements.");
       return;
     }
 
@@ -118,6 +141,27 @@ export default function Step1({ onNext }) {
                 </button>
               </div>
             </div>
+
+            {/* Password checklist */}
+            {password && (
+              <div className="mt-2 space-y-1 text-sm">
+                {passwordRules.map((rule, idx) => {
+                  const valid = rule.test.test(password);
+                  return (
+                    <div key={idx} className="flex items-center gap-2">
+                      {valid ? (
+                        <Check size={16} className="text-green-400" />
+                      ) : (
+                        <X size={16} className="text-red-400" />
+                      )}
+                      <span className={valid ? "text-green-400" : "text-red-400"}>
+                        {rule.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Repeat Password */}

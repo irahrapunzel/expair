@@ -17,9 +17,9 @@ export default function Step2({ onNext, onPrev }) {
   });
 
   const [marker, setMarker] = useState(null);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Auto locate user
   useEffect(() => {
@@ -32,11 +32,10 @@ export default function Step2({ onNext, onPrev }) {
         },
         (error) => {
           console.error("Geolocation error:", error);
-          // Keep default location if user denies permission
           if (!marker) {
             setMarker({
-                latitude: 14.5995,
-                longitude: 120.9842,
+              latitude: 14.5995,
+              longitude: 120.9842,
             });
           }
         }
@@ -44,12 +43,12 @@ export default function Step2({ onNext, onPrev }) {
     }
   }, []);
 
-  // Debug: check token
-  useEffect(() => {
-    console.log("Mapbox token:", process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
-  }, []);
-
   const handleContinue = () => {
+    if (!marker) {
+      setErrorMessage("Please select or search for your location before continuing.");
+      return;
+    }
+    setErrorMessage("");
     console.log("Selected location:", marker);
     onNext();
   };
@@ -90,22 +89,24 @@ export default function Step2({ onNext, onPrev }) {
       longitude,
     });
     setSuggestions([]);
+    setErrorMessage("");
   };
 
-  // Manual search via Enter or icon
+  // Manual search
   const handleSearch = async () => {
-    if (!searchQuery) return;
+    if (!searchQuery) {
+      setErrorMessage("Please enter a location to search.");
+      return;
+    }
 
     try {
       const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-
       const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
         searchQuery
       )}.json?access_token=${token}`;
 
       const res = await fetch(url);
       const data = await res.json();
-      console.log("Search result:", data);
 
       if (data.features && data.features.length > 0) {
         const [longitude, latitude] = data.features[0].center;
@@ -116,48 +117,59 @@ export default function Step2({ onNext, onPrev }) {
           zoom: 14,
         }));
         setMarker({ latitude, longitude });
+        setErrorMessage("");
       } else {
-        alert("Location not found.");
+        setErrorMessage("Location not found. Please try again.");
       }
     } catch (error) {
       console.error("Search error:", error);
     }
   };
 
+  // Fixed: No infinite loop when marker changes
   const handleMarkerChange = (newMarker) => {
-    setMarker(newMarker);
-    setViewport(prev => ({...prev, latitude: newMarker.latitude, longitude: newMarker.longitude}));
-  }
+    setMarker((prevMarker) => {
+      if (
+        prevMarker &&
+        prevMarker.latitude === newMarker.latitude &&
+        prevMarker.longitude === newMarker.longitude
+      ) {
+        return prevMarker; // no change
+      }
+      return newMarker;
+    });
+    setErrorMessage("");
+  };
 
   return (
     <div
-      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center px-4 ${inter.className}`}
+      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center px-4 sm:px-8 ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
-      <div className="relative z-10 w-full max-w-4xl text-center">
+      <div className="relative z-10 w-full max-w-4xl text-center px-2 sm:px-4">
         {/* Header */}
         <div className="flex flex-col items-center">
           <Image
             src="/assets/logos/Logotype=Logotype M.png"
             alt="Logo"
-            width={250}
-            height={76}
-            className="rounded-full mb-[30px]"
+            width={200}
+            height={60}
+            className="rounded-full mb-[20px] sm:mb-[30px] w-[180px] sm:w-auto"
           />
-          <h1 className="font-[600] text-[25px] text-center mb-[40px]">
+          <h1 className="font-[600] text-[20px] sm:text-[25px] text-center mb-[30px] sm:mb-[40px]">
             Let’s get your account started.
           </h1>
         </div>
 
-        <p className="text-white text-[20px] font-[500] mb-[20px]">
+        <p className="text-white text-[16px] sm:text-[20px] font-[500] mb-[20px]">
           Enter your location below, or pinpoint your location automatically.
         </p>
 
         {/* Search Bar */}
-        <div className="relative mx-auto mb-[30px] w-full max-w-[800px]">
+        <div className="relative mx-auto mb-[20px] sm:mb-[30px] w-full max-w-[800px]">
           <Search
             className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
-            size={20}
+            size={18}
           />
           <input
             type="text"
@@ -168,12 +180,12 @@ export default function Step2({ onNext, onPrev }) {
             }}
             placeholder="Search for your location here..."
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="w-full h-[57px] pl-12 pr-12 rounded-[15px] border border-[rgba(255,255,255,0.4)] bg-[#120A2A] text-white text-[16px] shadow focus:outline-none"
+            className="w-full h-[50px] sm:h-[57px] pl-12 pr-12 rounded-[12px] sm:rounded-[15px] border border-[rgba(255,255,255,0.4)] bg-[#120A2A] text-white text-[14px] sm:text-[16px] shadow focus:outline-none"
           />
           <MapPin
             onClick={handleSearch}
             className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer"
-            size={22}
+            size={20}
           />
 
           {/* Dropdown suggestions */}
@@ -190,11 +202,16 @@ export default function Step2({ onNext, onPrev }) {
               ))}
             </ul>
           )}
+
+          {/* Error message */}
+          {errorMessage && (
+            <p className="text-red-400 text-sm mt-2 text-left">{errorMessage}</p>
+          )}
         </div>
 
         {/* Map */}
-        <div className="w-full max-w-[800px] h-[288px] mx-auto rounded-[30px] overflow-hidden">
-         <MapWrapper
+        <div className="w-full max-w-[800px] h-[200px] sm:h-[288px] mx-auto rounded-[20px] sm:rounded-[30px] overflow-hidden">
+          <MapWrapper
             viewport={viewport}
             onViewportChange={setViewport}
             marker={marker}
@@ -202,13 +219,13 @@ export default function Step2({ onNext, onPrev }) {
           />
         </div>
 
-        <p className="font-[500] text-[20px] text-center mb-[25px] mt-[79px]">
+        <p className="font-[500] text-[18px] sm:text-[20px] text-center mb-[20px] sm:mb-[25px] mt-[50px] sm:mt-[79px]">
           Is this location correct?
         </p>
 
-        <div className="flex justify-center mb-[47.5px]">
+        <div className="flex justify-center mb-[30px] sm:mb-[47.5px]">
           <Button
-            className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-normal transition rounded-[15px]"
+            className="cursor-pointer flex w-[180px] sm:w-[240px] h-[45px] sm:h-[50px] justify-center items-center px-[20px] sm:px-[38px] py-[10px] sm:py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-normal transition rounded-[12px] sm:rounded-[15px]"
             onClick={handleContinue}
           >
             Continue
@@ -220,7 +237,7 @@ export default function Step2({ onNext, onPrev }) {
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
             onClick={onPrev}
           />
-          <span>2 of 7</span>
+          <span>2 of 6</span>
           <ChevronRight
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
             onClick={onNext}
