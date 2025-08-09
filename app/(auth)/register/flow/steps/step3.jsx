@@ -47,7 +47,7 @@ export default function Step3({ onNext, onPrev }) {
 
   return (
     <div
-      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className} relative`}
+      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
       {/* Disclaimer */}
@@ -208,7 +208,7 @@ export default function Step3({ onNext, onPrev }) {
         </div>
 
         {/* Continue Button */}
-        <div className="flex justify-center mb-[25px]">
+        <div className="flex justify-center mb-[47.5px]">
           <Button
             className="cursor-pointer flex w-[180px] sm:w-[240px] h-[45px] sm:h-[50px] justify-center items-center px-[24px] sm:px-[38px] py-[10px] sm:py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[14px] sm:text-[20px] font-normal transition rounded-[12px] sm:rounded-[15px]"
             onClick={handleContinue}

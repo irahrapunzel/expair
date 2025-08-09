@@ -29,19 +29,31 @@ const categories = [
 
 export default function Step4({ onNext, onPrev }) {
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const toggleCategory = (categoryId) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId)
+    setSelectedCategories((prev) => {
+      const updated = prev.includes(categoryId)
         ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId]
-    );
+        : [...prev, categoryId];
+
+      // Clear error if there's now at least one selection
+      if (updated.length > 0) {
+        setErrorMessage("");
+      }
+
+      return updated;
+    });
   };
 
   const handleContinue = () => {
-    // Save selected categories to state or context if needed
+    if (selectedCategories.length === 0) {
+      setErrorMessage("Please select at least one category.");
+      return;
+    }
+    setErrorMessage("");
     onNext();
-  };
+  };  
 
   // Get the appropriate icon for each category
   const getCategoryIcon = (iconName) => {
@@ -153,13 +165,9 @@ export default function Step4({ onNext, onPrev }) {
 
   return (
     <div
-      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className} relative overflow-hidden`}
+      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
-      {/* Background glows */}
-      <div className="absolute w-[673px] h-[673px] left-[-611.5px] top-[-336px] bg-[#906EFF] opacity-35 blur-[200px]"></div>
-      <div className="absolute w-[673px] h-[673px] right-[-354px] bottom-[-454px] bg-[#0038FF] opacity-35 blur-[200px]"></div>
-      
       <div className="relative z-10 w-full max-w-5xl text-center px-4 flex flex-col items-center">
         {/* Header */}
         <div className="flex flex-col items-center">
@@ -182,22 +190,9 @@ export default function Step4({ onNext, onPrev }) {
           </h2>
           
           {/* Categories grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-[12px] gap-y-[12px] w-full max-w-[907px] px-2">
+          <div className="flex flex-wrap gap-[20px] justify-center w-full max-w-[907px]">
             {categories.map((category) => {
               const isSelected = selectedCategories.includes(category.id);
-              // Determine appropriate width based on category name
-              let width;
-              if (category.name === "Communication & Interpersonal") {
-                width = "100%"; // Specific width for this category
-              } else if (category.name.length > 20) {
-                width = "100%";
-              } else if (category.name.length > 15) {
-                width = "100%";
-              } else if (category.name.length > 10) {
-                width = "100%";
-              } else {
-                width = "100%";
-              }
               
               return (
                 <div
@@ -209,36 +204,42 @@ export default function Step4({ onNext, onPrev }) {
                       : "bg-[rgba(88,36,144,0.15)] border-[3px] border-[#7E59F8] shadow-[0px_4px_4px_rgba(0,0,0,0.25),0px_5px_15px_#906EFF]"
                   }`}
                   style={{
-                    width: width,
+                    width: "auto",
+                    minWidth: "146px",
                     height: "80px",
                     background: isSelected
                       ? "radial-gradient(100% 275% at 100% 0%, #500582 0%, #120A2A 69.23%)"
                       : "radial-gradient(100% 275% at 100% 0%, rgba(88, 36, 144, 0.15) 0%, rgba(18, 10, 42, 0.15) 69.23%)"
                   }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-row items-center justify-between w-full">
                     <div className="text-white">
                       <span className={`${isSelected ? "text-white" : "text-white/40"}`}>
                         {getCategoryIcon(category.icon)}
                       </span>
                     </div>
                     {isSelected && (
-                      <svg className="w-4 h-4 text-white ml-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" fill="currentColor" />
+                      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="14" viewBox="0 0 17 14" fill="none">
+                        <path d="M5.7 13.0125L0 7.31249L1.425 5.88749L5.7 10.1625L14.875 0.987488L16.3 2.41249L5.7 13.0125Z" fill="white"/>
                       </svg>
                     )}
                   </div>
-                  <span className={`text-[14px] ${isSelected ? "text-white" : "text-white/40"}`}>
+                  <span className={`text-[16px] text-center w-full ${isSelected ? "text-white" : "text-white/40"}`}>
                     {category.name}
                   </span>
                 </div>
               );
             })}
+            {errorMessage && (
+              <p className="text-red-500 text-sm top-full left-0 mt-2">
+                {errorMessage}
+              </p>
+            )}            
           </div>
         </div>
         
         {/* Continue Button */}
-        <div className="flex justify-center mt-[119px] mb-[25px]">
+        <div className="flex justify-center mt-[119px] mb-[47.5px]">
           <Button
             className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[20px] font-[500] transition rounded-[15px]"
             onClick={handleContinue}
@@ -248,7 +249,7 @@ export default function Step4({ onNext, onPrev }) {
         </div>
         
         {/* Pagination - Centered at bottom */}
-        <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60 mt-[20px] mb-[20px]">
+        <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60 mt-[20px]">
           <ChevronLeft
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
             onClick={onPrev}

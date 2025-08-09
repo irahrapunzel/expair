@@ -141,13 +141,9 @@ export default function Step6({ onComplete, onPrev }) {
 
   return (
     <div
-      className={`pt-[40px] pb-[40px] flex h-screen items-center justify-center bg-cover bg-center ${inter.className} relative overflow-hidden`}
+      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
-      {/* Background glows */}
-      <div className="absolute w-[673px] h-[673px] left-[-611.5px] top-[-336px] bg-[#906EFF] opacity-35 blur-[200px]"></div>
-      <div className="absolute w-[673px] h-[673px] right-[-354px] bottom-[-454px] bg-[#0038FF] opacity-35 blur-[200px]"></div>
-      
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
@@ -206,7 +202,7 @@ export default function Step6({ onComplete, onPrev }) {
             height={76}
             className="mb-[30px]"
           />
-          <h1 className="font-[600] text-[25px] text-center mb-[30px]">
+          <h1 className="font-[600] text-[25px] text-center mb-[76px]">
             Set up your skills.
           </h1>
         </div>
@@ -385,7 +381,7 @@ export default function Step6({ onComplete, onPrev }) {
         </div>
         
         {/* Continue Button */}
-        <div className="flex justify-center mt-[50px] mb-[25px]">
+        <div className="flex justify-center mt-[50px] mb-[47.5px]">
           <Button
             className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-[500] transition rounded-[15px]"
             onClick={handleContinue}
@@ -395,7 +391,7 @@ export default function Step6({ onComplete, onPrev }) {
         </div>
         
         {/* Pagination - Centered at bottom */}
-        <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60 mt-[20px] mb-[20px]">
+        <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60 mt-[20px]">
           <ChevronLeft
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
             onClick={onPrev}

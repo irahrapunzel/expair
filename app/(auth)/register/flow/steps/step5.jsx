@@ -29,24 +29,33 @@ const skills = [
 
 export default function Step5({ onNext, onPrev }) {
   const [selectedSkills, setSelectedSkills] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const toggleSkill = (skillId) => {
     setSelectedSkills((prev) => {
+      let newArr;
       if (prev.includes(skillId)) {
-        return prev.filter((id) => id !== skillId);
+        newArr = prev.filter((id) => id !== skillId);
+      } else {
+        // limit to 6
+        if (prev.length >= 6) {
+          return prev;
+        }
+        newArr = [...prev, skillId];
       }
-      
-      // Limit to 6 selections
-      if (prev.length >= 6) {
-        return prev;
-      }
-      
-      return [...prev, skillId];
+      // clear error if there is now at least one selection
+      if (newArr.length > 0) setErrorMessage("");
+      return newArr;
     });
   };
 
   const handleContinue = () => {
-    // Save selected skills to state or context if needed
+    if (selectedSkills.length === 0) {
+      setErrorMessage("Please select at least one skill.");
+      return;
+    }
+
+    setErrorMessage("");
     onNext();
   };
 
@@ -160,13 +169,9 @@ export default function Step5({ onNext, onPrev }) {
 
   return (
     <div
-      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className} relative overflow-hidden`}
+      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
-      {/* Background glows */}
-      <div className="absolute w-[673px] h-[673px] left-[-611.5px] top-[-336px] bg-[#906EFF] opacity-35 blur-[200px]"></div>
-      <div className="absolute w-[673px] h-[673px] right-[-354px] bottom-[-454px] bg-[#0038FF] opacity-35 blur-[200px]"></div>
-      
       <div className="relative z-10 w-full max-w-5xl text-center px-4 flex flex-col items-center">
         {/* Header */}
         <div className="flex flex-col items-center">
@@ -192,7 +197,7 @@ export default function Step5({ onNext, onPrev }) {
           <div className="flex flex-wrap gap-[20px] justify-center w-full max-w-[907px]">
             {skills.map((skill) => {
               const isSelected = selectedSkills.includes(skill.id);
-              
+
               return (
                 <div
                   key={skill.id}
@@ -211,15 +216,17 @@ export default function Step5({ onNext, onPrev }) {
                       : "0px 4px 4px rgba(0, 0, 0, 0.25), 0px 5px 15px #284CCC"
                   }}
                 >
-                  <div className="flex flex-row items-center justify-between w-full">
-                    <div className={`text-white ${isSelected ? "text-white" : "text-white/40"}`}>
+                  <div className="flex items-center justify-between w-full">
+                    <div className={`flex items-center text-white ${isSelected ? "text-white" : "text-white/40"}`}>
                       {getSkillIcon(skill.icon)}
+                      {isSelected && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="14" viewBox="0 0 17 14" fill="none" className="ml-2">
+                          <path d="M5.7 13.0125L0 7.31249L1.425 5.88749L5.7 10.1625L14.875 0.987488L16.3 2.41249L5.7 13.0125Z" fill="white"/>
+                        </svg>
+                      )}
                     </div>
                     {isSelected && (
-                      <div className="flex items-center">
-                        <Check className="w-4 h-4 text-white" />
-                        <span className="ml-1 text-white">{selectedSkills.indexOf(skill.id) + 1}</span>
-                      </div>
+                      <span className="text-white">{selectedSkills.indexOf(skill.id) + 1}</span>
                     )}
                   </div>
                   <span className={`text-[16px] text-center w-full ${isSelected ? "text-white" : "text-white/40"}`}>
@@ -229,10 +236,16 @@ export default function Step5({ onNext, onPrev }) {
               );
             })}
           </div>
+
+          {/* Error message */}
+          {errorMessage && (
+            <p className="text-red-500 text-sm top-full left-0 mt-1">{errorMessage}</p>
+          )}
+              
         </div>
         
         {/* Continue Button */}
-        <div className="flex justify-center mt-[119px] mb-[25px]">
+        <div className="flex justify-center mt-[119px] mb-[47.5px]">
           <Button
             className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-[500] transition rounded-[15px]"
             onClick={handleContinue}
@@ -242,7 +255,7 @@ export default function Step5({ onNext, onPrev }) {
         </div>
         
         {/* Pagination - Centered at bottom */}
-        <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60 mt-[20px] mb-[20px]">
+        <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60 mt-[20px]">
           <ChevronLeft
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
             onClick={onPrev}
