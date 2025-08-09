@@ -5,6 +5,7 @@ import { Button } from "../../../../../components/ui/button";
 import { Inter } from "next/font/google";
 import { Search, Filter, ArrowUpDown, MoreHorizontal, Star, X, EyeOff } from "lucide-react";
 import { StarIcon } from "../../../../../components/icons/star-icon";
+import Image from "next/image";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -337,16 +338,21 @@ export default function Onboarding2({ onNext, onPrev }) {
       <div className="absolute w-[673px] h-[673px] left-[calc(50%+383.5px-673px)] bottom-[992px] bg-[#0038FF] opacity-50 blur-[200px]"></div>
       <div className="absolute w-[673px] h-[673px] left-[calc(50%-383.5px-673px/2)] bottom-[992px] bg-[#D78DE5] opacity-50 blur-[200px]"></div>
       
-      <div className="relative z-10 w-full max-w-[983px] flex flex-col items-center py-[40px]">
+      <div className="relative z-10 w-full max-w-[983px] flex flex-col items-center pt-[111px]">
         {/* Header Section */}
         <div className="flex flex-col items-start gap-[44px] w-full">
           <div className="w-full">
-            <div className="flex flex-col items-center gap-[25px] w-full">
+            <div className="text-left flex flex-col items-start gap-[19px] w-full">
               <div className="flex flex-col items-start gap-[15px] w-full">
                 <div className="flex justify-between items-center w-full">
                   <div className="flex items-center gap-[15px]">
-                    <StarIcon className="w-[38.33px] h-[38.33px]" />
-                    <h2 className="text-[25px] font-semibold text-white">Here's what we found</h2>
+                    <Image
+                      src="/assets/logos/Colored=Logo XS.png"
+                      alt="Colored Logo"
+                      width={38}
+                      height={38}
+                    />
+                    <h2 className="text-[25px] font-[600] text-white">Here's what we found</h2>
                   </div>
                   
                   <div className="flex items-center gap-4">
@@ -479,21 +485,28 @@ export default function Onboarding2({ onNext, onPrev }) {
                 </div>
               </div>
               
-              <p className="text-[16px] text-white/40">Browse your potential trade partners</p>
+              <p className="text-[16px] text-left text-white/40">Browse your potential trade partners</p>
             </div>
           </div>
           
           {/* Search Input */}
           <div className="w-full">
-            <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center">
-              <Search className="w-6 h-6 text-white mr-2" />
-              <input
-                type="text"
-                placeholder="Enter a service you need"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-full bg-transparent text-[16px] text-white outline-none"
-              />
+            <div 
+              className="rounded-[15px] p-[2px]" 
+              style={{ 
+                background: 'linear-gradient(90deg, #FB9696 0%, #D78DE5 25%, #7E59F8 50%, #284CCC 75%, #6DDFFF 100%)' 
+              }}
+            >
+              <div className="w-full h-[50px] bg-[#120A2A] rounded-[13px] px-[14px] py-[8px] flex items-center">
+                <Search className="w-6 h-6 text-white mr-2" />
+                <input
+                  type="text"
+                  placeholder="Enter a service you need"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-full bg-transparent text-[16px] text-white outline-none"
+                />
+              </div>
             </div>
           </div>
           
