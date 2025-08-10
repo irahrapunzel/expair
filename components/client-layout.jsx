@@ -37,13 +37,18 @@ export default function ClientLayout({ children }) {
 
   const isHome = pathname.startsWith('/home');
 
+  // Bagong condition para hindi magpakita ang footer sa request at messages page
+  const hideFooterPages =
+    pathname.startsWith('/home/request') ||
+    pathname.startsWith('/home/messages');
+
   return (
     <QueryClientProvider client={queryClient}>
       {!isAuthPage && !isHome && (isLanding ? <LandingNav /> : <Navbar />)}
 
       <main className="flex-grow">{children}</main>
 
-      {!isAuthPage && (
+      {!isAuthPage && !hideFooterPages && (
         <div className="bg-[#050015]">
           <Footer />
         </div>
