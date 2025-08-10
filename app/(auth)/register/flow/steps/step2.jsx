@@ -152,11 +152,11 @@ export default function Step2({ onNext, onPrev }) {
           <Image
             src="/assets/logos/Logotype=Logotype M.png"
             alt="Logo"
-            width={200}
-            height={60}
-            className="rounded-full mb-[20px] sm:mb-[30px] w-[180px] sm:w-auto"
+            width={250}
+            height={76}
+            className="rounded-full mb-[30px]"
           />
-          <h1 className="font-[600] text-[20px] sm:text-[25px] text-center mb-[30px] sm:mb-[40px]">
+          <h1 className="font-[600] text-[25px] text-center mb-[90px]">
             Let’s get your account started.
           </h1>
         </div>
@@ -203,10 +203,6 @@ export default function Step2({ onNext, onPrev }) {
             </ul>
           )}
 
-          {/* Error message */}
-          {errorMessage && (
-            <p className="text-red-400 text-sm mt-2 text-left">{errorMessage}</p>
-          )}
         </div>
 
         {/* Map */}
@@ -218,6 +214,13 @@ export default function Step2({ onNext, onPrev }) {
             onMarkerChange={handleMarkerChange}
           />
         </div>
+
+        {/* Error Message (fixed height) */}
+        <div className="h-[10px] mt-4">
+          {errorMessage && (
+            <p className="text-red-500 text-sm">{errorMessage}</p>
+          )}
+        </div>        
 
         <p className="font-[500] text-[18px] sm:text-[20px] text-center mb-[20px] sm:mb-[25px] mt-[50px] sm:mt-[79px]">
           Is this location correct?
@@ -240,7 +243,7 @@ export default function Step2({ onNext, onPrev }) {
           <span>2 of 6</span>
           <ChevronRight
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
-            onClick={onNext}
+            onClick={handleContinue}
           />
         </div>
       </div>

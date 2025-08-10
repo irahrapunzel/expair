@@ -27,8 +27,8 @@ const skills = [
   { id: 15, name: "Research & Critical Thinking", icon: "book" },
 ];
 
-export default function Step5({ onNext, onPrev }) {
-  const [selectedSkills, setSelectedSkills] = useState([]);
+export default function Step5({ onNext, onPrev, initialSelectedSkills = [] }) {
+  const [selectedSkills, setSelectedSkills] = useState(initialSelectedSkills);
   const [errorMessage, setErrorMessage] = useState("");
 
   const toggleSkill = (skillId) => {
@@ -235,15 +235,16 @@ export default function Step5({ onNext, onPrev }) {
                 </div>
               );
             })}
-          </div>
-
-          {/* Error message */}
-          {errorMessage && (
-            <p className="text-red-500 text-sm top-full left-0 mt-1">{errorMessage}</p>
-          )}
-              
+          </div>             
         </div>
-        
+
+        {/* Error Message (fixed height) */}
+        <div className="h-[10px] mt-8">
+          {errorMessage && (
+            <p className="text-red-500 text-sm">{errorMessage}</p>
+          )}
+        </div> 
+
         {/* Continue Button */}
         <div className="flex justify-center mt-[119px] mb-[47.5px]">
           <Button
@@ -263,7 +264,7 @@ export default function Step5({ onNext, onPrev }) {
           <span>5 of 6</span>
           <ChevronRight
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
-            onClick={onNext}
+            onClick={handleContinue}
           />
         </div>
       </div>

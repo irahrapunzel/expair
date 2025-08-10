@@ -20,7 +20,6 @@ export default function Step1({ onNext }) {
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Password rules
   const passwordRules = [
     { label: "At least one lowercase letter", test: /[a-z]/ },
     { label: "At least one uppercase letter", test: /[A-Z]/ },
@@ -31,32 +30,50 @@ export default function Step1({ onNext }) {
   const isEmailValid = (email) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const handleContinue = () => {
-    setErrorMessage("");
-
+  const validateForm = () => {
     if (!firstName || !lastName || !email || !username || !password || !repeatPassword) {
       setErrorMessage("Please fill in all fields.");
-      return;
+      return false;
     }
 
     if (!isEmailValid(email)) {
       setErrorMessage("Please enter a valid email address.");
-      return;
+      return false;
     }
 
     if (password !== repeatPassword) {
       setErrorMessage("Passwords do not match.");
-      return;
+      return false;
     }
 
-    // Check if all password rules are met
     const allValid = passwordRules.every(rule => rule.test.test(password));
     if (!allValid) {
       setErrorMessage("Password does not meet all requirements.");
-      return;
+      return false;
     }
 
-    onNext();
+    setErrorMessage("");
+    return true;
+  };
+
+  const handleContinue = () => {
+    if (validateForm()) {
+      onNext();
+    }
+  };
+
+  const isFormValid = () => {
+    return (
+      firstName &&
+      lastName &&
+      email &&
+      username &&
+      password &&
+      repeatPassword &&
+      isEmailValid(email) &&
+      password === repeatPassword &&
+      passwordRules.every(rule => rule.test.test(password))
+    );
   };
 
   return (
@@ -142,10 +159,10 @@ export default function Step1({ onNext }) {
               </div>
             </div>
 
-            {/* Password checklist */}
-            {password && (
-              <div className="mt-2 space-y-1 text-sm">
-                {passwordRules.map((rule, idx) => {
+            {/* Password checklist (fixed height) */}
+            <div className="mt-2 space-y-1 text-sm min-h-[90px]">
+              {password &&
+                passwordRules.map((rule, idx) => {
                   const valid = rule.test.test(password);
                   return (
                     <div key={idx} className="flex items-center gap-2">
@@ -160,8 +177,7 @@ export default function Step1({ onNext }) {
                     </div>
                   );
                 })}
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Repeat Password */}
@@ -187,10 +203,12 @@ export default function Step1({ onNext }) {
           </div>
         </div>
 
-        {/* Error Message */}
-        {errorMessage && (
-          <p className="text-red-500 text-sm mt-4">{errorMessage}</p>
-        )}
+        {/* Error Message (fixed height) */}
+        <div className="h-[10px] mt-4">
+          {errorMessage && (
+            <p className="text-red-500 text-sm">{errorMessage}</p>
+          )}
+        </div>
 
         {/* Already have account */}
         <p className="underline text-center text-sm text-[16px] mt-[44px] mb-[100px]">
@@ -213,8 +231,16 @@ export default function Step1({ onNext }) {
         <div className="flex justify-center items-center gap-2 text-sm text-white opacity-60">
           <span>1 of 6</span>
           <ChevronRight
-            className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
-            onClick={onNext}
+            className={`w-5 h-5 ${
+              isFormValid()
+                ? "cursor-pointer text-gray-300 hover:text-white"
+                : "text-gray-500 cursor-not-allowed"
+            }`}
+            onClick={() => {
+              if (isFormValid()) {
+                onNext();
+              }
+            }}
           />
         </div>
       </div>

@@ -212,32 +212,44 @@ export default function Step4({ onNext, onPrev }) {
                       : "radial-gradient(100% 275% at 100% 0%, rgba(88, 36, 144, 0.15) 0%, rgba(18, 10, 42, 0.15) 69.23%)"
                   }}
                 >
-                  <div className="flex flex-row items-center justify-between w-full">
-                    <div className="text-white">
+                  <div className="flex flex-row items-center w-full">
+                    <div className="flex flex-row items-center gap-2">
                       <span className={`${isSelected ? "text-white" : "text-white/40"}`}>
                         {getCategoryIcon(category.icon)}
                       </span>
+
+                      {isSelected && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="17"
+                          height="14"
+                          viewBox="0 0 17 14"
+                          fill="none"
+                        >
+                          <path
+                            d="M5.7 13.0125L0 7.31249L1.425 5.88749L5.7 10.1625L14.875 0.987488L16.3 2.41249L5.7 13.0125Z"
+                            fill="white"
+                          />
+                        </svg>
+                      )}
                     </div>
-                    {isSelected && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="14" viewBox="0 0 17 14" fill="none">
-                        <path d="M5.7 13.0125L0 7.31249L1.425 5.88749L5.7 10.1625L14.875 0.987488L16.3 2.41249L5.7 13.0125Z" fill="white"/>
-                      </svg>
-                    )}
                   </div>
                   <span className={`text-[16px] text-center w-full ${isSelected ? "text-white" : "text-white/40"}`}>
                     {category.name}
                   </span>
                 </div>
               );
-            })}
-            {errorMessage && (
-              <p className="text-red-500 text-sm top-full left-0 mt-2">
-                {errorMessage}
-              </p>
-            )}            
+            })}       
           </div>
         </div>
-        
+
+        {/* Error Message (fixed height) */}
+        <div className="h-[10px] mt-8">
+          {errorMessage && (
+            <p className="text-red-500 text-sm">{errorMessage}</p>
+          )}
+        </div>    
+
         {/* Continue Button */}
         <div className="flex justify-center mt-[119px] mb-[47.5px]">
           <Button
@@ -257,7 +269,7 @@ export default function Step4({ onNext, onPrev }) {
           <span>4 of 6</span>
           <ChevronRight
             className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
-            onClick={onNext}
+            onClick={handleContinue}
           />
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
 import { Archivo } from "next/font/google";
 import { Button } from "../../components/ui/button";
@@ -13,12 +14,18 @@ const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
 
 export default function HomePage() {
+  const router = useRouter();
   const [greeting, setGreeting] = useState("Starry evening, voyager");
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedSort, setSelectedSort] = useState("Date");
   const [selectedActiveSort, setSelectedActiveSort] = useState("Date");
   const [showSortOptions, setShowSortOptions] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
+
+  // Dialog states
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState(null);
 
   // Explore section state
   const [showExploreSortMenu, setShowExploreSortMenu] = useState(false);
@@ -49,6 +56,36 @@ export default function HomePage() {
     setOpenMenuIndex(null);
     console.log(`Reported partner ${partnerId}`);
     // You could also show a confirmation message to the user
+  };
+
+  // Handle "I'm interested" button click
+  const handleInterestedClick = (partner) => {
+    setSelectedPartner(partner);
+    setShowConfirmDialog(true);
+  };
+
+  // Handle confirmation dialog actions
+  const handleConfirmInterest = () => {
+    setShowConfirmDialog(false);
+    setShowSuccessDialog(true);
+    // In a real app, you would send the trade invitation here
+    console.log(`Sent trade invitation to ${selectedPartner?.name}`);
+  };
+
+  const handleCancelInterest = () => {
+    setShowConfirmDialog(false);
+    setSelectedPartner(null);
+  };
+
+  const handleSuccessDialogClose = () => {
+    setShowSuccessDialog(false);
+    setSelectedPartner(null);
+  };
+
+  const handleGoToPendingTrades = () => {
+    setShowSuccessDialog(false);
+    setSelectedPartner(null);
+    router.push('/home/trades/pending');
   };
 
   // Explore sort and filter handlers
@@ -645,7 +682,10 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  <button className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors">
+                  <button
+                    className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors"
+                    onClick={() => handleInterestedClick(partner)}
+                  >
                     <span className="text-[13px] text-white">
                       I'm interested
                     </span>
@@ -656,6 +696,76 @@ export default function HomePage() {
           })()}
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && selectedPartner && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+          <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+            {/* Background gradients */}
+            <div className="absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
+            <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
+
+            {/* Close button */}
+            <button 
+              className="absolute top-4 right-4 text-white hover:text-gray-300"
+              onClick={handleCancelInterest}
+            >
+              <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+            </button>
+
+            <div className="flex flex-col items-center gap-6 w-full px-8 relative z-10">
+              <h2 className="font-bold text-[20px] text-center text-white leading-tight">
+                Are you sure you want to add this to your pending trades?
+              </h2>
+              <div className="flex flex-row gap-4">
+                <button 
+                  className="flex items-center justify-center w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#0038FF]/10 transition-colors"
+                  onClick={handleCancelInterest}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="flex items-center justify-center w-[120px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                  onClick={handleConfirmInterest}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Dialog */}
+      {showSuccessDialog && selectedPartner && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+          <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+            {/* Background gradients */}
+            <div className="absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
+            <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
+
+            {/* Close button */}
+            <button 
+              className="absolute top-4 right-4 text-white hover:text-gray-300"
+              onClick={handleSuccessDialogClose}
+            >
+              <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+            </button>
+
+            <div className="flex flex-col items-center gap-6 w-full px-8 relative z-10">
+              <h2 className="font-bold text-[20px] text-center text-white leading-tight">
+                Trade invitation successfully sent.
+              </h2>
+              <button 
+                className="flex items-center justify-center w-[180px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                onClick={handleGoToPendingTrades}
+              >
+                Go to Pending Trades
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
