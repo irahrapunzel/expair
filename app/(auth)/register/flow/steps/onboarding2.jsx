@@ -246,7 +246,7 @@ export default function Onboarding2({ onNext, onPrev }) {
 
   return (
     <div
-      className={`min-h-screen flex items-center justify-center ${inter.className} relative overflow-hidden`}
+      className={`flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ 
         background: "#050015",
       }}
@@ -619,7 +619,7 @@ export default function Onboarding2({ onNext, onPrev }) {
         </div>
         
         {/* Skip Button */}
-        <div className="mt-[50px]">
+        <div className="mt-[50px] mb-[100px]">
           <button 
             className="text-[20px] font-medium text-[#0038FF] underline cursor-pointer hover:text-[#1a4dff] transition-colors"
             onClick={onNext}

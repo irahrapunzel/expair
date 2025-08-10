@@ -13,7 +13,7 @@ export default function Onboarding1({ onNext, onPrev }) {
 
   return (
     <div
-      className={`flex min-h-screen items-center justify-center bg-no-repeat bg-center bg-cover ${inter.className}`}
+      className={`flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register1.png')" }}
     >
 
@@ -58,8 +58,8 @@ export default function Onboarding1({ onNext, onPrev }) {
             </p>
             <div className="relative w-[400px]">
               <input
-                type={date ? "date" : "text"}
-                placeholder="DD/MM/YYYY"
+                type="date"
+                placeholder="MM/DD/YYYY"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full h-[50px] bg-[#120A2A] border border-white/40 rounded-[15px] px-[18px] py-[15px] pr-[45px] text-[16px] text-white outline-none placeholder:text-[#413663]"
