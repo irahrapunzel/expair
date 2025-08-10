@@ -56,7 +56,7 @@ export default function Step5({ onNext, onPrev }) {
     }
 
     setErrorMessage("");
-    onNext();
+    onNext(selectedSkills);
   };
 
   // Get the appropriate icon for each skill
