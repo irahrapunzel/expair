@@ -105,7 +105,7 @@ export default function PendingTradesPage() {
     <div className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}>
       {/* Page Title with Sort/Filter */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-[25px] font-bold">Pending trades</h1>
+        <h1 className="text-[25px] font-[600]">Pending trades</h1>
 
         <div className="flex items-center gap-4">
           {/* Sort Button */}

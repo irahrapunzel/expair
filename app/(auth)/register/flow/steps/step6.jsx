@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "../../../../../components/ui/button";
-import { ChevronLeft, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronDown, X } from "lucide-react";
 import Image from "next/image";
 import { Inter } from "next/font/google";
 
@@ -28,6 +28,18 @@ const allCategories = [
 ];
 
 export default function Step6({ onNext, onPrev, selectedSkills = [] }) {
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const handleConfirm = () => {
+    setShowConfirmModal(false);
+    onNext(checkedOptions); // proceed after confirm
+  };
+
+  const handleCancel = () => {
+    setShowConfirmModal(false);
+  };
+  
   // Debug log to check what skills are coming in
   useEffect(() => {
     console.log("Selected skills in Step6:", selectedSkills);
@@ -300,7 +312,15 @@ export default function Step6({ onNext, onPrev, selectedSkills = [] }) {
         <div className="flex justify-center mt-[50px] mb-[47.5px]">
           <Button
             className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-[500] transition rounded-[15px]"
-            onClick={handleContinue}
+            onClick={() => {
+              const hasSelections = Object.values(checkedOptions).some(arr => arr && arr.length > 0);
+              if (!hasSelections) {
+                setErrorMessage("Please select at least one specialization.");
+                return;
+              }
+              setErrorMessage("");
+              setShowConfirmModal(true); // open confirmation modal
+            }}
           >
             Continue
           </Button>
@@ -318,6 +338,53 @@ export default function Step6({ onNext, onPrev, selectedSkills = [] }) {
             onClick={handleNextClick}
           />
         </div>
+
+        {/* Confirmation Modal */}
+        {showConfirmModal && (
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="absolute inset-0 bg-black/50" onClick={handleCancel}></div>
+            <div className="relative flex flex-col items-center justify-center w-[500px] h-[220px] bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 overflow-hidden">
+              {/* Decorative elements */}
+              <div className="absolute top-[-100px] left-[-100px] w-[200px] h-[200px] rounded-full bg-[#0038FF]/20 blur-[60px]"></div>
+              <div className="absolute bottom-[-80px] right-[-80px] w-[180px] h-[180px] rounded-full bg-[#D78DE5]/20 blur-[60px]"></div>
+              
+              {/* Close button */}
+              <button 
+                className="absolute top-4 right-4 text-white hover:text-gray-300"
+                onClick={handleCancel}
+              >
+                <X className="w-[15px] h-[15px]" />
+              </button>
+              
+              <div className="flex flex-col items-center gap-4 w-full px-8 text-center">
+                {/* Title */}
+                <h2 className="font-bold text-[22px] text-white leading-tight">
+                  Are all your account details accurate?
+                </h2>
+                
+                {/* Buttons */}
+                <div className="flex flex-row gap-5 mt-3">
+                  <button 
+                    className="flex items-center justify-center w-[130px] h-[38px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] text-[15px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#0038FF]/10 transition-colors cursor-pointer"
+                    onClick={handleCancel}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="flex items-center justify-center w-[130px] h-[38px] bg-[#0038FF] rounded-[15px] text-white text-[15px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors cursor-pointer"
+                    onClick={handleConfirm}
+                  >
+                    Confirm
+                  </button>
+                </div>
+                {/* Subtitle */}
+                <p className="text-white/60 text-[14px]">
+                  You may edit these details again in your profile.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
