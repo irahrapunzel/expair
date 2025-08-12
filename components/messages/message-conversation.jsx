@@ -160,13 +160,13 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             <div className="flex items-start gap-4">
               <div className="flex flex-col">
                 <span className="text-xs text-[#8E7EB3]">Requested</span>
-                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
+                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
                   <span className="text-xs text-white">{conversation.requests.requested}</span>
                 </div>
               </div>
               <div className="flex flex-col">
                 <span className="text-xs text-[#8E7EB3]">In exchange for</span>
-                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
+                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
                   <span className="text-xs text-white">{conversation.requests.exchange}</span>
                 </div>
               </div>
@@ -179,8 +179,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                 </button>
               </Link>
               
-              <button 
-                className="w-[120px] h-[30px] flex justify-center items-center bg-[#120A2A] border border-white rounded-[10px] cursor-pointer hover:bg-[#1A0F3E] transition-colors"
+              <button
                 onClick={() => {
                   setSelectedTrade({
                     requestTitle: conversation.requests.requested,
@@ -192,16 +191,28 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                   });
                   setShowEvaluationDialog(true);
                 }}
+                className="relative w-[120px] h-[30px] rounded-[15px] p-[2px] cursor-pointer group"
+                style={{
+                  background: "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"
+                }}
               >
-                <div className="flex items-center gap-1">
-                  <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4">
+                {/* Inner dark-blue background */}
+                <div className="w-full h-full rounded-[13px] flex justify-center items-center bg-[#120A2A] group-hover:bg-[#1A0F3E] transition-colors">
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 17 17"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-4"
+                  >
                     <path d="M8.49991 16.5L9.95148 8.5L8.49991 0.5L7.04834 8.5L8.49991 16.5Z" fill="#FFFFFF"/>
                     <path d="M2.03425 3.56167L8.31776 9.75624L10.1393 7.21373L2.03425 3.56167Z" fill="#FFFFFF"/>
                     <path d="M14.9618 13.4129L8.67834 7.21837L6.85676 9.76088L14.9618 13.4129Z" fill="#FFFFFF"/>
                     <path d="M14.9657 3.56167L8.68224 9.75624L6.86067 7.21373L14.9657 3.56167Z" fill="#FFFFFF"/>
                     <path d="M2.03816 13.4129L8.32166 7.21837L10.1432 9.76088L2.03816 13.4129Z" fill="#FFFFFF"/>
                   </svg>
-                  <span className="text-[13px] text-white">Evaluate</span>
+                  <span className="text-[13px] text-white ml-1">Evaluate</span>
                 </div>
               </button>
             </div>

@@ -372,7 +372,7 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className={`w-full max-w-[1200px] mx-auto py-10 text-white ${inter.className} h-screen flex flex-col overflow-hidden`}>
+    <div className={`w-full px-[67px] mx-auto text-white ${inter.className} h-screen flex flex-col overflow-hidden`}>
       <div className="flex gap-6 h-[calc(100vh-80px)] overflow-hidden">
         {/* Left side - Message list */}
         <MessageList 
