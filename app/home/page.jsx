@@ -415,7 +415,7 @@ export default function HomePage() {
 
         {/* Search Input */}
         <div className="w-full mb-8">
-          <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border-[1px] border-white">
+          <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border-[1px] border border-[rgba(255,255,255,0.40)]">
             <Icon icon="lucide:search" className="text-white mr-2 text-xl" />
             <input
               type="text"
@@ -596,7 +596,7 @@ export default function HomePage() {
                 <div className="flex justify-between items-start w-full">
                   <div className="flex flex-col gap-[10px] items-start flex-shrink-0">
                     <span className="text-[13px] text-white">Needs</span>
-                    <div className="inline-block px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
+                    <div className="inline-block px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
                       <span className="text-[12px] text-white leading-tight whitespace-nowrap">
                         {partner.needs}
                       </span>
@@ -604,7 +604,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex flex-col gap-[10px] items-end flex-shrink-0">
                     <span className="text-[13px] text-white">Can offer</span>
-                    <div className="inline-block px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
+                    <div className="inline-block px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
                       <span className="text-[12px] text-white leading-tight whitespace-nowrap">
                         {partner.offers}
                       </span>

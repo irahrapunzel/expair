@@ -121,7 +121,7 @@ export default function ViewProofDialog({ isOpen, onClose, trade }) {
             </button>
 
             <div className="flex flex-col items-center gap-[30px] w-[470px]">
-              <h2 className="text-[25px] font-bold text-white text-center">
+              <h2 className="text-[25px] font-semibold text-white text-center">
                 Are you sure you want to approve their output?
               </h2>
 

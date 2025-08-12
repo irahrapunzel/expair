@@ -121,65 +121,76 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
           {/* Trade assessment section */}
           <div className="flex flex-col items-center gap-[15px] w-[300px] h-[83px]">
             {/* Progress bar */}
-            <div className="flex flex-row items-center p-[2px] gap-[10px] w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] relative isolate">
-              <div 
-                className="w-[16px] h-[16px] rounded-[100px]"
-                style={{ 
-                  marginLeft: `${(evaluation.tradeScore/10) * 100 - 8}%`,
-                  background: "linear-gradient(to right, #FB9696, #D78DE5, #7E59F8, #284CCC, #6DDFFF)" 
+            <div className="relative flex items-center w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+              {/* Filled part */}
+              <div
+                className="h-full rounded-[32px] z-[2]"
+                style={{
+                  width: `${(evaluation.tradeScore / 10) * 100}%`,
+                  background: "linear-gradient(to right, #FB9696, #D78DE5, #7E59F8, #284CCC, #6DDFFF)"
                 }}
               ></div>
-              <div className="absolute w-[295px] h-[20px] left-[calc(50%-295px/2+0.5px)] top-[calc(50%-20px/2)] bg-white opacity-35 z-[1]"></div>
+              {/* Background overlay */}
+              <div className="absolute inset-0 bg-white opacity-35 z-[1]"></div>
             </div>
-            
+
             {/* Trade assessment text */}
             <div className="flex flex-col items-center gap-[5px] w-[110px] h-[48px]">
-              <h4 className="w-[110px] h-[24px] font-bold text-[20px] leading-[120%] text-center text-white">
+              <h4 className="font-bold text-[20px] text-center text-white">
                 Good trade
               </h4>
-              <p className="w-[81px] h-[19px] text-[16px] leading-[120%] text-center text-white">
+              <p className="text-[16px] text-center text-white">
                 {evaluation.tradeScore} out of 10
               </p>
             </div>
           </div>
-          
+
           {/* Assessment metrics */}
-          <div className="flex flex-col items-end gap-[15px] w-[457px] h-[90px]">
+          <div className="flex flex-col items-end gap-[15px] w-[457px]">
             {/* Task complexity */}
-            <div className="flex flex-row items-end gap-[20px] w-[452px] h-[20px]">
-              <span className="w-[132px] h-[19px] text-[16px] leading-[120%] text-right text-white whitespace-nowrap">
+            <div className="flex items-center gap-[20px] w-full">
+              <span className="w-[140px] text-[16px] text-right text-white">
                 Task complexity
               </span>
-              <div className="flex flex-row items-center p-[2px] gap-[10px] w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px]">
-                <div 
-                  className="w-[16px] h-[16px] bg-gradient-to-r from-[#FB9696] to-[#FA6666] rounded-[100px]"
-                  style={{ marginLeft: `${evaluation.taskComplexity - 8}%` }}
+              <div className="relative flex items-center w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+                <div
+                  className="h-full rounded-[32px] z-[2]"
+                  style={{
+                    width: `${evaluation.taskComplexity}%`,
+                    background: "linear-gradient(to right, #FB9696, #FA6666)"
+                  }}
                 ></div>
               </div>
             </div>
-            
+
             {/* Time commitment */}
-            <div className="flex flex-row items-end gap-[20px] w-[457px] h-[20px]">
-              <span className="w-[137px] h-[19px] text-[16px] leading-[120%] text-right text-white">
+            <div className="flex items-center gap-[20px] w-full">
+              <span className="w-[140px] text-[16px] text-right text-white">
                 Time commitment
               </span>
-              <div className="flex flex-row items-center p-[2px] gap-[10px] w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px]">
-                <div 
-                  className="w-[16px] h-[16px] bg-gradient-to-r from-[#D78DE5] to-[#C865DC] rounded-[100px]"
-                  style={{ marginLeft: `${evaluation.timeCommitment - 8}%` }}
+              <div className="relative flex items-center w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+                <div
+                  className="h-full rounded-[32px] z-[2]"
+                  style={{
+                    width: `${evaluation.timeCommitment}%`,
+                    background: "linear-gradient(to right, #D78DE5, #C865DC)"
+                  }}
                 ></div>
               </div>
             </div>
-            
+
             {/* Skill level */}
-            <div className="flex flex-row items-end gap-[20px] w-[390px] h-[20px]">
-              <span className="w-[70px] h-[19px] text-[16px] leading-[120%] text-right text-white">
+            <div className="flex items-center gap-[20px] w-full">
+              <span className="w-[140px] text-[16px] text-right text-white">
                 Skill level
               </span>
-              <div className="flex flex-row items-center p-[2px] gap-[10px] w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px]">
-                <div 
-                  className="w-[16px] h-[16px] bg-gradient-to-r from-[#6DDFFF] to-[#38D3FF] rounded-[100px]"
-                  style={{ marginLeft: `${evaluation.skillLevel - 8}%` }}
+              <div className="relative flex items-center w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+                <div
+                  className="h-full rounded-[32px] z-[2]"
+                  style={{
+                    width: `${evaluation.skillLevel}%`,
+                    background: "linear-gradient(to right, #6DDFFF, #38D3FF)"
+                  }}
                 ></div>
               </div>
             </div>
