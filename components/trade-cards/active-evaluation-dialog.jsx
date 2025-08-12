@@ -4,7 +4,14 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 
 const StarLogo = () => (
-  <svg width="100" height="100" viewBox="0 0 162 181" fill="none" xmlns="http://www.w3.org/2000/svg" className="filter drop-shadow-[0px_4px_40px_#D78DE5]">
+  <svg
+    width="200"
+    height="200"
+    viewBox="0 0 162 181"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className="filter drop-shadow-[0px_4px_40px_#D78DE5]"
+  >
     <g filter="url(#filter0_d_2180_7319)">
       <path d="M81 136.5L90.0723 86.5L81 36.5L71.9277 86.5L81 136.5Z" fill="white"/>
       <path d="M40.5917 55.6433L79.8637 94.3593L91.2485 78.4686L40.5917 55.6433Z" fill="#0038FF"/>
@@ -28,15 +35,13 @@ const StarLogo = () => (
 );
 
 export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
-  // Default values that can be easily adjusted
   const [evaluation, setEvaluation] = useState({
     tradeScore: 8,
     taskComplexity: 60,
     timeCommitment: 50,
     skillLevel: 80,
   });
-  
-  // Update evaluation if tradeData includes these values
+
   useEffect(() => {
     if (tradeData) {
       setEvaluation(prev => ({
@@ -48,10 +53,9 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
       }));
     }
   }, [tradeData]);
-  
+
   if (!isOpen) return null;
 
-  // Default data if not provided
   const data = tradeData || {
     requestTitle: "Nutrition Coaching for Weight Loss",
     offerTitle: "Yoga Instruction",
@@ -62,84 +66,76 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
     <div className="fixed inset-0 flex items-center justify-center z-50">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
-      
+
       {/* Dialog */}
-      <div className="relative w-[900px] h-[650px] flex flex-col justify-center items-center p-[80px_60px] bg-black/10 shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[50px] rounded-[15px] z-50 isolate">
+      <div className="relative w-[940px] h-[790px] flex flex-col justify-center items-center p-[80px_60px] bg-black/10 shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[50px] rounded-[15px] z-60 isolate">
         {/* Close button */}
-        <button 
-          className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+        <button
+          className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] transition-colors"
           onClick={onClose}
           aria-label="Close dialog"
         >
-          <X className="w-[15px] h-[15px]" />
+          <X className="w-[20px] h-[20px]" />
         </button>
-        
+
         {/* Background glow effects */}
         <div className="absolute w-[942px] h-[218px] left-[-1px] top-0 z-[1]">
-          {/* Indigo glow left */}
           <div className="absolute w-[421px] h-[218px] left-[calc(50%-421px/2-260.5px)] top-0 bg-[#906EFF] blur-[175px]"></div>
-          {/* Blue glow right */}
           <div className="absolute w-[421px] h-[218px] left-[calc(50%-421px/2+260.5px)] top-0 bg-[#0038FF] blur-[175px]"></div>
-          {/* Indigo glow bottom right */}
           <div className="absolute w-[225px] h-[105.09px] left-[calc(50%-225px/2+283.5px)] top-[83.85px] bg-[#906EFF] blur-[60px]"></div>
-          {/* Blue glow bottom left */}
           <div className="absolute w-[225px] h-[105.09px] left-[calc(50%-225px/2-283.5px)] top-[83.85px] bg-[#0038FF] blur-[60px]"></div>
         </div>
-        
+
         {/* Content container */}
         <div className="flex flex-col justify-center items-center gap-[40px] w-[792px] h-[513px] z-[2]">
-          {/* Header section with titles */}
-          <div className="flex flex-col items-center gap-[25px] w-[792px] h-[100px]">
-            <div className="flex flex-row justify-between items-start gap-[35px] w-[792px] h-[100px]">
-              {/* Left side - Request */}
-              <div className="flex flex-col items-start gap-[15px] w-[300px] h-[100px]">
-                <h3 className="w-[300px] h-[60px] font-bold text-[25px] leading-[120%] text-white">
+          {/* Header section */}
+          <div className="flex flex-col items-center gap-[25px] w-[792px] h-[150px]">
+            <div className="flex flex-row justify-between items-center w-[792px] h-[150px]">
+              {/* Left side */}
+              <div className="flex flex-col items-start justify-between w-[300px] h-full">
+                <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-white">
                   {data.requestTitle}
                 </h3>
-                <p className="w-[300px] h-[19px] text-[16px] leading-[120%] text-white mt-6">
+                <p className="w-[300px] text-[16px] font-[400] leading-[120%] text-white">
                   What you'll provide
                 </p>
               </div>
-              
+
               {/* Center - Logo */}
-              <div className="w-[100px] h-[100px]">
+              <div className="flex items-center justify-center w-[200px] h-[200px]">
                 <StarLogo />
               </div>
-              
-              {/* Right side - Offer */}
-              <div className="flex flex-col items-center gap-[15px] w-[300px] h-[100px]">
-                <h3 className="w-[300px] h-[60px] font-bold text-[25px] leading-[120%] text-right text-white">
+
+              {/* Right side */}
+              <div className="flex flex-col items-end justify-between w-[300px] h-full">
+                <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-right text-white">
                   {data.offerTitle}
                 </h3>
-                <p className="w-[300px] h-[19px] text-[16px] leading-[120%] text-right text-white mt-6">
+                <p className="w-[300px] text-[16px] font-[400] leading-[120%] text-right text-white">
                   What you'll get in return
                 </p>
               </div>
             </div>
           </div>
-          
-          {/* Trade assessment section */}
+
+          {/* Trade assessment */}
           <div className="flex flex-col items-center gap-[15px] w-[300px] h-[83px]">
-            {/* Progress bar */}
-            <div className="relative flex items-center w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
-              {/* Filled part */}
+            <div className="relative flex items-center w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px]">
               <div
-                className="h-full rounded-[32px] z-[2]"
+                className="h-full rounded-[30px] z-[2]"
                 style={{
-                  width: `${(evaluation.tradeScore / 10) * 100}%`,
+                  width: `calc(${(evaluation.tradeScore / 10) * 100}% - 4px)`,
                   background: "linear-gradient(to right, #FB9696, #D78DE5, #7E59F8, #284CCC, #6DDFFF)"
                 }}
               ></div>
-              {/* Background overlay */}
-              <div className="absolute inset-0 bg-white opacity-35 z-[1]"></div>
+              <div className="absolute top-[2px] left-[2px] right-[2px] bottom-[2px] bg-white opacity-35 z-[1] rounded-[30px]"></div>
             </div>
 
-            {/* Trade assessment text */}
             <div className="flex flex-col items-center gap-[5px] w-[110px] h-[48px]">
-              <h4 className="font-bold text-[20px] text-center text-white">
+              <h4 className="font-[700] text-[20px] text-center text-white">
                 Good trade
               </h4>
-              <p className="text-[16px] text-center text-white">
+              <p className="text-[16px] font-[400] text-center text-white">
                 {evaluation.tradeScore} out of 10
               </p>
             </div>
@@ -152,11 +148,12 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
               <span className="w-[140px] text-[16px] text-right text-white">
                 Task complexity
               </span>
-              <div className="relative flex items-center w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+
+              <div className="relative flex items-center w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px]">
                 <div
-                  className="h-full rounded-[32px] z-[2]"
+                  className="h-full rounded-[30px]"
                   style={{
-                    width: `${evaluation.taskComplexity}%`,
+                    width: `calc(${evaluation.taskComplexity}% - 4px)`, // bawas para sa padding
                     background: "linear-gradient(to right, #FB9696, #FA6666)"
                   }}
                 ></div>
@@ -168,11 +165,12 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
               <span className="w-[140px] text-[16px] text-right text-white">
                 Time commitment
               </span>
-              <div className="relative flex items-center w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+
+              <div className="relative flex items-center w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px]">
                 <div
-                  className="h-full rounded-[32px] z-[2]"
+                  className="h-full rounded-[30px]"
                   style={{
-                    width: `${evaluation.timeCommitment}%`,
+                    width: `calc(${evaluation.timeCommitment}% - 4px)`,
                     background: "linear-gradient(to right, #D78DE5, #C865DC)"
                   }}
                 ></div>
@@ -184,19 +182,20 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
               <span className="w-[140px] text-[16px] text-right text-white">
                 Skill level
               </span>
-              <div className="relative flex items-center w-[300px] h-[20px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+
+              <div className="relative flex items-center w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px]">
                 <div
-                  className="h-full rounded-[32px] z-[2]"
+                  className="h-full rounded-[30px]"
                   style={{
-                    width: `${evaluation.skillLevel}%`,
+                    width: `calc(${evaluation.skillLevel}% - 4px)`,
                     background: "linear-gradient(to right, #6DDFFF, #38D3FF)"
                   }}
                 ></div>
               </div>
             </div>
           </div>
-          
-          {/* Feedback section */}
+
+          {/* Feedback */}
           <div className="flex flex-col items-start gap-[15px] w-[792px] h-[110px]">
             <div className="flex flex-row items-center gap-[15px] w-[792px] h-[19px]">
               <svg width="15" height="16" viewBox="0 0 15 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -211,9 +210,9 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
             </p>
           </div>
         </div>
-        
+
         {/* Disclaimer */}
-        <p className="absolute w-[847px] h-[19px] left-[calc(50%-847px/2+4.5px)] bottom-[25px] text-[12px] leading-[120%] text-center text-white/80 opacity-60 z-[3]">
+        <p className="absolute w-[847px] h-[19px] left-[calc(50%-847px/2+4.5px)] bottom-[34px] text-[15px] leading-[120%] text-center text-white/80 opacity-60 z-[3]">
           This response is generated by AI and may be inaccurate sometimes. This should only serve as a guide for users.
         </p>
       </div>
