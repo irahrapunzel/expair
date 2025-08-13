@@ -67,7 +67,7 @@ export default function Navbar() {
 
   return (
     <header
-      className={`${inter.className} w-full py-6 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
+      className={`${inter.className} w-full py-4 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
     >
       <div className="flex items-center justify-between max-w-[1440px] mx-auto px-6 sm:px-[250px]">
         {/* Logo and Button */}
@@ -91,22 +91,40 @@ export default function Navbar() {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center bg-[#120A2A] rounded-[20px] w-[337px] h-[60px] overflow-hidden">
           <Link href="/home" className="flex-1 h-full">
-            <button className="w-full h-full text-white font-normal hover:bg-[#1A0F3E] rounded-[20px]">
+            <button
+              className={`w-full h-full transition text-white hover:text-[#6C8BFF] ${
+                pathname === "/home" ? "font-semibold text-[#0038FF]" : ""
+              }`}
+            >
               Home
             </button>
           </Link>
+
           <Link href="/home/help" className="flex-1 h-full">
-            <button className="w-full h-full text-white font-normal hover:bg-[#1A0F3E] rounded-[20px]">
+            <button
+              className={`w-full h-full transition text-white hover:text-[#6C8BFF] ${
+                pathname === "/home/help" ? "font-semibold text-[#0038FF]" : ""
+              }`}
+            >
               Help
             </button>
           </Link>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex-1 h-full text-white font-normal flex items-center justify-center gap-1 hover:bg-[#1A0F3E] rounded-[20px]">
+              <button
+                className={`flex-1 h-full transition text-white hover:text-[#6C8BFF] flex items-center justify-center gap-1 ${
+                  pathname.startsWith("/home/trades")
+                    ? "font-semibold text-[#0038FF]"
+                    : ""
+                }`}
+              >
                 Trades <ChevronDown className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-[#15042C] text-white border border-[#2B124C]">
+
+            {/* dropdown menu content unchanged */}
+            <DropdownMenuContent className="bg-[#120A2A] text-white border border-[#2B124C] rounded-[15px] shadow-[0_5px_15px_rgba(0,0,0,0.25)]">
               <Link href="/home/trades/pending">
                 <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
                   Pending
