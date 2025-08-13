@@ -29,24 +29,36 @@ export default function ConfirmDialog({
   const handleGoToActiveTrades = () => {
     setShowSuccess(false);
     if (setSelectedPartner) setSelectedPartner(null);
+    if (onConfirm) onConfirm(); // Call the parent callback to close all dialogs
     router.push("/home/trades/active");
+  };
+
+  // Handle close with proper cleanup
+  const handleClose = () => {
+    setShowSuccess(false);
+    setSubmitting(false);
+    onClose();
   };
 
   return (
     <>
       {/* Main Confirm Dialog */}
       {isOpen && !showSuccess && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-[60]">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={handleClose}
+          ></div>
 
           {/* Dialog */}
           <div className="relative w-[940px] h-[274px] flex flex-col justify-center items-center p-[98.5px_74px] bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 isolate">
             {/* Close button */}
             <button
               className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Close dialog"
+              type="button"
             >
               <X className="w-[15px] h-[15px]" />
             </button>
@@ -65,6 +77,7 @@ export default function ConfirmDialog({
                     className="flex flex-row justify-center items-center p-[16px] gap-[10px] w-[70px] h-[70px] filter drop-shadow-[0px_0px_15px_#284CCC] cursor-pointer relative disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={handleConfirm}
                     disabled={submitting}
+                    type="button"
                   >
                     <div className="absolute inset-0 bg-[#0038FF] rounded-[100px]"></div>
                     <Check className="w-[35px] h-[25px] text-white z-10" />
@@ -81,7 +94,7 @@ export default function ConfirmDialog({
                 Please exercise caution when proceeding with trades with other
                 users. Expair is not liable for any losses arising from this
                 trade. All trades are handled solely by its users and it is the
-                user’s discretion.
+                user's discretion.
               </p>
             </div>
           </div>
@@ -90,7 +103,7 @@ export default function ConfirmDialog({
 
       {/* Success Dialog */}
       {showSuccess && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70]">
           <div
             className="w-[618px] h-[274px] flex flex-col items-center justify-center p-[50px] relative"
             style={{
@@ -105,9 +118,10 @@ export default function ConfirmDialog({
             <button
               onClick={() => {
                 setShowSuccess(false);
-                onClose();
+                if (onConfirm) onConfirm(); // Close all dialogs including parent
               }}
               className="absolute top-[26px] right-[26px] text-white hover:text-gray-300"
+              type="button"
             >
               <Icon icon="lucide:x" className="w-[15px] h-[15px]" />
             </button>
@@ -120,6 +134,7 @@ export default function ConfirmDialog({
               <button
                 onClick={handleGoToActiveTrades}
                 className="w-[258px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                type="button"
               >
                 Go to Active Trades
               </button>

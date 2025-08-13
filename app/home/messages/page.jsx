@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Inter, Archivo } from "next/font/google";
 import { Icon } from "@iconify/react";
 import MessageList from "../../../components/messages/message-list";
 import MessageConversation from "../../../components/messages/message-conversation";
+import { useMessageStore } from "../../../stores/messageStore";
 
 const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
@@ -318,6 +319,12 @@ export default function MessagesPage() {
       }
     }
   ]);
+  const { checkUnreadMessages } = useMessageStore();
+
+  // ✅ Update global state when conversations change
+  useEffect(() => {
+    checkUnreadMessages(conversations);
+  }, [conversations, checkUnreadMessages]);
   
   // Function to update message in a conversation, update the sidebar preview, and move to top
   const updateConversation = (conversationId, newMessage) => {
@@ -372,8 +379,8 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className={`w-full px-[67px] mx-auto text-white ${inter.className} h-screen flex flex-col overflow-hidden`}>
-      <div className="flex gap-6 h-[calc(100vh-80px)] overflow-hidden">
+    <div className={`w-full px-[67px] py-10 mx-auto text-white ${inter.className} h-full flex flex-col`}>
+      <div className="flex-1 flex gap-6 min-h-0">
         {/* Left side - Message list */}
         <MessageList 
           conversations={conversations}

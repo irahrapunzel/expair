@@ -55,6 +55,59 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData }) {
       }));
     }
   }, [tradeData]);
+
+  // Handle close with proper event handling and state reset
+  const handleClose = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    // Reset all dialog states when closing
+    setShowConfirmDialog(false);
+    setShowRejectDialog(false);
+    onClose();
+  };
+
+  // Handle backdrop click
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      handleClose(e);
+    }
+  };
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen]);
+
+  // Reset dialog states when main dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setShowConfirmDialog(false);
+      setShowRejectDialog(false);
+    }
+  }, [isOpen]);
+
+  // Handle confirm dialog completion
+  const handleConfirmComplete = () => {
+    setShowConfirmDialog(false);
+    handleClose(); // Close the main evaluation dialog
+  };
+
+  // Handle reject dialog completion  
+  const handleRejectComplete = () => {
+    setShowRejectDialog(false);
+    handleClose(); // Close the main evaluation dialog
+  };
   
   if (!isOpen) return null;
 
@@ -68,15 +121,20 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData }) {
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
+      <div 
+        className="absolute inset-0 bg-black/50" 
+        onClick={handleBackdropClick}
+      ></div>
       
       {/* Dialog */}
       <div className="relative w-[940px] h-[790px] flex flex-col justify-center items-center p-[98.5px_74px] bg-black/10 shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[50px] rounded-[15px] z-50 isolate">
-        {/* Close button */}
+        {/* Close button - Enhanced with better positioning and hover effects */}
         <button 
-          className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] transition-colors"
-          onClick={onClose}
+          className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] transition-all duration-200 hover:bg-white/10 hover:text-[#D78DE5] rounded-full z-[100]"
+          onClick={handleClose}
+          onMouseDown={(e) => e.stopPropagation()}
           aria-label="Close dialog"
+          type="button"
         >
           <X className="w-[20px] h-[20px]" />
         </button>
@@ -225,8 +283,12 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData }) {
             
             {/* Reject button */}
             <button 
-              className="flex flex-row justify-center items-center p-[16px] gap-[10px] w-[70px] h-[70px] filter drop-shadow-[0px_0px_15px_#284CCC] z-[1] cursor-pointer"
-              onClick={() => setShowRejectDialog(true)}
+              className="flex flex-row justify-center items-center p-[16px] gap-[10px] w-[70px] h-[70px] filter drop-shadow-[0px_0px_15px_#284CCC] z-[1] cursor-pointer hover:scale-105 transition-transform"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowRejectDialog(true);
+              }}
+              type="button"
             >
               <div className="absolute left-0 right-0 top-0 bottom-0 bg-[#0038FF] rounded-[100px] z-0"></div>
               <X className="w-[25px] h-[25px] text-white z-[1]" />
@@ -234,8 +296,12 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData }) {
             
             {/* Confirm button */}
             <button 
-              className="flex flex-row justify-center items-center p-[16px] gap-[10px] w-[70px] h-[70px] filter drop-shadow-[0px_0px_15px_#284CCC] z-[2] cursor-pointer"
-              onClick={() => setShowConfirmDialog(true)}
+              className="flex flex-row justify-center items-center p-[16px] gap-[10px] w-[70px] h-[70px] filter drop-shadow-[0px_0px_15px_#284CCC] z-[2] cursor-pointer hover:scale-105 transition-transform"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowConfirmDialog(true);
+              }}
+              type="button"
             >
               <div className="absolute left-0 right-0 top-0 bottom-0 bg-[#0038FF] rounded-[100px] z-0"></div>
               <Check className="w-[35px] h-[25px] text-white rounded-[2px] z-[1]" />
@@ -257,22 +323,14 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData }) {
       <ConfirmDialog 
         isOpen={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}
-        onConfirm={() => {
-          setShowConfirmDialog(false);
-          onClose();
-          // Here you would handle the trade confirmation
-        }}
+        onConfirm={handleConfirmComplete}
       />
       
       {/* Reject Dialog */}
       <RejectDialog
         isOpen={showRejectDialog}
         onClose={() => setShowRejectDialog(false)}
-        onReject={() => {
-          setShowRejectDialog(false);
-          onClose();
-          // Here you would handle the trade rejection
-        }}
+        onReject={handleRejectComplete}
       />
     </div>
   );

@@ -54,6 +54,36 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
     }
   }, [tradeData]);
 
+  // Handle close with proper event handling
+  const handleClose = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    onClose();
+  };
+
+  // Handle backdrop click
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      handleClose(e);
+    }
+  };
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const data = tradeData || {
@@ -65,15 +95,20 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
+      <div 
+        className="absolute inset-0 bg-black/50" 
+        onClick={handleBackdropClick}
+      ></div>
 
       {/* Dialog */}
       <div className="relative w-[940px] h-[790px] flex flex-col justify-center items-center p-[80px_60px] bg-black/10 shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[50px] rounded-[15px] z-60 isolate">
-        {/* Close button */}
+        {/* Close button - Enhanced with better positioning and hover effects */}
         <button
-          className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] transition-colors"
-          onClick={onClose}
+          className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] transition-all duration-200 hover:bg-white/10 hover:text-[#D78DE5] rounded-full z-[100]"
+          onClick={handleClose}
+          onMouseDown={(e) => e.stopPropagation()}
           aria-label="Close dialog"
+          type="button"
         >
           <X className="w-[20px] h-[20px]" />
         </button>

@@ -12,7 +12,8 @@ import { Bell, MessageSquareText, ChevronDown } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { NotificationPortal } from "./notifications/notification-portal";
-import { usePathname } from "next/navigation"; // ✅ For detecting page change
+import { usePathname } from "next/navigation";
+import { useMessageStore } from "../stores/messageStore";
 
 import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
@@ -23,17 +24,17 @@ export default function Navbar() {
   const [bellRect, setBellRect] = useState(null);
 
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(true); // ✅ New state
+  const { hasUnreadMessages, setHasUnreadMessages } = useMessageStore();
 
   const bellRef = useRef(null);
   const pathname = usePathname();
 
-  // ✅ Clear message notification when on messages page
+  // Clear message notification when on messages page
   useEffect(() => {
     if (pathname === "/home/messages") {
       setHasUnreadMessages(false);
     }
-  }, [pathname]);
+  }, [pathname, setHasUnreadMessages]);
 
   // Close notification dialog when clicking outside
   useEffect(() => {
