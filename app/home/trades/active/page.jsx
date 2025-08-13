@@ -119,7 +119,7 @@ export default function ActiveTradesPage() {
         {activeTrades.map((trade) => (
           <div
             key={trade.id}
-            className={`${expandedCardId === trade.id ? 'w-[900px]' : 'w-[621px]'} rounded-[20px] border-[3px] border-[#284CCC]/80 transition-all duration-300 overflow-hidden`}
+            className={`${expandedCardId === trade.id ? 'w-[900px]' : 'w-[621px]'} rounded-[20px] border-[3px] border-[#284CCC]/80 transition-all duration-300 hover:scale-[1.01] overflow-hidden`}
             style={{
               background: "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
               boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)"

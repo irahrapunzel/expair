@@ -546,7 +546,7 @@ export default function HomePage() {
             return sortedPartners.map((partner, index) => (
               <div
                 key={partner.id}
-                className="w-[440px] h-[255px] p-[25px] flex flex-col gap-[15px] rounded-[20px] border-[3px] border-[#284CCC]/80 relative"
+                className="transition-all duration-300 hover:scale-[1.01] w-[440px] p-[25px] flex flex-col gap-[15px] rounded-[20px] border-[3px] border-[#284CCC]/80 relative"
                 style={{
                   background: "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
                   boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",

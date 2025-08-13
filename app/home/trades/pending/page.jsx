@@ -130,7 +130,7 @@ export default function PendingTradesPage() {
           {postedTrades.map((trade, index) => (
             <div
               key={trade.id}
-              className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+              className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
               style={{
                 background: "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
                 boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)"
@@ -231,7 +231,7 @@ export default function PendingTradesPage() {
           {initiatedTrades.map((trade, index) => (
             <div
               key={trade.id}
-              className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#FB9696]/80"
+              className="transition-all duration-300 hover:scale-[1.01]transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#FB9696]/80"
               style={{
                 background: "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
                 boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)"
@@ -323,7 +323,7 @@ export default function PendingTradesPage() {
           {finalizationTrades.map((trade, index) => (
             <div
               key={trade.id}
-              className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#6DDFFF]/80"
+              className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#6DDFFF]/80"
               style={{
                 background: "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
                 boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)"
