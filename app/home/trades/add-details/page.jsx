@@ -44,7 +44,7 @@ export default function AddTradeDetailsPage() {
       <div className="fixed w-[673px] h-[673px] right-[-354px] bottom-[-454px] bg-[#0038FF] opacity-35 blur-[200px] z-0"></div>
       
       {/* Main content */}
-      <div className="relative z-10 max-w-[940px] w-full mx-auto pt-[100px] md:pt-[183px] pb-[100px] px-4 md:px-6 flex flex-col items-center">
+      <div className="relative z-10 max-w-[940px] w-full mx-auto pt-[23px] md:pt-[50px] pb-[100px] px-4 md:px-6 flex flex-col items-center">
         <h1 className="text-[25px] font-semibold mb-[34px] w-full">Adding trade details</h1>
         
         <div className="w-full flex flex-col md:flex-row justify-between gap-8 md:gap-[30px]">
@@ -169,7 +169,7 @@ export default function AddTradeDetailsPage() {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="DD/MM/YYYY"
+                  placeholder="MM/DD/YYYY"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
                   className="w-full h-[50px] bg-[#120A2A] border border-white/40 rounded-[15px] px-[18px] py-[15px] text-[16px] text-white outline-none placeholder:text-[#413663]"

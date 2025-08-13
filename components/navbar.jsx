@@ -12,6 +12,7 @@ import { Bell, MessageSquareText, ChevronDown } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { NotificationPortal } from "./notifications/notification-portal";
+import { usePathname } from "next/navigation"; // ✅ For detecting page change
 
 import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
@@ -20,14 +21,24 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [bellRect, setBellRect] = useState(null);
+
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(true); // ✅ New state
+
   const bellRef = useRef(null);
+  const pathname = usePathname();
+
+  // ✅ Clear message notification when on messages page
+  useEffect(() => {
+    if (pathname === "/home/messages") {
+      setHasUnreadMessages(false);
+    }
+  }, [pathname]);
 
   // Close notification dialog when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (bellRef.current && !bellRef.current.contains(event.target)) {
-        // Check if the click is on the notification portal
         const notificationPortal = document.querySelector(
           "[data-notification-portal]"
         );
@@ -37,14 +48,12 @@ export default function Navbar() {
         setNotificationOpen(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
-  // Handle notification toggle
   const toggleNotification = () => {
     if (!notificationOpen && bellRef.current) {
       setBellRect(bellRef.current.getBoundingClientRect());
@@ -52,7 +61,6 @@ export default function Navbar() {
     setNotificationOpen(!notificationOpen);
   };
 
-  // Function to handle when all notifications are read
   const handleAllNotificationsRead = () => {
     setHasUnreadNotifications(false);
   };
@@ -92,7 +100,6 @@ export default function Navbar() {
               Help
             </button>
           </Link>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex-1 h-full text-white font-normal flex items-center justify-center gap-1 hover:bg-[#1A0F3E] rounded-[20px]">
@@ -119,7 +126,9 @@ export default function Navbar() {
           <Link href="/home/messages">
             <div className="relative cursor-pointer">
               <MessageSquareText className="text-white w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full" />
+              {hasUnreadMessages && (
+                <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full" />
+              )}
             </div>
           </Link>
           <div className="relative" ref={bellRef}>

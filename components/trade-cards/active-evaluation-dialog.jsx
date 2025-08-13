@@ -87,7 +87,7 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
         </div>
 
         {/* Content container */}
-        <div className="flex flex-col justify-center items-center gap-[40px] w-[792px] h-[513px] z-[2]">
+        <div className="flex flex-col justify-center items-center gap-[40px] w-[792px] h-[613px] z-[2]">
           {/* Header section */}
           <div className="flex flex-col items-center gap-[25px] w-[792px] h-[150px]">
             <div className="flex flex-row justify-between items-center w-[792px] h-[150px]">

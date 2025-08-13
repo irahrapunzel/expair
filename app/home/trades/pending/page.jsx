@@ -295,7 +295,7 @@ export default function PendingTradesPage() {
                 </div>
                 <div className="flex flex-col items-end gap-[10px]">
                   <span className="text-[13px] text-white">Can offer</span>
-                  <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
+                  <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
                     <span className="text-[13px] text-white leading-tight">{trade.offers}</span>
                   </div>
                 </div>
@@ -376,7 +376,7 @@ export default function PendingTradesPage() {
                 {/* Offers */}
                 <div className="flex flex-col items-end gap-[10px]">
                   <span className="text-[13px] text-white">Can offer</span>
-                  <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
+                  <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
                     <span className="text-[13px] text-white leading-tight">{trade.offers}</span>
                   </div>
                 </div>

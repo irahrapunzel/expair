@@ -40,7 +40,8 @@ export default function ClientLayout({ children }) {
   // Bagong condition para hindi magpakita ang footer sa request at messages page
   const hideFooterPages =
     pathname.startsWith('/home/request') ||
-    pathname.startsWith('/home/messages');
+    pathname.startsWith('/home/messages') ||
+    pathname.startsWith('/home/trades/add-details');
 
   return (
     <QueryClientProvider client={queryClient}>
