@@ -106,23 +106,6 @@ export default function Step3({ onNext, onPrev }) {
                 onChange={handlePhotoChange}
               />
             </div>
-
-            <p className="text-white font-[500] text-[18px] sm:text-[20px] mb-[12px] sm:mb-[15px] text-center w-full">
-              Connect your socials
-            </p>
-            <div className="flex gap-[20px] sm:gap-[40px] flex-wrap justify-center">
-              {socialProviders.map(({ src, alt, provider }) => (
-                <Image
-                  key={alt}
-                  src={src}
-                  width={35}
-                  height={35}
-                  alt={alt}
-                  className="cursor-pointer rounded-[8px] sm:rounded-[10px]"
-                  onClick={() => handleSocialSignUp(provider)}
-                />
-              ))}
-            </div>
           </div>
 
           {/* Middle and Right columns */}
