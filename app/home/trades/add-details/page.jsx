@@ -46,7 +46,7 @@ export default function AddTradeDetailsPage() {
       {/* Main content */}
       <div className="relative z-10 max-w-[940px] w-full mx-auto pt-[23px] md:pt-[50px] pb-[100px] px-4 md:px-6 flex flex-col items-center">
         <h1 className="text-[25px] font-semibold mb-[34px] w-full">Adding trade details</h1>
-        
+
         <div className="w-full flex flex-col md:flex-row justify-between gap-8 md:gap-[30px]">
           {/* Left column */}
           <div className="w-full md:w-[400px] flex flex-col gap-[20px]">
