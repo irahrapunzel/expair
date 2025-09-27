@@ -1,5 +1,6 @@
 "use client";
 
+import { createClient } from "@/lib/supabaseClient";
 import { useState } from "react";
 import { Input } from "../../../components/ui/input";
 import { Button } from "../../../components/ui/button";
@@ -21,27 +22,19 @@ export default function ForgotPasswordPage() {
       if (!email) {
         throw new Error("Please enter your email.");
       }
+      // Call Supabase to send the password reset email.
+      // The 'redirectTo' path must be set to the page where the user will land
+      // after clicking the link (i.e., your /reset-password page).
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
 
-      // API call to your Django backend
-      const response = await fetch(
-        "http://127.0.0.1:8000/forgot-password/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || "Failed to send password reset link."
-        );
+      if (error) {
+        throw new Error(error.message || "Failed to send password reset link.");
       }
 
-      return response.json();
+      // Return data so onSuccess fires
+      return { success: true };
     },
     onSuccess: () => {
       router.push("/verify-code");
@@ -52,7 +45,7 @@ export default function ForgotPasswordPage() {
       setErrorMessage(error.message);
     },
   });
-  
+
   return (
     <div
       className={`min-h-screen flex items-center justify-center bg-cover bg-center text-white px-4 ${inter.className}`}

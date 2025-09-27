@@ -1,5 +1,6 @@
 "use client";
 
+import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect } from "react";
 import { useSession, signIn } from "next-auth/react";
 import Step1 from "./steps/step1";
@@ -16,36 +17,106 @@ export default function RegisterFlow() {
   const [step, setStep] = useState(1);
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [isRegistering, setIsRegistering] = useState(false); // <--- ADD THIS LINE
+  const [error, setError] = useState(null); // <--- ADD THIS LINE
 
+  // REWRITTEN: Function to handle the final submission on Step 6
   const completeRegistration = async () => {
-  try {
-    // Clear registration flags
-    setIsRegistering(false);
-    sessionStorage.removeItem('registrationComplete');
-    sessionStorage.removeItem('userEmail');
-    
-    // Sign in the user automatically using their credentials from step1Data
-    const result = await signIn('credentials', {
-      identifier: step1Data.username || step1Data.email,
-      password: step1Data.password,
-      redirect: false, // Don't redirect automatically
-    });
-    
-    if (result?.ok) {
-      // Successfully signed in, redirect to home
-      router.push("/home");
-    } else {
-      // Sign in failed, redirect to signin page
-      router.push("/signin?message=registration_complete_signin_required");
+    let userId = null;
+
+    try {
+      // 1. GET SUPABASE USER ID
+      // Assuming the Supabase Auth user was successfully created in a prior step
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        // If the user isn't logged in, we can't insert the profile. This might indicate
+        // that the Supabase sign-up step (often done in Step 1/6) failed.
+        throw new Error(
+          "Supabase Auth user not found. Cannot insert profile data."
+        );
+      }
+      userId = user.id;
+
+      const { data: newUser, error: userError } = await supabase
+        .from("users_tbl")
+        .insert([
+          {
+            auth_uuid: authUUID, // 👈 NEW
+            first_name: step1Data.firstName,
+            last_name: step1Data.lastName,
+            username: step1Data.username,
+            email: step1Data.email,
+            bio: step3Data.introduction || null,
+            links: (step3Data.links || []).filter((l) => l.trim()).join(", "),
+            location: step2Data.searchQuery || null,
+          },
+        ])
+        .select("user_id")
+        .single();
+
+      if (userError) throw userError;
+      const newUserId = userInsert.user_id;
+
+      // step5Data contains selected categories as IDs
+      if (Array.isArray(step5Data) && step5Data.length > 0) {
+        const interestsPayload = step5Data.map((catId) => ({
+          user_id: newUserId,
+          genskills_id: Number(catId),
+        }));
+
+        const { error: interestsError } = await supabase
+          .from("userinterests_tbl")
+          .insert(interestsPayload);
+
+        if (interestsError) throw interestsError;
+      }
+
+      const specializationIds = Object.values(checkedOptions).flat();
+      if (specializationIds.length > 0) {
+        const specPayload = specializationIds.map((specId) => ({
+          user_id: newUserId,
+          specskills_id: specId,
+        }));
+
+        const { error: specError } = await supabase
+          .from("users_specskills")
+          .insert(specPayload);
+
+        if (specError) throw specError;
+      }
+
+      // 3. CLEANUP AND NEXTAUTH SIGN-IN (Original logic follows)
+      // Only proceed with cleanup and sign-in if profile insertion was successful
+
+      // Clear registration flags
+      setIsRegistering(false);
+      sessionStorage.removeItem("registrationComplete");
+      sessionStorage.removeItem("userEmail");
+
+      // Sign in the user automatically using their credentials from step1Data
+      const result = await signIn("credentials", {
+        identifier: step1Data.username || step1Data.email,
+        password: step1Data.password,
+        redirect: false,
+      });
+
+      if (result?.ok) {
+        setStep(7);
+      } else {
+        router.push("/signin?message=registration_complete_signin_required");
+      }
+    } catch (error) {
+      console.error("Registration finalization failed:", error);
+      // If anything fails (DB insert or sign-in), redirect to sign-in
+      router.push("/signin?message=registration_complete");
     }
-  } catch (error) {
-    console.error("Auto sign-in failed:", error);
-    router.push("/signin?message=registration_complete");
-  }
-};
+  };
 
   // Prevent step reset when session changes during registration
-  const [isRegistering, setIsRegistering] = useState(false);
+  // (Removed duplicate isRegistering state declaration)
 
   // Hold step data
   const [step1Data, setStep1Data] = useState({
@@ -125,13 +196,14 @@ export default function RegisterFlow() {
   // Handle session changes - only redirect if not in registration flow
   useEffect(() => {
     // Don't redirect during registration or post-registration onboarding
-    const inPostRegFlow = sessionStorage.getItem('postRegistrationFlow') === 'true';
-    
+    const inPostRegFlow =
+      sessionStorage.getItem("postRegistrationFlow") === "true";
+
     if (isRegistering || step >= 7 || inPostRegFlow) {
       console.log("Skipping redirect - in registration/onboarding flow");
       return;
     }
-    
+
     if (status === "authenticated" && session) {
       // User is already signed in and not in registration/onboarding
       console.log("User already authenticated, redirecting to home");
@@ -188,14 +260,17 @@ export default function RegisterFlow() {
           step4Data={step4Data}
           step5Data={step5Data}
           step6Data={step6Data}
-          onDataSubmit={handleStep6Submit}
-          onNext={nextStep}
-          onPrev={prevStep}
+          onConfirm={completeRegistration}
+          isSubmitting={isRegistering}
         />
       )}
-      
-      {step === 7 && <Onboarding1 onNext={() => setStep(8)} onPrev={() => setStep(6)} />}
-      {step === 8 && <Onboarding2 onNext={completeRegistration} onPrev={() => setStep(7)} />}
+
+      {step === 7 && (
+        <Onboarding1 onNext={() => setStep(8)} onPrev={() => setStep(6)} />
+      )}
+      {step === 8 && (
+        <Onboarding2 onNext={completeRegistration} onPrev={() => setStep(7)} />
+      )}
     </div>
   );
 }

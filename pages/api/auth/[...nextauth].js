@@ -1,32 +1,24 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import CredentialsProvider from "next-auth/providers/credentials";
+import { SupabaseAdapter } from "@next-auth/supabase-adapter";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 
-// Helper: decode JWT exp (ms) without verifying
-function decodeJwtExp(token) {
-  try {
-    const [, payload] = token.split(".");
-    const json = JSON.parse(Buffer.from(payload, "base64").toString("utf8"));
-    if (json && typeof json.exp === "number") return json.exp * 1000; // ms
-  } catch (e) {
-    console.error("Error decoding JWT:", e);
-  }
-  return null;
-}
-
 export default NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: "jwt",
-    maxAge: 60 * 60 * 24 * 7,  // 7 days
-    updateAge: 60 * 60 * 2,    // Update session every 2 hours
+
+  // 1. Add the Supabase Adapter
+  adapter: SupabaseAdapter({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    secret: process.env.SUPABASE_SERVICE_ROLE_KEY, // Use the SERVICE_ROLE_KEY here
+  }),
+
+  // 2. Change session strategy to database to use the adapter
+  session: { 
+    strategy: "database", // Must be 'database' when using the adapter
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  
-  jwt: {
-    maxAge: 60 * 60 * 24 * 7,  // 7 days
-  },
+
   debug: process.env.NODE_ENV === "development",
 
   providers: [
