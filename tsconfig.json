@@ -28,12 +28,29 @@
     ],
     "strictNullChecks": true
   },
-  "include": [
-    "next-env.d.ts",
-    ".next/types/**/*.ts",
-    "**/*.ts",
-    "**/*.tsx"
-  ],
+"include": [
+  "next-env.d.ts",
+  ".next/types/**/*.ts",
+  ".next/types/**/*.tsx",
+  ".next/types/**/*.js",
+  ".next/types/**/*.jsx",
+  "**/*.ts",
+  "**/*.tsx",
+  "**/*.js",
+  "**/*.jsx",
+  "app/api/classify/route.js",
+  "app/api/embeddings/profile/route.js",
+  "app/api/_stub/data.js",
+  "app/api/embeddings/request/route.js",
+  "app/api/embeddings/skill/route.js",
+  "app/api/evaluate/route.js",
+  "app/api/match/route.js",
+  "app/api/rag/histories/route.js",
+  "app/api/text-to-stars/route.js",
+  "app/api/rag/query/route.js",
+  "lib/ai.js",
+  "lib/rag.js"
+],
   "exclude": [
     "node_modules"
   ]
