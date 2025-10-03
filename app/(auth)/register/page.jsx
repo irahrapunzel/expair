@@ -16,7 +16,7 @@ export default function SafetyGuidelines() {
 
   return (
     <div
-      className={`flex min-h-screen justify-center bg-cover bg-center ${inter.className}`}
+      className={`flex h-[90vh] w-[90vw] justify-center bg-cover bg-center ${inter.className} mx-auto my-10 rounded-2xl shadow-lg`}
       style={{ backgroundImage: "url('/assets/signup.png')" }}
     >
       {/* Content */}
@@ -35,13 +35,15 @@ export default function SafetyGuidelines() {
             !
           </h1>
           <p className="text-[14px] md:text-[16px] font-[400] text-[rgba(255,255,255,0.60)] mb-[559px] px-2">
-            Your safety is our top priority. Please follow these guidelines to keep our community safe.
+            Your safety is our top priority. Please follow these guidelines to
+            keep our community safe.
           </p>
         </div>
 
         {/* Agreement */}
         <p className="text-[12px] md:text-[14px] font-[400] text-white max-w-md mx-auto mb-[20px] md:mb-[30px] mt-[40px] md:mt-[80px] px-2">
-          By clicking on “I agree”, you acknowledge that you have read and agree to Expair’s{" "}
+          By clicking on “I agree”, you acknowledge that you have read and agree
+          to Expair’s{" "}
           <a href="/terms" className="underline text-[#6DDFFF]">
             Terms and Conditions
           </a>{" "}
