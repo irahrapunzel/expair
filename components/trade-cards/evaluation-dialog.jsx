@@ -298,7 +298,7 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
         <div className="flex flex-col justify-center items-center gap-[40px] w-[792px] h-[613px] z-[2]">
           {/* Header section */}
           <div className="flex flex-col items-center gap-[25px] w-[792px] h-[150px]">
-            <div className="flex flex-row justify-between items-center w-[792px] h-[150px]">
+            <div className="flex flex-row justify-between items-center w-[792px] h-[90px]">
               {/* Left side */}
               <div className="flex flex-col items-start justify-between w-[300px] h-full">
                 <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-white">

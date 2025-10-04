@@ -909,7 +909,7 @@ export default function ActiveTradesPage() {
                 ) : (
                   // Collapsed View
                   <div
-                    className="p-[25px] flex flex-col justify-center items-start gap-[20px] cursor-pointer"
+                    className="p-[25px] flex flex-col justify-center items-start gap-[10px] cursor-pointer"
                     onClick={() => toggleCardExpand(trade.id)}
                   >
                     {/* Top Row - Name and Menu */}
