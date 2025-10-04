@@ -252,13 +252,8 @@ flake8 .
 2. Set environment variables in Vercel dashboard
 3. Deploy automatically on push to main branch
 
-### Backend (Railway/Heroku)
-1. Create `Procfile` in backend directory:
-   ```
-   web: gunicorn backend.wsgi:application
-   ```
-2. Set environment variables
-3. Deploy using your preferred platform
+### Backend (---)
+
 
 ## 📖 Additional Documentation
 
