@@ -1,6 +1,6 @@
-# EXPAIR - Full-Stack Trading Platform
+# EXPAIR
 
-EXPAIR is a comprehensive full-stack trading platform built with Next.js (frontend) and Django (backend), featuring real-time messaging, skill-based trading, and user verification systems.
+EXPAIR is a platform built with Next.js (frontend) and Django (backend), featuring real-time messaging, skill-based trading, and user verification systems.
 
 ## 🏗️ Project Architecture
 
