@@ -117,7 +117,7 @@ The database SQL files are located in `backend/database/sql/`:
 
 - **`01_schema.sql`** - Complete database schema (tables, indexes, constraints)
 - **`02_initial_data.sql`** - Initial data (skills, categories, sample data)
-- **`ror.sql`** - Additional database operations (if needed)
+- **`expair_db.sql`** - Additional database operations (if needed)
 
 ## 🛠️ Database Management
 
