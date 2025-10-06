@@ -1316,7 +1316,7 @@ export default function PendingTradesPage() {
                                       tradereq_id: trade.trade_request_id,
                                       requestTitle: trade.needs,
                                       offerTitle: trade.offers,
-                                      taskComplexity: 60,
+                                      taskComplexity: 10,
                                       timeCommitment: 50,
                                       skillLevel: 80,
                                       feedback:

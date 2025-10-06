@@ -18,6 +18,9 @@ from pathlib import Path
 
 import dj_database_url
 import os
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -43,6 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'cloudinary_storage',  
+    'cloudinary', 
     'django.contrib.staticfiles',
     'accounts',
     'rest_framework',
@@ -50,7 +55,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]
-
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -63,15 +67,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-
-
-
 # Allow localhost frontend
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
-
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = os.environ.get("DEBUG", "True") == "True"  # Only allow all in development
@@ -85,7 +85,6 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -98,9 +97,7 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-
 ROOT_URLCONF = 'backend.urls'
-
 
 TEMPLATES = [
     {
@@ -117,9 +114,7 @@ TEMPLATES = [
     },
 ]
 
-
 WSGI_APPLICATION = 'backend.wsgi.application'
-
 
 AUTH_USER_MODEL = 'accounts.User'
 # Database
@@ -164,15 +159,8 @@ REST_FRAMEWORK = {
 }
 
 
-
-
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
-
-
-
-
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -189,26 +177,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-
 LANGUAGE_CODE = 'en-us'
-
 
 TIME_ZONE = 'UTC'
 
-
 USE_I18N = True
 
-
 USE_TZ = True
-
-
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -223,14 +201,11 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
 
-
 # JWT Configuration
 from datetime import timedelta
-
 
 # JWT Configuration
 SIMPLE_JWT = {
@@ -264,8 +239,23 @@ EMAIL_HOST_USER = 'expaircs@gmail.com'
 EMAIL_HOST_PASSWORD = 'qjfy dmyf vmff xkpa'
 DEFAULT_FROM_EMAIL = 'expaircs@gmail.com'
 
-
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'https://expair.onrender.com'
 ]
+
+# Cloudinary Configuration
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'dyj3ojsip'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY', '418167245724847'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'JSRCEm_-kwamtmCfRtojYGWQLWg'),
+    secure=True
+)
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', 'dyj3ojsip'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY', '418167245724847'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', 'JSRCEm_-kwamtmCfRtojYGWQLWg'),
+}
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

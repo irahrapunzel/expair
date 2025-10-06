@@ -1,3 +1,4 @@
+import cloudinary.uploader
 from rest_framework import serializers
 from .models import TradeDetail, User
 from .models import GenSkill, UserInterest
@@ -83,9 +84,14 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         # --- handle profilePic manually ---
         new_pic = validated_data.pop("profilePic", None)
         if new_pic:
-            pic_path = os.path.join("profile_pics", new_pic.name)
-            saved_path = default_storage.save(pic_path, new_pic)
-            instance.profilePic = saved_path
+            # Upload directly to Cloudinary
+            upload_result = cloudinary.uploader.upload(
+                new_pic,
+                folder="profile_pics",
+                resource_type="image"
+            )
+        # Save the Cloudinary URL
+        instance.profilePic = upload_result['secure_url']
 
         # --- handle userVerifyId like before ---
         new_file = validated_data.pop("userVerifyId", None)
