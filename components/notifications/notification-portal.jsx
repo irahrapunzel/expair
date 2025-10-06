@@ -9,6 +9,45 @@ export function NotificationPortal({ isOpen, onClose, onMarkAllAsRead, anchorRec
   const [mounted, setMounted] = useState(false);
   const [readNotifications, setReadNotifications] = useState({});
 
+  // Hardcoded notifications
+  const hardcodedNotifications = [
+    {
+      id: 'trade-accepted-1',
+      icon: 'match',
+      message: 'Your trade request "Web Development" was accepted by Sarah M.',
+      time: '2 hours ago',
+      dotColor: '#6DDFFF',
+    },
+    {
+      id: 'trade-accepted-2', 
+      icon: 'match',
+      message: 'Your trade request "Graphic Design" was accepted by John D.',
+      time: '1 day ago',
+      dotColor: '#6DDFFF',
+    },
+    {
+      id: 'trade-completed-1',
+      icon: 'check',
+      message: 'Trade "Photography Services" has been completed successfully!',
+      time: '3 days ago',
+      dotColor: '#4ADE80',
+    },
+    {
+      id: 'new-message-1',
+      icon: 'message',
+      message: 'You have 3 new messages from your trade partners.',
+      time: '5 hours ago',
+      dotColor: '#F59E0B',
+    },
+    {
+      id: 'system-update-1',
+      icon: 'info',
+      message: 'New features added: Enhanced trade evaluation system is now live!',
+      time: '1 week ago',
+      dotColor: '#8B5CF6',
+    }
+  ];
+
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
@@ -22,14 +61,7 @@ export function NotificationPortal({ isOpen, onClose, onMarkAllAsRead, anchorRec
   };
   
   const markAllAsRead = () => {
-    setReadNotifications({
-      1: true,
-      2: true,
-      3: true,
-      4: true,
-      5: true,
-      6: true
-    });
+    setReadNotifications({});
     if (onMarkAllAsRead) {
       onMarkAllAsRead();
     }
@@ -75,69 +107,22 @@ export function NotificationPortal({ isOpen, onClose, onMarkAllAsRead, anchorRec
       </div>
       
       <div className="w-full flex flex-col gap-[15px] overflow-y-auto custom-scrollbar pr-2 pl-1" style={{ maxHeight: "452px" }}>
-        <NotificationItem 
-          id={1}
-          avatar="/defaultavatar.png"
-          name="Emily Johnson"
-          message="accepted your request for gardening services."
-          time="2h ago"
-          isRead={readNotifications[1]}
-          dotColor="#0038FF"
-          onClick={() => markAsRead(1)}
-        />
-        
-        <NotificationItem 
-          id={2}
-          avatar="/defaultavatar.png"
-          name="Michael Lee"
-          message="finished their trade. Check out their proof!"
-          time="5h ago"
-          isRead={readNotifications[2]}
-          dotColor="#0038FF"
-          onClick={() => markAsRead(2)}
-        />
-        
-        <NotificationItem 
-          id={3}
-          icon="match"
-          message="You have a new skill exchange match! Check it out and start trading now."
-          time="1d ago"
-          isRead={readNotifications[3]}
-          dotColor="#906EFF"
-          onClick={() => markAsRead(3)}
-        />
-        
-        <NotificationItem 
-          id={4}
-          icon="star"
-          message="Don't forget to rate your trade with Barbara Pegg to gain XP!"
-          time="Due on July 9"
-          isRead={readNotifications[4]}
-          dotColor="#906EFF"
-          onClick={() => markAsRead(4)}
-        />
-        
-        <NotificationItem 
-          id={5}
-          icon="alert"
-          message="Heads up! Your skill trade with Sarah Thompson is due in 3 days."
-          time="3d ago"
-          isRead={readNotifications[5]}
-          dotColor="#906EFF"
-          onClick={() => markAsRead(5)}
-        />
-        
-        <NotificationItem 
-          id={6}
-          avatar="/defaultavatar.png"
-          name="Mary Jean"
-          message="approved your output proof."
-          time="5d ago"
-          isRead={readNotifications[6]}
-          dotColor="#0038FF"
-          prefix="Successful trade! "
-          onClick={() => markAsRead(6)}
-        />
+        {hardcodedNotifications.length === 0 ? (
+          <div className="text-white/60 text-sm">No new notifications</div>
+        ) : (
+          hardcodedNotifications.map((n) => (
+            <NotificationItem
+              key={n.id}
+              id={n.id}
+              icon={n.icon}
+              message={n.message}
+              time={n.time}
+              isRead={readNotifications[n.id] || false}
+              dotColor={n.dotColor}
+              onClick={() => markAsRead(n.id)}
+            />
+          ))
+        )}
       </div>
     </div>,
     document.body
@@ -145,54 +130,53 @@ export function NotificationPortal({ isOpen, onClose, onMarkAllAsRead, anchorRec
 }
 
 function NotificationItem({ id, avatar, icon, name, message, time, isRead, dotColor, prefix = "", onClick }) {
+  const getIconComponent = (iconType) => {
+    switch (iconType) {
+      case 'match':
+        return <div className="w-4 h-4 bg-[#6DDFFF] rounded-full flex items-center justify-center">
+          <span className="text-white text-xs">✓</span>
+        </div>;
+      case 'check':
+        return <div className="w-4 h-4 bg-[#4ADE80] rounded-full flex items-center justify-center">
+          <span className="text-white text-xs">✓</span>
+        </div>;
+      case 'message':
+        return <div className="w-4 h-4 bg-[#F59E0B] rounded-full flex items-center justify-center">
+          <span className="text-white text-xs">💬</span>
+        </div>;
+      case 'info':
+        return <div className="w-4 h-4 bg-[#8B5CF6] rounded-full flex items-center justify-center">
+          <span className="text-white text-xs">i</span>
+        </div>;
+      default:
+        return <AlertCircle className="w-4 h-4 text-white/60" />;
+    }
+  };
+
   return (
     <div 
-      className="w-full cursor-pointer transition-colors duration-200 hover:bg-white/5 rounded-md px-2 py-1 -mx-2 -my-1" 
-      onClick={onClick}>
-      <div className="flex justify-between items-center w-full">
-        <div className="flex gap-[15px] items-start max-w-[302px]">
-          {avatar && (
-            <div className="w-[37px] h-[37px] rounded-full overflow-hidden shrink-0 shadow-[0px_20px_60px_rgba(0,0,0,0.35)]">
-              <img src={avatar} alt="User avatar" className="w-full h-full object-cover" />
-            </div>
-          )}
-          
-          {icon === "match" && (
-            <div className="w-[37px] h-[37px] flex items-center justify-center shrink-0">
-              <div style={{ 
-                background: 'linear-gradient(90deg, #FB9696 0%, #D78DE5 25%, #7E59F8 50%, #284CCC 75%, #6DDFFF 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                fontSize: '24px'
-              }}>✦</div>
-            </div>
-          )}
-          
-          {icon === "star" && (
-            <div className="w-[37px] h-[37px] flex items-center justify-center shrink-0">
-              <div className="text-white text-2xl">★</div>
-            </div>
-          )}
-          
-          {icon === "alert" && (
-            <div className="w-[37px] h-[37px] flex items-center justify-center shrink-0">
-              <AlertCircle className="text-[#D78DE5] w-[24px] h-[24px]" />
-            </div>
-          )}
-          
-          <div className="flex flex-col gap-[5px] max-w-[250px]">
-            <p className="text-white text-[13px] leading-[120%] font-normal">
-              {prefix}{name && <span>{name} </span>}{message}
-            </p>
-            {time && <p className="text-white/40 text-[13px] leading-[120%] font-normal">{time}</p>}
-          </div>
-        </div>
-        
-        {!isRead && dotColor && (
-          <div className="w-[10px] h-[10px] rounded-full ml-2 self-center" style={{ background: dotColor }}></div>
-        )}
+      className={cn(
+        "flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all hover:bg-white/5",
+        isRead ? "opacity-60" : ""
+      )}
+      onClick={onClick}
+    >
+      <div className="flex-shrink-0 mt-1">
+        {getIconComponent(icon)}
       </div>
-      <div className="w-full h-[1px] bg-white/20 mt-[15px]"></div>
+      <div className="flex-1 min-w-0">
+        <p className="text-white text-sm leading-relaxed mb-1">
+          {prefix && <span className="text-white/60">{prefix} </span>}
+          {message}
+        </p>
+        <p className="text-white/40 text-xs">{time}</p>
+      </div>
+      {!isRead && (
+        <div 
+          className="w-2 h-2 rounded-full flex-shrink-0 mt-2"
+          style={{ backgroundColor: dotColor }}
+        />
+      )}
     </div>
   );
 }

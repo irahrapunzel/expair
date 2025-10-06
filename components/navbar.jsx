@@ -31,7 +31,8 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [bellRect, setBellRect] = useState(null);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true); // Always show badge
+  const [notifCount, setNotifCount] = useState(5); // Hardcoded count
   const bellRef = useRef(null);
 
   // Directly derive the avatar URL from the session object.
@@ -49,8 +50,6 @@ export default function Navbar() {
   const profileHref = `/home/profile/${profileSlug}`;
   const settingsHref = `/home/profile/${profileSlug}/settings`;
 
-  // Your existing useEffect hooks and functions are fine
-  // The old useEffect for setting avatarUrl is now removed
   useEffect(() => {
     function handleClickOutside(event) {
       if (bellRef.current && !bellRef.current.contains(event.target)) {
@@ -77,6 +76,7 @@ export default function Navbar() {
   };
 
   const handleAllNotificationsRead = () => {
+    setNotifCount(0);
     setHasUnreadNotifications(false);
   };
 
@@ -169,14 +169,28 @@ export default function Navbar() {
           <Link href="/home/messages">
             <div className="relative cursor-pointer">
               <MessageSquareText className="text-white w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full" />
+              {/* per-conversation unread count aggregated; read from localStorage key 'unread_counts' */}
+              {(() => {
+                try {
+                  const data = JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('unread_counts') || '{}') : '{}');
+                  const total = Object.values(data).reduce((a, b) => a + Number(b || 0), 0);
+                  if (total > 0) {
+                    return (
+                      <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">{total}</span>
+                    );
+                  }
+                } catch {}
+                return null;
+              })()}
             </div>
           </Link>
           <div className="relative" ref={bellRef}>
             <div className="cursor-pointer" onClick={toggleNotification}>
               <Bell className="text-white w-5 h-5" />
               {hasUnreadNotifications && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full" />
+                <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
+                  {notifCount}
+                </span>
               )}
             </div>
           </div>

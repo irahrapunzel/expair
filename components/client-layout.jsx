@@ -38,6 +38,9 @@ export default function ClientLayout({ children }) {
     pathname.startsWith('/about');
 
   const isHome = pathname.startsWith('/home');
+  const isMessagesPage = pathname.startsWith('/home/messages');
+  const isAddDetailsPage = pathname.startsWith('/home/trades/add-details');
+  
 
   return (
     <SessionProvider>
@@ -46,7 +49,7 @@ export default function ClientLayout({ children }) {
 
         <main className="flex-grow">{children}</main>
 
-        {!isAuthPage && (
+        {!isAuthPage && !isMessagesPage && !isAddDetailsPage && (
           <div className="bg-[#050015]">
             <Footer />
           </div>
