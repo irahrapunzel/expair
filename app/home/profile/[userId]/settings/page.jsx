@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useSession } from "next-auth/react";
@@ -36,7 +35,82 @@ const resolveAccountsBase = (raw) => {
 const backendUrl = "http://localhost:8000";
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, update, status } = useSession();
+  const params = useParams();
+  const pathname = usePathname();
+
+  const [activeTab, setActiveTab] = useState("profile");
+  const [userId, setUserId] = useState(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
+  const [emailAdd, setEmailAdd] = useState("");
+  const [bio, setBio] = useState("");
+  const [profilePicUrl, setProfilePicUrl] = useState("");
+  const [file, setFile] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [links, setLinks] = useState([]);
+  const [location, setLocation] = useState("");
+
+  const [originalFirstName, setOriginalFirstName] = useState("");
+  const [originalLastName, setOriginalLastName] = useState("");
+  const [originalUsername, setOriginalUsername] = useState("");
+  const [originalEmailAdd, setOriginalEmailAdd] = useState("");
+  const [originalBio, setOriginalBio] = useState("");
+  const [originalLocation, setOriginalLocation] = useState("");
+  const [originalLinks, setOriginalLinks] = useState("");
+
+  // ui state
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  // edit toggles
+  const [editFirstName, setEditFirstName] = useState(false);
+  const [editLastName, setEditLastName] = useState(false);
+  const [editBio, setEditBio] = useState(false);
+  const [editUsername, setEditUsername] = useState(false);
+  const [editPassword, setEditPassword] = useState(false);
+  const [editLocation, setEditLocation] = useState(false);
+  const [editLinks, setEditLinks] = useState(false);
+
+  // location states
+  const [viewport, setViewport] = useState({
+    longitude: 121.0437,
+    latitude: 14.5995,
+    zoom: 12,
+  });
+
+  const [marker, setMarker] = useState({
+    longitude: 121.0437,
+    latitude: 14.5995,
+  });
+
+  const [searchQuery, setSearchQuery] = useState(location || "");
+  const [suggestions, setSuggestions] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isUserInteracted, setIsUserInteracted] = useState(false); // Track user interaction
+
+  const DEFAULT_AVATAR = "/assets/defaultavatar.png";
+  const [previewUrl, setPreviewUrl] = useState(DEFAULT_AVATAR);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [showSavedPopup, setShowSavedPopup] = useState(false);
+  const [linkError, setLinkError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const passwordRules = [
+    { label: "At least one lowercase letter", test: /[a-z]/ },
+    { label: "At least one uppercase letter", test: /[A-Z]/ },
+    { label: "At least one number", test: /\d/ },
+    { label: "Minimum 8 characters", test: /.{8,}/ },
+  ];
+
+  const menuItems = [{ key: "profile", label: "Profile" }];
 
   useEffect(() => {
     if (!session) return; // wait until session is ready
@@ -58,98 +132,6 @@ export default function SettingsPage() {
     run();
   }, [session]);
 
-  const [activeTab, setActiveTab] = useState("profile");
-
-  // form state
-  const [userId, setUserId] = useState(null);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [username, setUsername] = useState("");
-  const [emailAdd, setEmailAdd] = useState("");
-  const [bio, setBio] = useState("");
-  const [profilePicUrl, setProfilePicUrl] = useState("");
-  const [file, setFile] = useState(null);
-  const fileInputRef = useRef(null);
-
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [links, setLinks] = useState([]);
-  const [location, setLocation] = useState("");
-
-  // Original values for change detection
-  const [originalFirstName, setOriginalFirstName] = useState("");
-  const [originalLastName, setOriginalLastName] = useState("");
-  const [originalUsername, setOriginalUsername] = useState("");
-  const [originalEmailAdd, setOriginalEmailAdd] = useState("");
-  const [originalBio, setOriginalBio] = useState("");
-  const [originalLocation, setOriginalLocation] = useState("");
-  const [originalLinks, setOriginalLinks] = useState("");
-
-  const passwordRules = [
-    { label: "At least one lowercase letter", test: /[a-z]/ },
-    { label: "At least one uppercase letter", test: /[A-Z]/ },
-    { label: "At least one number", test: /\d/ },
-    { label: "Minimum 8 characters", test: /.{8,}/ },
-  ];
-
-  // ui state
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
-
-  // edit toggles
-  const [editFirstName, setEditFirstName] = useState(false);
-  const [editLastName, setEditLastName] = useState(false);
-  const [editBio, setEditBio] = useState(false);
-  const [editUsername, setEditUsername] = useState(false);
-  const [editPassword, setEditPassword] = useState(false);
-  const [editLocation, setEditLocation] = useState(false);
-  const [editLinks, setEditLinks] = useState(false);
-
-  // derive initial user id
-  const params = useParams();
-  const pathname = usePathname();
-
-  // location states
-  const [viewport, setViewport] = useState({
-    longitude: 121.0437,
-    latitude: 14.5995,
-    zoom: 12,
-  });
-
-  const [marker, setMarker] = useState({
-    longitude: 121.0437,
-    latitude: 14.5995,
-  });
-
-  const [searchQuery, setSearchQuery] = useState(location || "");
-  const [suggestions, setSuggestions] = useState([]);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  const [isUserInteracted, setIsUserInteracted] = useState(false); // Track user interaction
-
-  const DEFAULT_AVATAR = "/assets/defaultavatar.png";
-  const [previewUrl, setPreviewUrl] = useState(DEFAULT_AVATAR);
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [showSavedPopup, setShowSavedPopup] = useState(false);
-
-  const [linkError, setLinkError] = useState("");
-
-  if (status === "loading" || !session) {
-    return (
-      <div
-        className={`${inter.className} min-h-screen bg-[#050015] text-white py-10 px-4 flex items-center justify-center`}
-      >
-        {status === "loading" ? (
-          <p>Loading...</p>
-        ) : (
-          <p>You must log in first.</p>
-        )}
-      </div>
-    );
-  }
 
   useEffect(() => {
     console.log("🔍 Session object in Settings page:", session); // 👈 add here
@@ -532,13 +514,45 @@ export default function SettingsPage() {
       }
 
       const updated = await res.json();
+      console.log("✅ Backend response:", updated);
+
+      // ✅ Extract new values from response
       const newFirstName = String(updated.first_name ?? firstName);
       const newLastName = String(updated.last_name ?? lastName);
       const newUsername = String(updated.username ?? username);
       const newEmailAdd = String(updated.emailAdd ?? updated.email ?? emailAdd);
       const newBio = String(updated.bio ?? bio);
       const newLocation = String(updated.location ?? location);
+      const newProfilePic = String(updated.profilePic ?? profilePicUrl);
 
+      console.log("🖼️ New profile pic URL from backend:", newProfilePic);
+      console.log("🔍 Current session before update:", session);
+
+      // ✅ Update local state
+      setFirstName(newFirstName);
+      setLastName(newLastName);
+      setUsername(newUsername);
+      setEmailAdd(newEmailAdd);
+      setBio(newBio);
+      setLocation(newLocation);
+      setProfilePicUrl(newProfilePic);
+
+      // ✅ CRITICAL: Update preview to Cloudinary URL (not blob)
+      setPreviewUrl(newProfilePic);
+
+      // ✅ Update session for navbar
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          profilePic: newProfilePic,
+          username: newUsername,
+          firstName: newFirstName,
+          lastName: newLastName,
+        },
+      });
+
+      // Handle links
       let newLinks = [];
       try {
         if (Array.isArray(updated.links)) {
@@ -555,13 +569,8 @@ export default function SettingsPage() {
       } catch {
         newLinks = links;
       }
-      setFirstName(newFirstName);
-      setLastName(newLastName);
-      setUsername(newUsername);
-      setEmailAdd(newEmailAdd);
-      setBio(newBio);
-      setLocation(newLocation);
-      setProfilePicUrl(String(updated.profilePic ?? profilePicUrl));
+
+      setLinks(newLinks);
 
       // Update original values after successful save
       setOriginalFirstName(newFirstName);
@@ -581,14 +590,11 @@ export default function SettingsPage() {
       setEditLocation(false);
       setEditLinks(false);
 
+      // ✅ CRITICAL: Clear file state so preview uses Cloudinary URL
       setFile(null);
       setPassword("");
       setConfirmPassword("");
       setSaved(true);
-      setEditUsername(false);
-      setEditPassword(false);
-      setEditLocation(false);
-      setEditLinks(false);
 
       setShowSavedPopup(true);
     } catch (e) {
@@ -641,13 +647,6 @@ export default function SettingsPage() {
     setSaved(false);
     setError("");
   };
-
-  const menuItems = [{ key: "profile", label: "Profile" }];
-
-  const [coords, setCoords] = useState(null);
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Fetch autocomplete suggestions
   const fetchSuggestions = async (query) => {
@@ -803,6 +802,26 @@ export default function SettingsPage() {
     return /^(https?:\/\/)?[\w\-]+(\.[\w\-]+)+([\/?#].*)?$/i.test(s);
   };
 
+    if (status === "loading") {
+    return (
+      <div
+        className={`${inter.className} min-h-screen bg-[#050015] text-white py-10 px-4 flex items-center justify-center`}
+      >
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div
+        className={`${inter.className} min-h-screen bg-[#050015] text-white py-10 px-4 flex items-center justify-center`}
+      >
+        <p>You must log in first.</p>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`${inter.className} min-h-screen bg-[#050015] text-white py-10 px-4`}
@@ -821,11 +840,10 @@ export default function SettingsPage() {
               <button
                 key={item.key}
                 onClick={() => setActiveTab(item.key)}
-                className={`text-left px-4 py-2 rounded-[8px] transition ${
-                  activeTab === item.key
-                    ? "bg-[#120A2A] text-white"
-                    : "text-white/70 hover:bg-[#1A0F3E]"
-                }`}
+                className={`text-left px-4 py-2 rounded-[8px] transition ${activeTab === item.key
+                  ? "bg-[#120A2A] text-white"
+                  : "text-white/70 hover:bg-[#1A0F3E]"
+                  }`}
               >
                 {item.label}
               </button>
@@ -855,9 +873,18 @@ export default function SettingsPage() {
               <section className="mb-8">
                 <p className="mb-2 text-sm text-white/70">Profile Picture</p>
                 <div className="flex items-center gap-4">
-                  {/* Fixed-size square container; stays square and crops center */}
                   <div className="relative w-[200px] h-[200px] rounded-full overflow-hidden border border-white/20 bg-[#0B0420]">
-                    <ProfileAvatar src={previewUrl} size={200} />
+                    {file ? (
+                      // Use regular img for blob URLs
+                      <img
+                        src={previewUrl}
+                        alt="Profile preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      // Use ProfileAvatar for server URLs
+                      <ProfileAvatar src={previewUrl} size={200} />
+                    )}
                   </div>
 
                   <button

@@ -81,40 +81,53 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             print("[DEBUG] validated_data['links'] =", validated_data["links"])
         
         print("[DEBUG update] validated_data keys:", validated_data.keys())
-        # --- handle profilePic manually ---
+        
+        # --- handle profilePic with Cloudinary ---
         new_pic = validated_data.pop("profilePic", None)
         if new_pic:
-            # Upload directly to Cloudinary
-            upload_result = cloudinary.uploader.upload(
-                new_pic,
-                folder="profile_pics",
-                resource_type="image"
-            )
-        # Save the Cloudinary URL
-        instance.profilePic = upload_result['secure_url']
+            try:
+                # Upload to Cloudinary with folder structure
+                upload_result = cloudinary.uploader.upload(
+                    new_pic,
+                    folder="media/profile_pics",
+                    resource_type="image",
+                    overwrite=True,
+                    invalidate=True
+                )
+                # Save the Cloudinary secure URL
+                instance.profilePic = upload_result['secure_url']
+                print(f"[DEBUG] Uploaded profilePic to Cloudinary: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Cloudinary upload failed for profilePic: {e}")
+                raise serializers.ValidationError(f"Failed to upload profile picture: {str(e)}")
 
-        # --- handle userVerifyId like before ---
+        # --- handle userVerifyId with Cloudinary ---
         new_file = validated_data.pop("userVerifyId", None)
         if new_file:
-            old = getattr(instance, "userVerifyId", None)
-            if old:
-                try:
-                    old.delete(save=False)
-                except Exception:
-                    pass
-            instance.userVerifyId = new_file
-            instance.verification_status = VerificationStatus.PENDING
-            instance.is_verified = False
+            try:
+                # Determine resource type (image or raw for PDFs)
+                resource_type = "image" if new_file.content_type.startswith("image/") else "raw"
+                
+                # Upload to Cloudinary
+                upload_result = cloudinary.uploader.upload(
+                    new_file,
+                    folder="media/user_verifications",
+                    resource_type=resource_type,
+                    overwrite=True,
+                    invalidate=True
+                )
+                instance.userVerifyId = upload_result['secure_url']
+                instance.verification_status = VerificationStatus.PENDING
+                instance.is_verified = False
+                print(f"[DEBUG] Uploaded userVerifyId to Cloudinary: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Cloudinary upload failed for userVerifyId: {e}")
+                raise serializers.ValidationError(f"Failed to upload verification document: {str(e)}")
         
         # --- handle links ---
         if "links" in validated_data:
             links = validated_data["links"] or []
-            instance.links = links  # ✅ store as JSON string in DB
-
-        # --- handle links ---
-        if "links" in validated_data:
-            links = validated_data["links"] or []
-            instance.links = links  # ✅ store as JSON string in DB
+            instance.links = links
 
         # apply the rest of the fields
         for f in ("first_name", "last_name", "bio", "username", "email", "location"):

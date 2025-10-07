@@ -75,9 +75,7 @@ class User(AbstractUser):
     username = models.CharField(max_length=50, unique=True, db_column='username')
     email = models.EmailField(max_length=50, unique=True, db_column='email')
     password = models.CharField(max_length=100, db_column='password')
-
-    profilePic = models.ImageField(
-        upload_to='profile_pics/', 
+    profilePic = models.TextField(
         null=True, 
         blank=True, 
         db_column='profilepic'
@@ -89,8 +87,7 @@ class User(AbstractUser):
     tot_XpPts = models.IntegerField(default=0, db_column='tot_xppts')
     level = models.IntegerField(default=1, db_column='level')
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
-    userVerifyId = models.FileField(
-        upload_to='user_verifications/', 
+    userVerifyId = models.TextField(
         null=True, 
         blank=True, 
         db_column='userverifyid'
@@ -243,7 +240,11 @@ class TradeDetail(models.Model):
     skillprof = models.CharField(max_length=13, choices=SkillProficiency.choices, null=True, blank=True, db_column='skillprof')
     modedel = models.CharField(max_length=25, choices=ModeDelivery.choices, null=True, blank=True, db_column='modedel')
     reqtype = models.CharField(max_length=35, choices=RequestType.choices, null=True, blank=True, db_column='reqtype')
-    contextpic = models.ImageField(upload_to='requestcontext_pics/', null=True, blank=True, db_column='contextpic') 
+    contextpic = models.TextField(
+        null=True, 
+        blank=True, 
+        db_column='contextpic'
+    )
     reqbio = models.CharField(max_length=150, null=True, blank=True, db_column='reqbio')
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
     total_xp = models.IntegerField(default=0, db_column='total_xp', null=True, blank=True)
@@ -335,8 +336,17 @@ class TradeHistory(models.Model):
     completed_at = models.DateTimeField(db_column='completed_at', null=True, blank=True)
 
     # Proof of completion fields
-    requester_proof = models.ImageField(upload_to='trade_proofs/requester/', null=True, blank=True, db_column='requester_proof')
-    responder_proof = models.ImageField(upload_to='trade_proofs/responder/', null=True, blank=True, db_column='responder_proof')
+    requester_proof = models.TextField(
+        null=True, 
+        blank=True, 
+        db_column='requester_proof'
+    )
+
+    responder_proof = models.TextField(
+        null=True, 
+        blank=True, 
+        db_column='responder_proof'
+    )
     
     # Proof status for both requester and responder
     requester_proof_status = models.CharField(

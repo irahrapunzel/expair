@@ -43,6 +43,9 @@ export default function Navbar() {
     session?.user?.image ||
     "/assets/defaultavatar.png";
 
+  console.log("🔍 Navbar session:", session);
+  console.log("🖼️ Navbar profileImage:", profileImage);
+
   // Build dynamic profile links
   const profileSlug =
     session?.user?.username ??

@@ -3,6 +3,7 @@ import datetime
 import os
 from datetime import date
 
+import cloudinary
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -77,9 +78,9 @@ def list_conversations(request):
                 # Safely handle profile picture field
                 try:
                     other_user_profilepic = other_user.profilePic
-                    # Convert to string if it's a file object
-                    if other_user_profilepic:
-                        other_user_profilepic = str(other_user_profilepic)
+                    # profilePic is already a Cloudinary URL or None
+                    if not other_user_profilepic:
+                        other_user_profilepic = None  # Let frontend handle fallback
                 except Exception as pic_error:
                     print(f"Error handling profile picture for user {other_user.id}: {pic_error}")
                     other_user_profilepic = None
@@ -378,26 +379,20 @@ def me(request):
 
     return Response(_public_user_payload(updated, request), status=200)
 
-
 def _public_user_payload(user, request=None):
-    # Profile picture absolute URL (if any)
-    pic = None
-    if getattr(user, "profilePic", None):
-        # Construct the media URL path
-        media_path = f"/media/{user.profilePic}"
-        pic = request.build_absolute_uri(media_path) if request else media_path
+    """
+    Helper function to build user payload
+    """
+    # ✅ FIXED: profilePic is now a Cloudinary URL, use directly
+    pic = user.profilePic if user.profilePic else None
 
-    # Verification file absolute URL (if any)
-    verify_url = None
-    if getattr(user, "userVerifyId", None):
-        # Construct the media URL path
-        media_path = f"/media/{user.userVerifyId}"
-        verify_url = request.build_absolute_uri(media_path) if request else media_path
+    # ✅ FIXED: userVerifyId is now a Cloudinary URL, use directly
+    verify_url = user.userVerifyId if user.userVerifyId else None
 
     # Handle links field
     links_array = user.links or []
 
-    # Enum status (safe even if column not present yet)
+    # Enum status
     status = getattr(user, "verification_status", None)
     if not status:
         if bool(getattr(user, "is_verified", False)):
@@ -419,11 +414,8 @@ def _public_user_payload(user, request=None):
         print(f"[DEBUG] could not fetch interests for user {user.id}: {e}")
 
     payload = {
-        # Primary ID fields - include both variations for compatibility
         "user_id": user.id,
-        "id": user.id,   
-
-        # Basic info
+        "id": user.id,
         "username": user.username,
         "first_name": user.first_name,
         "last_name": user.last_name,
@@ -431,43 +423,22 @@ def _public_user_payload(user, request=None):
         "bio": user.bio,
         "location": getattr(user, "location", ""),
         "links": links_array,
-        "interests": [
-            ui.genSkills_id.genCateg
-            for ui in UserInterest.objects.filter(user=user).select_related("genSkills_id")
-        ],        
-        # Stats
+        "interests": interests,
         "avgStars": float(user.avgStars or 0),
         "ratingCount": int(user.ratingCount or 0),
-        "rating": float(user.avgStars or 0),  # Alternative field name
-        "reviews": int(user.ratingCount or 0),  # Alternative field name
-        
-        # Files
-        "profilePic": pic,
-        
-        
-        # Dates
+        "rating": float(user.avgStars or 0),
+        "reviews": int(user.ratingCount or 0),
+        "profilePic": pic,  # ✅ Already a Cloudinary URL
         "created_at": user.created_at,
-        
-        # XP and Level
         "level": int(user.level or 0),
         "tot_XpPts": int(user.tot_XpPts or 0),
-        "tot_xppts": int(user.tot_XpPts or 0),  # Alternative field name
-        "totalXp": int(user.tot_XpPts or 0),    # Alternative field name
-
-        # Verification
+        "tot_xppts": int(user.tot_XpPts or 0),
+        "totalXp": int(user.tot_XpPts or 0),
         "verification_status": status,
         "is_verified": bool(getattr(user, "is_verified", False)),
-        "userVerifyId": verify_url,
+        "userVerifyId": verify_url,  
     }
-    print(f"[DEBUG] _public_user_payload returning for user {user.id}:") 
-    print(f"  - first_name: '{payload['first_name']}'") 
-    print(f"  - last_name: '{payload['last_name']}'")   
-    print(f"  - location: '{payload['location']}'")
-    print(f"  - links: {links_array}")
-    print(f"  - profilePic: {payload['profilePic'] is not None}")
-    print(f"  - tot_XpPts: {payload['tot_XpPts']}")
-    print(f"  - verification_status: {payload['verification_status']}")
-
+    
     return payload
 
 @api_view(["GET", "PATCH"])
@@ -995,7 +966,7 @@ def add_user_skills(request):
 def complete_registration(request):
     """
     Complete user registration with profile, interests, and skills.
-    Supports file uploads and full FormData payload.
+    Supports file uploads to Cloudinary and full FormData payload.
     """
     import json
 
@@ -1009,27 +980,23 @@ def complete_registration(request):
     username = request.data.get("username", "")
     email = request.data.get("email", "")
     password = request.data.get("password", "")
-    profilePic = request.FILES.get("profilePic")
-    userVerifyId = request.FILES.get("userVerifyId")
     bio = request.data.get("bio", "")
     location = request.data.get("location", "")
-    
-    # Handle files from request.FILES
-    profilePic = request.FILES.get("profilePic")
-    userVerifyId = request.FILES.get("userVerifyId")
     
     # Handle links as JSON array
     links_raw = request.data.get("links", "[]")
     try:
-        links_array = json.loads(links_raw)
-        # Store as JSON string in database
-        links = json.dumps(links_array) if links_array else ""
+        if isinstance(links_raw, str):
+            links_array = json.loads(links_raw)
+        elif isinstance(links_raw, list):
+            links_array = links_raw
+        else:
+            links_array = []
     except json.JSONDecodeError:
         print(f"Failed to parse links: {links_raw}")
-        links = ""
+        links_array = []
 
-    print(f"Files received - profilePic: {profilePic is not None}, userVerifyId: {userVerifyId is not None}")
-    print(f"Links parsed: {links}")
+    print(f"Links parsed: {links_array}")
     print(f"User data: {username}, {email}, {first_name}, {last_name}")
 
     # Validate required fields
@@ -1047,16 +1014,15 @@ def complete_registration(request):
 
     # Handling genSkills_ids (Array of IDs)
     genSkills_ids_raw = request.data.get("genSkills_ids", "[]")
-    
     try:
-        genSkills_ids = json.loads(genSkills_ids_raw)
+        genSkills_ids = json.loads(genSkills_ids_raw) if isinstance(genSkills_ids_raw, str) else genSkills_ids_raw
     except json.JSONDecodeError:
         return Response({"error": "Invalid format for genSkills_ids"}, status=400)
 
     # Handling specSkills (Object with arrays)
     specSkills_raw = request.data.get("specSkills", "{}")
     try:
-        specSkills = json.loads(specSkills_raw)
+        specSkills = json.loads(specSkills_raw) if isinstance(specSkills_raw, str) else specSkills_raw
     except json.JSONDecodeError:
         return Response({"error": "Invalid format for specSkills"}, status=400)
 
@@ -1067,7 +1033,7 @@ def complete_registration(request):
         return Response({"error": "genSkills_ids should be an array"}, status=400)
 
     try:
-        # Create user using the custom manager (REMOVE the duplicate Django auth call)
+        # Create user using the custom manager
         user = User.objects.create_user(
             username=username,
             email=email, 
@@ -1076,55 +1042,84 @@ def complete_registration(request):
             last_name=last_name,
             bio=bio,
             location=location,
-            links=links,
+            links=links_array,  # Store as JSON array
         )
+        print(f"User created successfully with ID: {user.id}")
 
-        # Handle file uploads separately since they're not regular fields
+        # ✅ Handle profilePic upload to Cloudinary
+        profilePic = request.FILES.get("profilePic")
         if profilePic:
-            user.profilePic = profilePic
+            try:
+                upload_result = cloudinary.uploader.upload(
+                    profilePic,
+                    folder="media/profile_pics",
+                    public_id=f"user_{user.id}_profile",
+                    resource_type="image",
+                    overwrite=True,
+                    invalidate=True
+                )
+                user.profilePic = upload_result['secure_url']
+                print(f"[SUCCESS] Profile pic uploaded to Cloudinary: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Cloudinary upload failed for profilePic: {e}")
+                import traceback
+                traceback.print_exc()
+                # Don't fail registration if photo upload fails
         else:
             # Check if this is a Google user with profile picture URL
             google_image_url = request.data.get("google_image_url")
             if google_image_url:
                 try:
                     import requests
-                    from django.core.files.base import ContentFile
-                    from urllib.parse import urlparse
                     
                     # Download the Google profile picture
                     response = requests.get(google_image_url, timeout=10)
                     response.raise_for_status()
                     
-                    # Get file extension from URL or default to jpg
-                    parsed_url = urlparse(google_image_url)
-                    file_extension = parsed_url.path.split('.')[-1] if '.' in parsed_url.path else 'jpg'
-                    if file_extension not in ['jpg', 'jpeg', 'png', 'webp']:
-                        file_extension = 'jpg'
-                    
-                    # Create filename
-                    filename = f"google_profile_{user.id}.{file_extension}"
-                    
-                    # Save the image
-                    user.profilePic.save(
-                        filename,
-                        ContentFile(response.content),
-                        save=False
+                    # Upload to Cloudinary
+                    from io import BytesIO
+                    upload_result = cloudinary.uploader.upload(
+                        BytesIO(response.content),
+                        folder="media/profile_pics",
+                        public_id=f"user_{user.id}_google_profile",
+                        resource_type="image",
+                        overwrite=True
                     )
-                    print(f"Google profile picture saved: {filename}")
+                    user.profilePic = upload_result['secure_url']
+                    print(f"[SUCCESS] Google profile picture uploaded to Cloudinary: {upload_result['secure_url']}")
                     
                 except Exception as e:
-                    print(f"Failed to download Google profile picture: {e}")
+                    print(f"[ERROR] Failed to download/upload Google profile picture: {e}")
                     # Continue without profile picture
             
+        # ✅ Handle userVerifyId upload to Cloudinary
+        userVerifyId = request.FILES.get("userVerifyId")
         if userVerifyId:
-            user.userVerifyId = userVerifyId
-            user.verification_status = VerificationStatus.PENDING
-            user.is_verified = False
+            try:
+                # Determine resource type (image or raw for PDFs)
+                resource_type = "image" if userVerifyId.content_type.startswith("image/") else "raw"
+                
+                upload_result = cloudinary.uploader.upload(
+                    userVerifyId,
+                    folder="media/user_verifications",
+                    public_id=f"user_{user.id}_verification",
+                    resource_type=resource_type,
+                    overwrite=True,
+                    invalidate=True
+                )
+                user.userVerifyId = upload_result['secure_url']
+                user.verification_status = VerificationStatus.PENDING
+                user.is_verified = False
+                print(f"[SUCCESS] Verification ID uploaded to Cloudinary: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Cloudinary upload failed for userVerifyId: {e}")
+                import traceback
+                traceback.print_exc()
+                # Don't fail registration if ID upload fails
         
+        # Save user with uploaded file URLs
         user.save()
-
-        print(f"User created successfully with ID: {user.id}")
-        user_id = user.id
+        print(f"User saved with Cloudinary URLs")
 
         # Save general interests
         interests_added = 0
@@ -1163,7 +1158,9 @@ def complete_registration(request):
             "message": "Registration completed successfully",
             "user_id": user.id,
             "interests_added": interests_added,
-            "skills_added": skills_added
+            "skills_added": skills_added,
+            "profilePic_uploaded": bool(user.profilePic),
+            "verification_id_uploaded": bool(user.userVerifyId)
         }, status=201)
 
     except Exception as e:
@@ -1354,10 +1351,8 @@ def get_home_active_trades(request):
                     offering = fallback_skill_name
             
             # Get profile picture URL
-            profile_pic_url = None
-            if other_user.profilePic:
-                profile_pic_url = request.build_absolute_uri(f"/media/{other_user.profilePic}")
-            
+            profile_pic_url = other_user.profilePic if other_user.profilePic else None
+
             home_trades_data.append({
                 "tradereq_id": trade.tradereq_id,
                 "other_user": {
@@ -1375,9 +1370,6 @@ def get_home_active_trades(request):
                 "deadline_formatted": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
                 "is_requester": is_requester,
                 "status": trade.status,
-                # Remove these fields since we're showing all ACTIVE trades now
-                # "ready_to_rate": True,  
-                # "both_proofs_approved": True  
             })
         
         print(f"Returning {len(home_trades_data)} active trades")
@@ -1411,7 +1403,7 @@ def explore_feed(request):
     # Exclude only ACTIVE and COMPLETED trades
     qs = (TradeRequest.objects
           .select_related("requester")
-          .exclude(status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED])  # Exclude only active/completed
+          .exclude(status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED])
           .order_by("-tradereq_id"))
     
     if viewer:
@@ -1431,17 +1423,13 @@ def explore_feed(request):
     items_without_matches = []
     
     for tr in qs:
-        requester = tr.requester  # The person who posted the request
+        requester = tr.requester
         display_name = (f"{(requester.first_name or '').strip()} {(requester.last_name or '').strip()}").strip() or requester.username
 
         # "Needs" = what the requester is asking for
         needs = tr.reqname
 
-        # Get profile picture URL
-        profile_pic_url = None
-        if requester.profilePic:
-            # Build absolute URL for the profile picture
-            profile_pic_url = request.build_absolute_uri(requester.profilePic.url)
+        profile_pic_url = requester.profilePic if requester.profilePic else None
 
         # Get all skills that the REQUESTER has (what they can offer in exchange)
         requester_skills_query = (
@@ -1457,11 +1445,9 @@ def explore_feed(request):
         
         # Priority 1: Find skills that the requester has AND the viewer is interested in
         if viewer and viewer_gen_interests and requester_gen_skills:
-            # Find intersection of requester's skills and viewer's interests
             matching_skills = set(viewer_gen_interests) & set(requester_gen_skills.keys())
             
             if matching_skills:
-                # Use the first matching skill
                 matching_skill_id = list(matching_skills)[0]
                 can_offer = requester_gen_skills[matching_skill_id]
                 has_match = True
@@ -1483,20 +1469,18 @@ def explore_feed(request):
             "ratingCount": int(requester.ratingCount or 0),
             "level": int(requester.level or 0),
             "need": needs,
-            "offer": can_offer,  # What the requester can offer
+            "offer": can_offer,
             "deadline": tr.reqdeadline.isoformat() if tr.reqdeadline else "",
-            "profilePicUrl": profile_pic_url,  # Add profile picture URL
-            "userId": requester.id,  # Add user ID for profile linking
+            "profilePicUrl": profile_pic_url,  
+            "userId": requester.id,
             "username": requester.username, 
         }
         
-        # Separate matched items (requester has skill viewer wants) from non-matched
         if has_match:
             items_with_matches.append(item_data)
         else:
             items_without_matches.append(item_data)
     
-    # Combine: prioritize matches first, then non-matches
     def unique_by_tradereq(items):
         seen = set()
         unique = []
@@ -1506,7 +1490,6 @@ def explore_feed(request):
                 unique.append(item)
         return unique
 
-    # Ensure uniqueness and combine matched + non-matched
     items = unique_by_tradereq(items_with_matches) + unique_by_tradereq(items_without_matches)
 
     return Response({"items": items}, status=200)
@@ -1639,9 +1622,7 @@ def get_trade_interests(request, tradereq_id):
         for interest in interests:
             user = interest.interested_user
 
-            profile_pic_url = None
-            if user.profilePic:
-                profile_pic_url = request.build_absolute_uri(user.profilePic.url)
+            profile_pic_url = user.profilePic if user.profilePic else None
 
             interests_data.append({
                 "user_id": user.id,
@@ -1723,6 +1704,8 @@ def get_posted_trades(request):
             elif not matching_skill:
                 any_skill = GenSkill.objects.first()
                 matching_skill = any_skill.genCateg if any_skill else "Skills & Services"
+            
+            profile_pic_url = interested_user.profilePic if interested_user.profilePic else None
 
             interested_users.append({
                 "id": interested_user.id,
@@ -1733,7 +1716,7 @@ def get_posted_trades(request):
                 "level": interested_user.level,
                 "rating": float(interested_user.avgStars or 0),
                 "rating_count": interested_user.ratingCount,
-                "profilePic": request.build_absolute_uri(f"/media/{interested_user.profilePic}") if interested_user.profilePic else None,
+                "profilePic": profile_pic_url,
                 "created_at": interest.created_at.isoformat(),
                 "interests": list(user_interests),  # What this user wants to learn
                 "matching_skill": matching_skill, 
@@ -2098,6 +2081,8 @@ def get_user_interested_trades(request):
             any_skill = GenSkill.objects.first()
             can_offer = any_skill.genCateg if any_skill else "Skills & Services"
         
+        profile_pic_url = requester.profilePic if requester.profilePic else None
+
         # With this logic that matches explore_feed:
         # Get what the REQUESTER can offer (their skills that matched your interests)
         requester_skills = UserSkill.objects.filter(
@@ -2138,13 +2123,13 @@ def get_user_interested_trades(request):
             "offers": can_offer,  # What the current user can offer
             "until": trade_request.reqdeadline.strftime('%B %d') if trade_request.reqdeadline else "No deadline",
             "status": "Waiting for approval",
-            "profile_pic": request.build_absolute_uri(f"/media/{requester.profilePic}") if requester.profilePic else None,
+            "profile_pic": profile_pic_url, 
             "created_at": interest.created_at.isoformat(),
             "requester": {
                 "id": requester.id,
                 "username": requester.username,
                 "name": f"{requester.first_name} {requester.last_name}".strip() or requester.username,
-                "profile_pic": request.build_absolute_uri(f"/media/{requester.profilePic}") if requester.profilePic else None
+                "profile_pic": profile_pic_url
             }
         })
     
@@ -2158,60 +2143,36 @@ def get_user_interested_trades(request):
 def get_active_trades(request):
     """
     Get all PENDING trades where the authenticated user is either requester or responder.
-    These are accepted trades waiting for details submission and evaluation.
+
     """
     user = request.user
     
-    print(f"=== GET_ACTIVE_TRADES DEBUG ===")
-    print(f"User ID: {user.id}")
-    
-    # Get PENDING trades where user is either requester or responder
     active_trades = TradeRequest.objects.filter(
         status=TradeRequest.Status.PENDING
     ).filter(
         Q(requester=user) | Q(responder=user)
     ).select_related('requester', 'responder').order_by('-tradereq_id')
     
-    print(f"Found {active_trades.count()} PENDING trades")
-    
     trades_data = []
     
     for trade in active_trades:
-        print(f"Processing Trade {trade.tradereq_id}:")
-        print(f"  - Requester: {trade.requester.id}")
-        print(f"  - Responder: {trade.responder.id if trade.responder else 'None'}")
-        print(f"  - User is requester: {trade.requester.id == user.id}")
-        print(f"  - User is responder: {trade.responder and trade.responder.id == user.id}")
-        
-        # Skip if responder is not set
         if not trade.responder:
-            print(f"  - SKIPPING: No responder set for trade {trade.tradereq_id}")
             continue
         
-        # Determine if current user is the requester or responder
         is_requester = (trade.requester.id == user.id)
         other_user = trade.responder if is_requester else trade.requester
         
-        # Get fallback skill once
         fallback_skill = GenSkill.objects.first()
         fallback_skill_name = fallback_skill.genCateg if fallback_skill else "Skills & Services"
         
-        # ✅ USE THE SAVED EXCHANGE FIELD - no recalculation needed!
-        # The exchange field was set correctly when the interest was accepted
         if is_requester:
-            # Current user is requester
-            needs = trade.exchange if trade.exchange else fallback_skill_name  # What responder is offering
-            can_offer = trade.reqname  # What requester originally requested
+            needs = trade.exchange if trade.exchange else fallback_skill_name
+            can_offer = trade.reqname
         else:
-            # Current user is responder
-            needs = trade.reqname  # What requester originally requested
-            can_offer = trade.exchange if trade.exchange else fallback_skill_name  # What responder is offering
+            needs = trade.reqname
+            can_offer = trade.exchange if trade.exchange else fallback_skill_name
         
-        print(f"  - Is requester: {is_requester}")
-        print(f"  - Needs: {needs}")
-        print(f"  - Can offer: {can_offer}")
-        print(f"  - Other user: {other_user.username}")
-        print(f"  - Exchange field: {trade.exchange}")
+        profile_pic_url = other_user.profilePic if other_user.profilePic else None
         
         trades_data.append({
             "id": trade.tradereq_id,
@@ -2220,11 +2181,11 @@ def get_active_trades(request):
             "rating": float(other_user.avgStars or 0),
             "reviews": str(other_user.ratingCount or 0),
             "level": str(other_user.level or 1),
-            "needs": needs,  
-            "offers": can_offer, 
+            "needs": needs,
+            "offers": can_offer,
             "until": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
             "status": "PENDING",
-            "other_user_profile_pic": request.build_absolute_uri(f"/media/{other_user.profilePic}") if other_user.profilePic else None,
+            "other_user_profile_pic": profile_pic_url,  
             "is_requester": is_requester,
             "created_at": None,
             "requester": {
@@ -2243,8 +2204,6 @@ def get_active_trades(request):
                 "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username
             }
         })
-    
-    print(f"Returning {len(trades_data)} trades for user {user.id}")
     
     return Response({
         "active_trades": trades_data,
@@ -2689,9 +2648,8 @@ def add_trade_details(request, tradereq_id):
             
             details_data = []
             for detail in trade_details:
-                context_pic_url = None
-                if detail.contextpic:
-                    context_pic_url = request.build_absolute_uri(f"/media/{detail.contextpic}")
+                # contextpic is already a URL from Cloudinary, no need to build_absolute_uri
+                context_pic_url = detail.contextpic if detail.contextpic else None
                 
                 details_data.append({
                     "user_id": detail.user.id,
@@ -2779,8 +2737,30 @@ def add_trade_details(request, tradereq_id):
             # Calculate total XP based on choices
             total_xp = calculate_xp(mapped_skill, mapped_delivery, mapped_request_type)
             
-            # Handle photo upload
-            context_pic = request.FILES.get('photo')
+            # Handle photo upload with Cloudinary
+            context_pic_file = request.FILES.get('photo')
+            context_pic_url = None
+            
+            if context_pic_file:
+                try:
+                    # Generate unique public_id for this trade detail
+                    public_id = f"trade_{tradereq_id}_user_{request.user.id}_context"
+                    
+                    upload_result = cloudinary.uploader.upload(
+                        context_pic_file,
+                        folder="media/requestcontext_pics",
+                        public_id=public_id,
+                        resource_type="image",
+                        overwrite=True,  # Allows resubmission/updating
+                        invalidate=True
+                    )
+                    context_pic_url = upload_result['secure_url']
+                    print(f"[DEBUG] Uploaded context pic to Cloudinary: {context_pic_url}")
+                except Exception as e:
+                    print(f"[ERROR] Cloudinary upload failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return Response({"error": f"Failed to upload image: {str(e)}"}, status=500)
             
             # Create or update trade detail
             trade_detail, created = TradeDetail.objects.get_or_create(
@@ -2791,8 +2771,8 @@ def add_trade_details(request, tradereq_id):
                     'modedel': mapped_delivery,
                     'reqtype': mapped_request_type,
                     'reqbio': details[:150],  # Limit to database field length
-                    'contextpic': context_pic,
-                    'total_xp': total_xp,  # Store calculated XP
+                    'contextpic': context_pic_url,  # Store Cloudinary URL
+                    'total_xp': total_xp,
                 }
             )
             
@@ -2802,18 +2782,17 @@ def add_trade_details(request, tradereq_id):
                 trade_detail.modedel = mapped_delivery
                 trade_detail.reqtype = mapped_request_type
                 trade_detail.reqbio = details[:150]
-                trade_detail.total_xp = total_xp  # Update XP calculation
-                if context_pic:
-                    trade_detail.contextpic = context_pic
+                trade_detail.total_xp = total_xp
+                
+                # Only update contextpic if new file was uploaded
+                if context_pic_url:
+                    trade_detail.contextpic = context_pic_url
+                    
                 trade_detail.save()
             
             # Check if both users have submitted details
             total_details = TradeDetail.objects.filter(trade_request=trade_request).count()
             both_submitted = total_details >= 2
-            
-            context_pic_url = None
-            if trade_detail.contextpic:
-                context_pic_url = request.build_absolute_uri(f"/media/{trade_detail.contextpic}")
             
             print(f"Trade detail {'created' if created else 'updated'} successfully")
             print(f"Both users submitted details: {both_submitted}")
@@ -2827,7 +2806,7 @@ def add_trade_details(request, tradereq_id):
                     "modedel": trade_detail.modedel,
                     "reqtype": trade_detail.reqtype,
                     "reqbio": trade_detail.reqbio,
-                    "contextpic": context_pic_url,
+                    "contextpic": trade_detail.contextpic,  # Already a Cloudinary URL
                     "total_xp": trade_detail.total_xp,
                     "created_at": trade_detail.created_at,
                 },
@@ -2941,12 +2920,9 @@ def check_trade_details_status(request, tradereq_id):
 @permission_classes([IsAuthenticated])
 def upload_trade_proof(request):
     """
-    Upload proof files for a trade request
+    Upload proof files for a trade request to Cloudinary
     Handles both initial submission and resubmission after rejection
     """
-    import os
-    from django.conf import settings
-    
     print("=== UPLOAD TRADE PROOF DEBUG ===")
     print(f"Request data: {request.data}")
     print(f"Files: {list(request.FILES.keys())}")
@@ -2957,7 +2933,6 @@ def upload_trade_proof(request):
         return Response({"error": "trade_request_id is required"}, status=400)
     
     try:
-        # Get the trade request and verify user is part of it
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
             tradereq_id=trade_request_id,
             status=TradeRequest.Status.ACTIVE
@@ -2979,53 +2954,71 @@ def upload_trade_proof(request):
         # For now, we'll just save the first file as the main proof
         main_proof_file = proof_files[0]
         
-        # Validate file
+        # Validate file size
         if main_proof_file.size > 10 * 1024 * 1024:  # 10MB limit
             return Response({"error": "File too large (max 10MB)"}, status=400)
         
         # Determine if user is requester or responder
         current_user_is_requester = (request.user == trade_request.requester)
         
-        # Check if this is a resubmission and clean up old file
-        if current_user_is_requester and trade_history.requester_proof:
-            # User is resubmitting, delete old file
-            old_proof = trade_history.requester_proof
-            try:
-                old_file_path = os.path.join(settings.MEDIA_ROOT, str(old_proof))
-                if os.path.exists(old_file_path):
-                    os.remove(old_file_path)
-                    print(f"Deleted old requester proof file during resubmission: {old_file_path}")
-            except Exception as e:
-                print(f"Warning: Could not delete old requester proof file: {e}")
-        elif not current_user_is_requester and trade_history.responder_proof:
-            # User is resubmitting, delete old file
-            old_proof = trade_history.responder_proof
-            try:
-                old_file_path = os.path.join(settings.MEDIA_ROOT, str(old_proof))
-                if os.path.exists(old_file_path):
-                    os.remove(old_file_path)
-                    print(f"Deleted old responder proof file during resubmission: {old_file_path}")
-            except Exception as e:
-                print(f"Warning: Could not delete old responder proof file: {e}")
+        # Check if this is a resubmission (previous proof exists or was rejected)
+        is_resubmission = False
+        old_cloudinary_url = None
         
-        # Save new proof
+        if current_user_is_requester:
+            if trade_history.requester_proof:
+                is_resubmission = True
+                old_cloudinary_url = trade_history.requester_proof
+                print(f"Resubmission detected - old requester proof: {old_cloudinary_url}")
+        else:
+            if trade_history.responder_proof:
+                is_resubmission = True
+                old_cloudinary_url = trade_history.responder_proof
+                print(f"Resubmission detected - old responder proof: {old_cloudinary_url}")
+        
+        # Upload to Cloudinary
+        try:
+            folder_path = f"media/trade_proofs/{'requester' if current_user_is_requester else 'responder'}"
+            
+            # Generate a unique public_id for this trade and user
+            public_id = f"trade_{trade_request_id}_{'req' if current_user_is_requester else 'resp'}_{request.user.id}"
+            
+            upload_result = cloudinary.uploader.upload(
+                main_proof_file,
+                folder=folder_path,
+                public_id=public_id,
+                resource_type="image",
+                overwrite=True,  # This will overwrite the old file with same public_id
+                invalidate=True  # Invalidate CDN cache
+            )
+            proof_url = upload_result['secure_url']
+            print(f"[DEBUG] Uploaded proof to Cloudinary: {proof_url}")
+            
+            # Optional: Explicitly delete old file if URL is different (shouldn't be needed with overwrite=True)
+            if is_resubmission and old_cloudinary_url:
+                try:
+                    # Extract public_id from old URL if you want to ensure cleanup
+                    # cloudinary.uploader.destroy(old_public_id) 
+                    print(f"Old file will be replaced by overwrite flag")
+                except Exception as e:
+                    print(f"Warning: Could not explicitly delete old Cloudinary file: {e}")
+                    
+        except Exception as e:
+            print(f"[ERROR] Cloudinary upload failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({"error": f"Failed to upload proof: {str(e)}"}, status=500)
+        
+        # Save new proof URL to database
         with transaction.atomic():
             if current_user_is_requester:
-                trade_history.requester_proof = main_proof_file
+                trade_history.requester_proof = proof_url
                 trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
                 user_type = "requester"
-                is_resubmission = trade_history.requester_proof_status in [
-                    TradeHistory.ProofStatus.REJECTED, 
-                    TradeHistory.ProofStatus.PENDING
-                ]
             else:
-                trade_history.responder_proof = main_proof_file
+                trade_history.responder_proof = proof_url
                 trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
                 user_type = "responder"
-                is_resubmission = trade_history.responder_proof_status in [
-                    TradeHistory.ProofStatus.REJECTED, 
-                    TradeHistory.ProofStatus.PENDING
-                ]
             
             trade_history.save()
         
@@ -3037,6 +3030,7 @@ def upload_trade_proof(request):
             "trade_request_id": trade_request.tradereq_id,
             "user_type": user_type,
             "proof_status": "PENDING",
+            "proof_url": proof_url,
             "files_uploaded": len(proof_files),
             "is_resubmission": is_resubmission
         }, status=201)
@@ -3048,6 +3042,7 @@ def upload_trade_proof(request):
         import traceback
         traceback.print_exc()
         return Response({"error": f"Failed to upload proof: {str(e)}"}, status=500)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

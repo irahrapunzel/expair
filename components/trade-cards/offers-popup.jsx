@@ -8,6 +8,7 @@ import { Icon } from "@iconify/react";
 import { StarIcon } from "../icons/star-icon";
 import { Star } from "lucide-react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 
 export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUpdate }) {
   const router = useRouter();
@@ -168,124 +169,124 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
   };
 
   const handleDeclineOffer = async (offer) => {
-  console.log('=== DECLINE OFFER DEBUG ===');
-  console.log('Full offer object:', offer);
-  console.log('Offer interest_id:', offer.interest_id);
-  console.log('Declining offer from:', offer.name, 'Interest ID:', offer.interest_id);
-  
-  if (!offer.interest_id) {
-    console.error('No interest_id found for offer');
-    console.error('Available offer fields:', Object.keys(offer));
-    return;
-  }
-  
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-interests/${offer.interest_id}/decline/`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    console.log('=== DECLINE OFFER DEBUG ===');
+    console.log('Full offer object:', offer);
+    console.log('Offer interest_id:', offer.interest_id);
+    console.log('Declining offer from:', offer.name, 'Interest ID:', offer.interest_id);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      
-      // Handle the case where it's already declined gracefully
-      if (response.status === 400 && errorData.error?.includes('already been declined')) {
-        console.log('Offer was already declined, removing from UI');
-        // Remove from popup UI immediately
-        setOffers(prevOffers => prevOffers.filter(o => o.interest_id !== offer.interest_id));
-
-        // ✅ Immediately notify parent to refresh its data
-        if (onTradeUpdate) {
-          await onTradeUpdate();
+    if (!offer.interest_id) {
+      console.error('No interest_id found for offer');
+      console.error('Available offer fields:', Object.keys(offer));
+      return;
+    }
+    
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-interests/${offer.interest_id}/decline/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access}`,
+            'Content-Type': 'application/json',
+          },
         }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        
+        // Handle the case where it's already declined gracefully
+        if (response.status === 400 && errorData.error?.includes('already been declined')) {
+          console.log('Offer was already declined, removing from UI');
+          // Remove from popup UI immediately
+          setOffers(prevOffers => prevOffers.filter(o => o.interest_id !== offer.interest_id));
 
-        return;
+          // ✅ Immediately notify parent to refresh its data
+          if (onTradeUpdate) {
+            await onTradeUpdate();
+          }
+
+          return;
+        }
+        
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      throw new Error(errorData.error || `HTTP ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Decline successful:', data);
-    
-    // ✅ First remove from popup state immediately for instant UI feedback
-    setOffers(prevOffers => prevOffers.filter(o => o.interest_id !== offer.interest_id));
-    
-    // ✅ Then immediately refresh parent data
-    if (onTradeUpdate) {
-      await onTradeUpdate(); // Wait for parent refresh to complete
-    }
-    
-    // ✅ Optional: If there are no more offers, close popup automatically
-    const remainingOffers = offers.filter(o => o.interest_id !== offer.interest_id);
-    if (remainingOffers.length === 0) {
-      console.log('No more offers, closing popup');
-      setTimeout(() => {
-        onClose();
-      }, 500); // Small delay for better UX
-    }
-    
-  } catch (error) {
-    console.error('Error declining offer:', error);
-    // ✅ Show user-friendly error message
-    alert('Failed to decline offer. Please try again.');
-  }
-};
-
- const handleConfirmAccept = async () => {
-  if (!selectedOffer || !selectedOffer.interest_id) {
-    console.error('No selected offer or interest_id');
-    return;
-  }
-  
-  console.log('Accepting offer from:', selectedOffer.name, 'Interest ID:', selectedOffer.interest_id);
-  
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-interests/${selectedOffer.interest_id}/accept/`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access}`,
-          'Content-Type': 'application/json',
-        },
+      const data = await response.json();
+      console.log('Decline successful:', data);
+      
+      // ✅ First remove from popup state immediately for instant UI feedback
+      setOffers(prevOffers => prevOffers.filter(o => o.interest_id !== offer.interest_id));
+      
+      // ✅ Then immediately refresh parent data
+      if (onTradeUpdate) {
+        await onTradeUpdate(); // Wait for parent refresh to complete
       }
-    );
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+      
+      // ✅ Optional: If there are no more offers, close popup automatically
+      const remainingOffers = offers.filter(o => o.interest_id !== offer.interest_id);
+      if (remainingOffers.length === 0) {
+        console.log('No more offers, closing popup');
+        setTimeout(() => {
+          onClose();
+        }, 500); // Small delay for better UX
+      }
+      
+    } catch (error) {
+      console.error('Error declining offer:', error);
+      // ✅ Show user-friendly error message
+      alert('Failed to decline offer. Please try again.');
+    }
+  };
+
+  const handleConfirmAccept = async () => {
+    if (!selectedOffer || !selectedOffer.interest_id) {
+      console.error('No selected offer or interest_id');
+      return;
     }
     
-    const data = await response.json();
-    console.log('Accept successful:', data);
+    console.log('Accepting offer from:', selectedOffer.name, 'Interest ID:', selectedOffer.interest_id);
     
-    setShowConfirmModal(false);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-interests/${selectedOffer.interest_id}/accept/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Accept successful:', data);
+      
+      setShowConfirmModal(false);
 
-    if (onTradeUpdate) {
-      await onTradeUpdate();
+      if (onTradeUpdate) {
+        await onTradeUpdate();
+      }
+
+      // Immediately go to Messages after a successful accept
+      onClose?.();
+      const targetUser = selectedOffer?.username || selectedOffer?.name || "";
+      const url = data?.conversation_id
+        ? `/home/messages?thread=${encodeURIComponent(data.conversation_id)}`
+        : (targetUser ? `/home/messages?user=${encodeURIComponent(targetUser)}` : '/home/messages');
+      router.push(url);
+      
+    } catch (error) {
+      console.error('Error accepting offer:', error);
+      setShowConfirmModal(false);
+      alert('Failed to accept offer. Please try again.');
     }
-
-    // Immediately go to Messages after a successful accept
-    onClose?.();
-    const targetUser = selectedOffer?.username || selectedOffer?.name || "";
-    const url = data?.conversation_id
-      ? `/home/messages?thread=${encodeURIComponent(data.conversation_id)}`
-      : (targetUser ? `/home/messages?user=${encodeURIComponent(targetUser)}` : '/home/messages');
-    router.push(url);
-    
-  } catch (error) {
-    console.error('Error accepting offer:', error);
-    setShowConfirmModal(false);
-    alert('Failed to accept offer. Please try again.');
-  }
-};
+  };
 
   // Handle image loading errors
   const handleImageError = (e) => {
@@ -349,24 +350,35 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
                 }}
               >
                 <div className="flex justify-between items-start w-full">
-                  {/* User Info */}
+                  {/* ✅ User Info - NOW CLICKABLE */}
                   <div className="flex items-start gap-[10px]">
-                    {/* ✅ Updated avatar section with proper error handling */}
-                    <div className="w-[25px] h-[25px] rounded-full bg-gray-400 overflow-hidden flex-shrink-0">
-                      <Image
-                        src={offer.avatar}
-                        alt={`${offer.name}'s profile picture`}
-                        width={25}
-                        height={25}
-                        className="w-full h-full object-cover"
-                        onError={handleImageError}
-                        // Add unoptimized for external URLs
-                        unoptimized={offer.avatar?.startsWith('http')}
-                      />
-                    </div>
+                    {/* Avatar - Clickable with ring hover */}
+                    <Link 
+                      href={`/home/profile/${offer.username || offer.id}`}
+                      className="flex-shrink-0"
+                    >
+                      <div className="relative w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#0038FF] transition-all">
+                        <Image
+                          src={offer.avatar}
+                          alt={`${offer.name}'s profile picture`}
+                          width={25}
+                          height={25}
+                          className="rounded-full object-cover"
+                          onError={handleImageError}
+                          unoptimized={offer.avatar?.startsWith('http')}
+                        />
+                      </div>
+                    </Link>
                     
                     <div className="flex flex-col items-start gap-[5px]">
-                      <span className="text-[16px] text-white">{offer.name}</span>
+                      {/* Name - Clickable with color change */}
+                      <Link 
+                        href={`/home/profile/${offer.username || offer.id}`}
+                        className="text-[16px] text-white hover:text-[#0038FF] transition-colors cursor-pointer"
+                      >
+                        {offer.name}
+                      </Link>
+                      
                       <div className="flex items-center gap-[15px]">
                         <div className="flex items-center gap-[5px]">
                           <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />

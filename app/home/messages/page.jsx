@@ -26,7 +26,7 @@ export default function MessagesPage() {
     }
   };
   const saveUnreadCounts = (obj) => {
-    try { localStorage.setItem('unread_counts', JSON.stringify(obj)); } catch {}
+    try { localStorage.setItem('unread_counts', JSON.stringify(obj)); } catch { }
   };
 
   const fetchConversationData = async (conversationId) => {
@@ -51,24 +51,24 @@ export default function MessagesPage() {
       }
       const data = await resp.json();
       console.log('API response data:', data);
-      
+
       // Find the specific conversation
       const conv = data.conversations?.find(c => c.conversation_id === conversationId);
       console.log('Found conversation:', conv);
       if (conv) {
         const userName = conv.other_user_name?.trim() || conv.other_user_username?.trim() || `User #${conv.other_user_id}`;
         console.log('Final userName:', userName);
-        
+
         // Update the conversation in the list
-        setConversations(prev => prev.map(c => 
-          c.id === conversationId 
+        setConversations(prev => prev.map(c =>
+          c.id === conversationId
             ? {
-                ...c,
-                name: userName,
-                otherUsername: conv.other_user_username || null,
-                otherUserId: conv.other_user_id,
-                avatar: conv.other_user_profilepic ? `${BACKEND_URL}/media/${conv.other_user_profilepic}` : "/assets/defaultavatar.png",
-              }
+              ...c,
+              name: userName,
+              otherUsername: conv.other_user_username || null,
+              otherUserId: conv.other_user_id,
+              avatar: conv.other_user_profilepic ? `${BACKEND_URL}/media/${conv.other_user_profilepic}` : "/assets/defaultavatar.png",
+            }
             : c
         ));
         console.log('Updated conversation in state');
@@ -101,27 +101,40 @@ export default function MessagesPage() {
           console.log('Processing conversation:', c); // Debug log
           const userName = c.other_user_name?.trim() || c.other_user_username?.trim() || `User #${c.other_user_id || c.conversation_id}`;
           console.log('Final userName:', userName); // Debug log
-          
+
+          let avatarUrl = "/assets/defaultavatar.png"; // Default fallback
+
+          if (c.other_user_profilepic) {
+            // If it's already a full Cloudinary URL, use it directly
+            if (c.other_user_profilepic.startsWith('http://') || c.other_user_profilepic.startsWith('https://')) {
+              avatarUrl = c.other_user_profilepic;
+            }
+            // Legacy support: if it's a relative path, prepend backend URL
+            else {
+              avatarUrl = `${BACKEND_URL}/media/${c.other_user_profilepic}`;
+            }
+          }
+
           return {
             id: c.conversation_id,
             name: userName,
             otherUsername: c.other_user_username || null,
             otherUserId: c.other_user_id,
-            avatar: c.other_user_profilepic ? `${BACKEND_URL}/media/${c.other_user_profilepic}` : "/assets/defaultavatar.png",
-          lastMessage: (() => {
-            if (!c.last_message) return "";
-            const isUser = currentId && String(c.last_sender_id) === currentId;
-            const speaker = isUser ? 'You' : (c.other_user_name || c.other_user_username || 'Partner');
-            return `${speaker}: ${c.last_message}`;
-          })(),
-          time: c.last_timestamp ? new Date(c.last_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""),
-          unread: (storedCounts && storedCounts[String(c.conversation_id)] > 0) || false,
-          unreadCount: Number(storedCounts[String(c.conversation_id)] || 0),
-          level: 1,
-          rating: "0.0",
-          ratingLabel: "",
-          messages: [],
-          requests: c.reqname || c.exchange ? { requested: c.reqname || '', exchange: c.exchange || '' } : undefined,
+            avatar: avatarUrl,
+            lastMessage: (() => {
+              if (!c.last_message) return "";
+              const isUser = currentId && String(c.last_sender_id) === currentId;
+              const speaker = isUser ? 'You' : (c.other_user_name || c.other_user_username || 'Partner');
+              return `${speaker}: ${c.last_message}`;
+            })(),
+            time: c.last_timestamp ? new Date(c.last_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""),
+            unread: (storedCounts && storedCounts[String(c.conversation_id)] > 0) || false,
+            unreadCount: Number(storedCounts[String(c.conversation_id)] || 0),
+            level: 1,
+            rating: "0.0",
+            ratingLabel: "",
+            messages: [],
+            requests: c.reqname || c.exchange ? { requested: c.reqname || '', exchange: c.exchange || '' } : undefined,
           };
         });
         setConversations(list);
@@ -148,7 +161,7 @@ export default function MessagesPage() {
           setSelectedConversation(idNum);
           return prev;
         }
-        
+
         // If not found, create a temporary placeholder and fetch the real data
         const storedCounts = loadUnreadCounts();
         const tempConv = {
@@ -166,10 +179,10 @@ export default function MessagesPage() {
           messages: [],
         };
         setSelectedConversation(idNum);
-        
+
         // Fetch the real conversation data
         fetchConversationData(idNum);
-        
+
         return [tempConv, ...prev];
       });
       return;
@@ -207,7 +220,7 @@ export default function MessagesPage() {
       return [newConv, ...prev];
     });
   }, [searchParams]);
-  
+
   // Function to update message in a conversation, update the sidebar preview, and move to top
   const updateConversation = (conversationId, newMessage) => {
     setConversations(prevConversations => {
@@ -217,15 +230,15 @@ export default function MessagesPage() {
         if (conv.id === conversationId) {
           // Add message to conversation messages array
           const updatedMessages = [...(conv.messages || []), newMessage];
-          
+
           // Create appropriate lastMessage text
           let lastMessage = newMessage.content;
           if (!lastMessage && newMessage.attachment) {
-            lastMessage = newMessage.attachment.type.startsWith('image/') 
+            lastMessage = newMessage.attachment.type.startsWith('image/')
               ? '📎 Image'
               : '📎 File';
           }
-          
+
           // Update the lastMessage and time for the conversation preview
           const nextUnread = !newMessage.isUser ? (Number(conv.unreadCount || 0) + 1) : (conv.unreadCount || 0);
           if (!newMessage.isUser) {
@@ -243,15 +256,15 @@ export default function MessagesPage() {
         return conv;
       });
       saveUnreadCounts(counts);
-      
+
       // Now reorder to move the updated conversation to the top
       const conversationToMove = updatedConversations.find(c => c.id === conversationId);
       const otherConversations = updatedConversations.filter(c => c.id !== conversationId);
-      
+
       return [conversationToMove, ...otherConversations];
     });
   };
-  
+
   // Function to mark a conversation as read when viewed
   const markConversationAsRead = (conversationId) => {
     setConversations(prevConversations => {
@@ -277,15 +290,15 @@ export default function MessagesPage() {
     <div className={`w-full px-[67px] mx-auto text-white ${inter.className} overflow-hidden`} style={{ height: 'calc(100vh - 140px)', paddingBottom: '20px' }}>
       <div className="flex gap-6 h-full overflow-hidden">
         {/* Left side - Message list */}
-        <MessageList 
+        <MessageList
           conversations={conversations}
           selectedId={selectedConversation}
           onSelect={(id) => setSelectedConversation(id)}
         />
 
         {/* Right side - Current conversation */}
-        <MessageConversation 
-          conversation={conversations.find(c => c.id === selectedConversation)} 
+        <MessageConversation
+          conversation={conversations.find(c => c.id === selectedConversation)}
           onSendMessage={(message) => updateConversation(selectedConversation, message)}
           onConversationViewed={() => markConversationAsRead(selectedConversation)}
         />

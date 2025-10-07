@@ -178,6 +178,23 @@ export default NextAuth({
       // Handle session update trigger (after registration completion)
       if (trigger === "update" && session) {
         console.log("=== SESSION UPDATE TRIGGER ===");
+        console.log("Session data:", session);
+
+        if (session.user) {
+          if (session.user.profilePic !== undefined) {
+            token.profilePic = session.user.profilePic;
+            console.log("🖼️ Updated profilePic in token:", session.user.profilePic);
+          }
+          if (session.user.username !== undefined) {
+            token.username = session.user.username;
+          }
+          if (session.user.firstName !== undefined) {
+            token.first_name = session.user.firstName;
+          }
+          if (session.user.lastName !== undefined) {
+            token.last_name = session.user.lastName;
+          }
+        }
 
         if (session.access && session.refresh) {
           token.access = session.access;
@@ -200,6 +217,8 @@ export default NextAuth({
         token.first_name = user.first_name;
         token.last_name = user.last_name;
         token.email = user.email;
+
+        if (user.profilePic) token.profilePic = user.profilePic;
         if (user.image) token.image = user.image;
 
         // Handle new user flag and Google data
@@ -289,6 +308,7 @@ export default NextAuth({
       console.log("=== SESSION CALLBACK ===");
       console.log("Token available:", !!token);
       console.log("Token has access:", !!token?.access);
+      console.log("Token profilePic:", token?.profilePic);
 
       if (token) {
         // Only set access/refresh for existing users
@@ -303,7 +323,13 @@ export default NextAuth({
           session.user.first_name = token.first_name;
           session.user.last_name = token.last_name;
           session.user.email = token.email;
-          if (token.image) session.user.image = token.image;
+
+          if (token.profilePic) {
+            session.user.profilePic = token.profilePic;
+          }
+          if (token.image) {
+            session.user.image = token.image;
+          }
 
           // Pass new user flag and Google data
           if (token.isNewUser !== undefined) {

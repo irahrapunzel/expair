@@ -241,10 +241,25 @@ export default function RegisterFlow() {
               console.log("Calling complete-registration API...");
 
               // Call the backend registration endpoint
-              const response = await fetch("/api/dj/complete-registration/", {
-                method: "POST",
-                body: formData,
-              });
+              const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL 
+                ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/complete-registration/`
+                : "/api/dj/complete-registration/";
+
+                console.log("=== SUBMITTING REGISTRATION ===");
+                console.log("API URL:", apiUrl);
+                console.log("FormData contents:");
+                for (let [key, value] of formData.entries()) {
+                  if (value instanceof File) {
+                    console.log(`  ${key}: [File] ${value.name} (${value.size} bytes)`);
+                  } else {
+                    console.log(`  ${key}:`, value);
+                  }
+                }
+
+                const response = await fetch(apiUrl, {
+                  method: "POST",
+                  body: formData,
+                });
 
               const data = await response.json();
 
