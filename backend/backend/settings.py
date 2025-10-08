@@ -127,21 +127,18 @@ AUTH_USER_MODEL = 'accounts.User'
 
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
-print(f"DATABASE_URL value: {DATABASE_URL}")
 
 if DATABASE_URL:
-    # Production: Render automatically provides DATABASE_URL
-    print(f"Using DATABASE_URL from environment")
+    # Production: Parse the DATABASE_URL
     DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
+        'default': dj_database_url.parse(
+            DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
         )
     }
 else:
     # Local: Use local PostgreSQL
-    print(f"Using local database")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
