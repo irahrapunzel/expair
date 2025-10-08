@@ -36,7 +36,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-s4+ko75@k=9i#4@c9wyl&(b(9d=j9zslcqbhhwlzdc-lhq0^i8")
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,expair-backend.onrender.com,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
 # Application definition
@@ -256,16 +256,16 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Cloudinary Configuration
 cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'dyj3ojsip'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY', '418167245724847'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'JSRCEm_-kwamtmCfRtojYGWQLWg'),
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'), 
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),        
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),  
     secure=True
 )
 
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', 'dyj3ojsip'),
-    'API_KEY': os.environ.get('CLOUDINARY_API_KEY', '418167245724847'),
-    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', 'JSRCEm_-kwamtmCfRtojYGWQLWg'),
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
