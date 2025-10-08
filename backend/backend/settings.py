@@ -131,10 +131,8 @@ print(f"=== DATABASE CONFIG DEBUG ===")
 print(f"DATABASE_URL exists: {DATABASE_URL is not None}")
 print(f"DATABASE_URL value: {DATABASE_URL}")
 
-
 if DATABASE_URL:
     # Production: Parse the DATABASE_URL
-    print("Using DATABASE_URL from environment")
     DATABASES = {
         'default': dj_database_url.parse(
             DATABASE_URL,
@@ -142,10 +140,12 @@ if DATABASE_URL:
             conn_health_checks=True,
         )
     }
-    print(f"Parsed DATABASES: {DATABASES}")
+    # Fix: dj_database_url sometimes leaves PORT as empty string
+    # PostgreSQL default port is 5432
+    if DATABASES['default']['PORT'] == '':
+        DATABASES['default']['PORT'] = 5432
 else:
     # Local: Use local PostgreSQL
-    print("Using local PostgreSQL database")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
