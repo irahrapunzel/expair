@@ -2280,6 +2280,9 @@ export default function ProfilePage() {
     }
   }
 
+  console.log("USER STATE FOR AVATAR:", user);
+console.log("PROFILE PIC URL:", user?.profilePic);
+
   // Original Profile Page content
   return (
     <div
