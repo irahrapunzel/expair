@@ -182,7 +182,7 @@ export default function Onboarding1({ onNext, onPrev }) {
               onClick={handleConfirm}
               disabled={isLoading || !(session?.access || session?.accessToken)}
             >
-              {isLoading ? "Saving..." : "Confirm"}
+              {isLoading ? "Saving..." : "Submit"}
             </Button>
           </div>
         </div>

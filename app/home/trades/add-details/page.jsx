@@ -304,7 +304,7 @@ export default function AddTradeDetailsPage() {
                   htmlFor="photo-upload"
                   className={`w-full h-[50px] bg-[#120A2A] border border-white/40 rounded-[15px] px-[16px] py-[15px] flex justify-between items-center ${isLoading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                 >
-                  <span className="text-[16px] text-[#413663]">
+                  <span className="text-[16px] text-white truncate max-w-[80%] overflow-hidden whitespace-nowrap">
                     {photo ? photo.name : "Upload photo"}
                   </span>
                   <Icon
