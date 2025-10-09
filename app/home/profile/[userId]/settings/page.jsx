@@ -34,6 +34,15 @@ const resolveAccountsBase = (raw) => {
 
 const backendUrl = "http://localhost:8000";
 
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+};
+
 export default function SettingsPage() {
   const { data: session, update, status } = useSession();
   const params = useParams();
@@ -54,6 +63,10 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [links, setLinks] = useState([]);
   const [location, setLocation] = useState("");
+
+  const [usernameError, setUsernameError] = useState("");
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const debouncedUsername = useDebounce(username, 500);
 
   const [originalFirstName, setOriginalFirstName] = useState("");
   const [originalLastName, setOriginalLastName] = useState("");
@@ -111,6 +124,69 @@ export default function SettingsPage() {
   ];
 
   const menuItems = [{ key: "profile", label: "Profile" }];
+
+  const checkAvailability = async (field, value) => {
+    // Check if the new username is the same as the original (no need to check API)
+    if (field === "username" && value.toLowerCase() === originalUsername.toLowerCase()) {
+      return false; // Not taken (it's the current user's username)
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl; // Use default if env is not set
+    if (!baseUrl) {
+      console.error("[settings] NEXT_PUBLIC_BACKEND_URL is not set!");
+      setError("Configuration Error: Backend URL not found.");
+      return true; // Block submission
+    }
+
+    try {
+      const response = await fetch(`${baseUrl}/api/validate-field/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ field, value }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `API call failed with status: ${response.status
+          }. Response: ${errorText.substring(0, 100)}...`
+        );
+      }
+
+      const data = await response.json();
+      return data.exists;
+    } catch (error) {
+      console.error(`Error checking ${field} for value "${value}":`, error);
+      setError(
+        `Network Error: Could not verify ${field} availability. Please try again.`
+      );
+      return true; // Safer default: block submission on network failure
+    }
+  };
+
+
+  // for Username Validation
+  useEffect(() => {
+    // Only check if username is changed and is not empty
+    if (
+      !debouncedUsername ||
+      debouncedUsername.length < 3 ||
+      debouncedUsername.toLowerCase() === originalUsername.toLowerCase()
+    ) {
+      setUsernameError("");
+      return;
+    }
+
+    const checkUsername = async () => {
+      setIsCheckingUsername(true);
+      const exists = await checkAvailability("username", debouncedUsername);
+      setUsernameError(exists ? "Username already taken." : "");
+      setIsCheckingUsername(false);
+    };
+    checkUsername();
+  }, [debouncedUsername, originalUsername]);
 
   useEffect(() => {
     if (!session) return; // wait until session is ready
@@ -374,7 +450,6 @@ export default function SettingsPage() {
       norm(firstName) !== norm(originalFirstName) ||
       norm(lastName) !== norm(originalLastName) ||
       norm(username) !== norm(originalUsername) ||
-      norm(emailAdd) !== norm(originalEmailAdd) ||
       norm(bio) !== norm(originalBio) ||
       norm(location) !== norm(originalLocation) ||
       JSON.stringify(links) !== JSON.stringify(originalLinks) ||
@@ -419,9 +494,20 @@ export default function SettingsPage() {
     setSaved(false);
     setError("");
 
+    if (usernameError) {
+      setError(usernameError);
+      setSaving(false);
+      return;
+    }
+    if (isCheckingUsername) {
+      setError("Please wait for username availability check to complete.");
+      setSaving(false);
+      return;
+    }
+
     // Check if backend is available
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-    if (!backendUrl) {
+    const configuredBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl;
+    if (!configuredBackendUrl) {
       console.warn("[settings] No backend URL configured, simulating save");
       // Simulate save without backend
       setTimeout(() => {
@@ -447,7 +533,7 @@ export default function SettingsPage() {
     try {
       console.log(">>> handleSave starting with links:", links);
 
-      const API_BASE = resolveAccountsBase(backendUrl);
+      const API_BASE = resolveAccountsBase(configuredBackendUrl);
       const fd = new FormData();
       if (file) fd.append("profilePic", file);
       if (norm(firstName)) fd.append("first_name", norm(firstName));
@@ -802,7 +888,7 @@ export default function SettingsPage() {
     return /^(https?:\/\/)?[\w\-]+(\.[\w\-]+)+([\/?#].*)?$/i.test(s);
   };
 
-    if (status === "loading") {
+  if (status === "loading") {
     return (
       <div
         className={`${inter.className} min-h-screen bg-[#050015] text-white py-10 px-4 flex items-center justify-center`}
@@ -981,19 +1067,52 @@ export default function SettingsPage() {
                   <p className="text-sm text-white/70">Username</p>
                   <Pencil
                     className="w-4 h-4 text-white/60 cursor-pointer"
-                    onClick={() => setEditUsername(!editUsername)}
+                    onClick={() => {
+                      setEditUsername(!editUsername);
+                      // Clear error when toggling out of edit mode
+                      if (editUsername) {
+                        setUsernameError("");
+                        setIsCheckingUsername(false);
+                        setError(""); // Also clear general error in case it's set
+                      }
+                    }}
                   />
                 </div>
                 {editUsername ? (
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => {
-                      setUsername(e.target.value);
-                      setSaved(false);
-                    }}
-                    className="w-full px-4 py-3 bg-[#120A2A] border border-white/40 rounded-[10px] text-white text-sm"
-                  />
+                  <>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        setSaved(false);
+                        setUsernameError(""); // Clear error on change
+                      }}
+                      className={`w-full px-4 py-3 bg-[#120A2A] border rounded-[10px] text-white text-sm ${usernameError ? "border-red-500" : "border-white/40"
+                        }`}
+                    />
+                    {/* NEW: Username validation feedback */}
+                    {isCheckingUsername && (
+                      <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Checking availability...
+                      </p>
+                    )}
+                    {usernameError && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {usernameError}
+                      </p>
+                    )}
+                    {/* Display success only if different from original and not an error */}
+                    {!isCheckingUsername &&
+                      !usernameError &&
+                      username.trim() !== "" &&
+                      username.toLowerCase() !== originalUsername.toLowerCase() && (
+                        <p className="text-emerald-400 text-xs mt-1">
+                          Username is available.
+                        </p>
+                      )}
+                  </>
                 ) : (
                   <p className="text-white/100">{username || "Not set"}</p>
                 )}
