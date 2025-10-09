@@ -101,9 +101,19 @@ export default function HomePage() {
     if (response.ok) {
       const data = await response.json();
       console.log("Interest expressed successfully:", data);
+      
+      // ✅ REMOVE CARD whether it's new interest OR reactivated interest
+      setExploreItems(prevItems => 
+        prevItems.filter(item => item.tradereq_id !== selectedPartner.tradereq_id)
+      );
+      
+      // Show appropriate success message
+      if (data.reactivated) {
+        console.log("Reactivated declined interest - card removed from explore");
+      }
+      
       setShowSuccessDialog(true);
     } else {
-      // Robust error parsing: try JSON then fallback to plain text
       let message = "";
       try {
         const text = await response.text();
@@ -116,11 +126,16 @@ export default function HomePage() {
       } catch {
         message = "";
       }
-      // If user already expressed interest, treat as success and show the same success dialog
+      
+      // If user already expressed interest, still remove card and show success
       if (response.status === 400 && /already expressed interest/i.test(message)) {
+        setExploreItems(prevItems => 
+          prevItems.filter(item => item.tradereq_id !== selectedPartner.tradereq_id)
+        );
         setShowSuccessDialog(true);
         return;
       }
+      
       const finalMsg = message || `Failed to express interest (HTTP ${response.status}).`;
       console.error("Failed to express interest:", finalMsg);
       alert(finalMsg);
