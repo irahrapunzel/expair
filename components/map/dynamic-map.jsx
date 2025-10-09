@@ -37,18 +37,19 @@ export default function DynamicMap({ viewport, onViewportChange, marker, onMarke
   return (
     <Map
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-      viewState={memoizedViewState}
+      initialViewState={memoizedViewState}
       onMove={handleMove}
       mapStyle="mapbox://styles/mapbox/streets-v12"
       style={{ width: '100%', height: '100%' }}
       onClick={handleMapClick}
+      reuseMaps
+      attributionControl={false}
     >
       {marker && (
         <Marker
           latitude={marker.latitude}
           longitude={marker.longitude}
-          offsetLeft={-20}
-          offsetTop={-40}
+          anchor="bottom"
         >
           <MapPin size={40} className="text-[#000000]" fill="#000000" />
         </Marker>
@@ -57,6 +58,7 @@ export default function DynamicMap({ viewport, onViewportChange, marker, onMarke
       <GeolocateControl 
         position="top-left" 
         onGeolocate={handleGeolocate}
+        trackUserLocation
       />
     </Map>
   );
