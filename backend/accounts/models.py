@@ -187,7 +187,7 @@ class UserCredential(models.Model):
 
 class TradeRequest(models.Model):
     class Status(models.TextChoices):
-        PENDING = "PENDING", "Pending"          # just created, waiting for finalization
+        PENDING = "PENDING", "Pending"          # a user is confirmed as responder
         ACTIVE = "ACTIVE", "Active"             # if both users confirmed trade after seeing evaluation
         COMPLETED = "COMPLETED", "Completed"    # finished successfully
         CANCELLED = "CANCELLED", "Cancelled"    # requester/responder backed out
@@ -295,8 +295,6 @@ class Evaluation(models.Model):
 
     def __str__(self):
         return f"Evaluation for Trade Request {self.trade_request.reqname} - Task Complexity: {self.taskcomplexity}"
-    
-    
     
 class TradeInterest(models.Model):
     class InterestStatus(models.TextChoices):

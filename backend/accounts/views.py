@@ -1394,21 +1394,33 @@ def get_home_active_trades(request):
 def explore_feed(request):
     """
     Returns explore feed. Shows what each requester can offer based on skill matching.
-    Includes CANCELLED trades so they can receive new offers.
+    Shows: NULL status (available) and CANCELLED trades (can receive new offers)
+    Hides: PENDING (locked), ACTIVE, and COMPLETED trades
+    Hides: Trades where viewer already expressed interest (PENDING interest)
     """
     viewer = request.user if getattr(request.user, "id", None) else None
 
     # Load recent requests, exclude viewer's own requests
-    # Show PENDING, NULL (no status), and CANCELLED trades in explore feed
-    # Exclude only ACTIVE and COMPLETED trades
+    # Only show trades that are open for new interests
     qs = (TradeRequest.objects
           .select_related("requester")
-          .exclude(status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED])
+          .filter(
+              Q(status__isnull=True) | Q(status=TradeRequest.Status.CANCELLED)
+          )
           .order_by("-tradereq_id"))
     
     if viewer:
         qs = qs.exclude(requester=viewer)
-    
+
+        #Exclude trades where viewer already has PENDING or ACCEPTED interest
+        user_interest_trade_ids = TradeInterest.objects.filter(
+            interested_user=viewer,
+            status__in=[TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]
+        ).values_list('trade_request_id', flat=True)
+        
+        if user_interest_trade_ids:
+            qs = qs.exclude(tradereq_id__in=user_interest_trade_ids)
+
     qs = qs[:50]
 
     # Preload viewer's interests if authenticated
@@ -1500,7 +1512,8 @@ def express_trade_interest(request):
     """
     Express interest in a trade request.
     Creates a TradeInterest record - multiple users can express interest.
-    If user was previously DECLINED, reactivates their interest to PENDING.
+    If user was previously DECLINED or CANCELLED, reactivates their interest to PENDING.
+    Does NOT change TradeRequest status - it stays NULL until requester accepts someone
     """
     print("=== EXPRESS TRADE INTEREST DEBUG ===")
     print(f"Request data: {request.data}")
@@ -1524,54 +1537,53 @@ def express_trade_interest(request):
                 "error": "You cannot express interest in your own trade request"
             }, status=400)
         
-        # Check if this user has already expressed PENDING or ACCEPTED interest
-        # Allow re-expressing interest if previously DECLINED
-        existing_active_interest = TradeInterest.objects.filter(
+        # ✅ FIX: Check for ANY existing interest record first (regardless of status)
+        existing_interest = TradeInterest.objects.filter(
             trade_request=trade_request,
-            interested_user=request.user,
-            status__in=[TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]
-        ).exists()
-        
-        if existing_active_interest:
-            return Response({
-                "error": "You have already expressed interest in this trade request"
-            }, status=400)
-        
-        # Check if there's a DECLINED interest - if so, update it to PENDING instead of creating new
-        declined_interest = TradeInterest.objects.filter(
-            trade_request=trade_request,
-            interested_user=request.user,
-            status=TradeInterest.InterestStatus.DECLINED
+            interested_user=request.user
         ).first()
         
-        if declined_interest:
-            # Reactivate the declined interest
-            declined_interest.status = TradeInterest.InterestStatus.PENDING
-            declined_interest.created_at = django_timezone.now()  # Update timestamp
-            declined_interest.save()
+        if existing_interest:
+            # Interest record already exists
+            if existing_interest.status in [TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]:
+                return Response({
+                    "error": "You have already expressed interest in this trade request"
+                }, status=400)
             
-            trade_interest = declined_interest
-            print(f"Reactivated declined interest for user {request.user.id}")
+            # ✅ Reactivate DECLINED or CANCELLED interest
+            if existing_interest.status in [TradeInterest.InterestStatus.DECLINED, TradeInterest.InterestStatus.CANCELLED]:
+                existing_interest.status = TradeInterest.InterestStatus.PENDING
+                existing_interest.created_at = django_timezone.now()  # Update timestamp
+                existing_interest.save()
+                
+                trade_interest = existing_interest
+                print(f"Reactivated {existing_interest.status} interest for user {request.user.id}")
+                reactivated = True
         else:
-            # Create new interest record
-            trade_interest = TradeInterest.objects.create(
-                trade_request=trade_request,
-                interested_user=request.user,
-            )
-            print(f"Created new trade interest for user {request.user.id}")
-        
-        # Update trade request status to PENDING if it's the first interest (NULL -> PENDING)
-        if not trade_request.status:  # If status is NULL/empty
-            trade_request.status = TradeRequest.Status.PENDING
-            trade_request.save()
-        
-        # Get total PENDING interest count (exclude declined)
+            # ✅ No existing record - create new interest
+            try:
+                trade_interest = TradeInterest.objects.create(
+                    trade_request=trade_request,
+                    interested_user=request.user,
+                    status=TradeInterest.InterestStatus.PENDING
+                )
+                print(f"Created new trade interest for user {request.user.id}")
+                reactivated = False
+            except IntegrityError as e:
+                # Handle race condition where record was created between check and create
+                print(f"IntegrityError caught: {e}")
+                return Response({
+                    "error": "You have already expressed interest in this trade request"
+                }, status=400)
+             
+        # Get total PENDING interest count (exclude declined and cancelled)
         interest_count = TradeInterest.objects.filter(
             trade_request=trade_request,
             status=TradeInterest.InterestStatus.PENDING
         ).count()
         
-        print(f"Trade interest created/reactivated successfully")
+        print(f"Trade interest {'reactivated' if reactivated else 'created'} successfully")
+        print(f"Trade status remains: {trade_request.status}")
         print(f"Requester: {trade_request.requester.username}")
         print(f"Interested User: {request.user.username}")
         print(f"Total pending interests: {interest_count}")
@@ -1592,7 +1604,7 @@ def express_trade_interest(request):
             "total_interests": interest_count,
             "reqname": trade_request.reqname,
             "created_at": trade_interest.created_at,
-            "reactivated": declined_interest is not None
+            "reactivated": reactivated
         }, status=201)
         
     except TradeRequest.DoesNotExist:
@@ -1656,12 +1668,13 @@ def get_posted_trades(request):
     """
     Get all trades posted by the authenticated user with interested users.
     These are trades where the user is the requester.
+    Shows: NULL (available), CANCELLED (can accept new), and PENDING (locked but visible)
+    Hides: Hides: Only ACTIVE and COMPLETED trades
     """
     user = request.user
     
     # Get trades where user is the requester
-    # Show PENDING (waiting for confirmation), NULL (no interests yet), and CANCELLED (can pick another offer)
-    # Hide ACTIVE (already confirmed) and COMPLETED trades
+    # Show everything except ACTIVE and COMPLETED
     posted_trades = TradeRequest.objects.filter(
         requester=user
     ).exclude(
@@ -1884,6 +1897,7 @@ def accept_trade_interest(request, interest_id):
     """
     Accept a trade interest - sets interest status to ACCEPTED but keeps trade as PENDING
     Trade only becomes ACTIVE after evaluation confirmation
+    This is where TradeRequest status becomes PENDING (locked)
     """
     print(f"=== ACCEPT TRADE INTEREST DEBUG ===")
     print(f"Interest ID: {interest_id}")
@@ -1920,7 +1934,7 @@ def accept_trade_interest(request, interest_id):
             trade_interest.status = TradeInterest.InterestStatus.ACCEPTED
             trade_interest.save()
             
-            # Set trade to PENDING and assign responder
+            # NOW set trade to PENDING (locked, no more offers)
             trade_request.status = TradeRequest.Status.PENDING
             trade_request.responder = trade_interest.interested_user
             
@@ -1988,17 +2002,8 @@ def accept_trade_interest(request, interest_id):
             print(f"Trade saved with requester ID: {trade_request.requester.id}, responder ID: {trade_request.responder.id}")
             print(f"VERIFICATION - Reloaded trade: requester={trade_request.requester.id}, responder={trade_request.responder.id}")
             
-            # Decline all other pending interests for this trade
-            other_interests = TradeInterest.objects.filter(
-                trade_request=trade_request,
-                status=TradeInterest.InterestStatus.PENDING
-            ).exclude(trade_interests_id=interest_id)
-            
-            declined_count = other_interests.update(status=TradeInterest.InterestStatus.DECLINED)
-            
             print(f"Trade interest {interest_id} accepted successfully")
             print(f"Trade {trade_request.tradereq_id} is now PENDING (waiting for evaluation)")
-            print(f"{declined_count} other interests were declined")
             print(f"Exchange field set to: {trade_request.exchange}")
 
             # Ensure a conversation exists for this trade
@@ -2028,7 +2033,6 @@ def accept_trade_interest(request, interest_id):
                     "requires_evaluation": True  # Indicate that evaluation is needed
                 },
                 "conversation_id": getattr(convo, 'conversation_id', None),
-                "other_interests_declined": declined_count
             }, status=200)
             
     except TradeInterest.DoesNotExist:
@@ -2401,6 +2405,15 @@ def confirm_trade_evaluation(request, tradereq_id):
                 # Both confirmed - activate trade
                 trade_request.status = TradeRequest.Status.ACTIVE
                 trade_request.save()
+
+                # Decline all other pending interests
+                other_interests = TradeInterest.objects.filter(
+                    trade_request=trade_request,
+                    status=TradeInterest.InterestStatus.PENDING
+                )
+                declined_count = other_interests.update(status=TradeInterest.InterestStatus.DECLINED)
+    
+
                 print(f"Trade status set to ACTIVE")
                 message = "Trade confirmed by both parties! Trade is now active."
                 trade_status = "ACTIVE"
@@ -2492,35 +2505,73 @@ def reject_trade_evaluation(request, tradereq_id):
 @permission_classes([IsAuthenticated])
 def cancel_active_trade(request, tradereq_id):
     """
-    Cancel an active trade via 3-dots menu - sets TradeInterest to CANCELLED
+    Cancel an active trade via 3-dots menu
+    - Sets TradeInterest status to CANCELLED
+    - Reverts TradeRequest status to NULL (available for new offers)
+    - Clears responder_id (resets to NULL)
+    - Clears exchange field (resets to NULL)
     """
+    print(f"=== CANCEL ACTIVE TRADE DEBUG ===")
+    print(f"Trade ID: {tradereq_id}")
+    print(f"User: {request.user.id}")
+    
     try:
         trade_request = TradeRequest.objects.get(tradereq_id=tradereq_id)
         
+        # Verify user is authorized (either requester or responder)
         if request.user not in [trade_request.requester, trade_request.responder]:
-            return Response({"error": "You are not authorized to cancel this trade"}, status=403)
+            return Response({
+                "error": "You are not authorized to cancel this trade"
+            }, status=403)
         
-        trade_interest = TradeInterest.objects.filter(
-            trade_request=trade_request,
-            status=TradeInterest.InterestStatus.ACCEPTED
-        ).first()
-        
-        if trade_interest:
-            trade_interest.status = TradeInterest.InterestStatus.CANCELLED
-            trade_interest.save()
-        
-        trade_request.status = TradeRequest.Status.CANCELLED
-        trade_request.save()
+        with transaction.atomic():
+            # Set TradeInterest to CANCELLED if it exists
+            trade_interest = TradeInterest.objects.filter(
+                trade_request=trade_request,
+                status=TradeInterest.InterestStatus.ACCEPTED
+            ).first()
+            
+            if trade_interest:
+                trade_interest.status = TradeInterest.InterestStatus.CANCELLED
+                trade_interest.save()
+                print(f"Set TradeInterest {trade_interest.trade_interests_id} to CANCELLED")
+            
+            # ✅ REVERT TRADE STATUS TO NULL (available for new offers)
+            trade_request.status = None
+            
+            # ✅ CLEAR RESPONDER_ID (reset to NULL)
+            trade_request.responder = None
+            
+            # ✅ CLEAR EXCHANGE FIELD (reset to NULL)
+            trade_request.exchange = None
+            
+            trade_request.save()
+            
+            print(f"Trade {tradereq_id} reverted:")
+            print(f"  - Status: NULL (available for new offers)")
+            print(f"  - Responder: NULL")
+            print(f"  - Exchange: NULL")
         
         return Response({
-            "message": "Trade cancelled successfully",
-            "tradereq_id": trade_request.tradereq_id
+            "message": "Trade cancelled successfully. Trade is now available for new offers.",
+            "tradereq_id": trade_request.tradereq_id,
+            "status": None,  # NULL status
+            "responder_id": None,  # NULL responder
+            "exchange": None,  # NULL exchange
+            "reverted_to_explore": True  # Indicates trade is back in explore feed
         }, status=200)
         
     except TradeRequest.DoesNotExist:
-        return Response({"error": "Trade request not found"}, status=404)
+        return Response({
+            "error": "Trade request not found"
+        }, status=404)
     except Exception as e:
-        return Response({"error": f"Failed to cancel trade: {str(e)}"}, status=500)
+        print(f"Cancel trade error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "error": f"Failed to cancel trade: {str(e)}"
+        }, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
