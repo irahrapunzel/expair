@@ -116,6 +116,15 @@ export default function SettingsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const [details, setDetails] = useState("");
+  const [charCount, setCharCount] = useState(0);
+
+  const handleDetailsChange = (e) => {
+    const text = e.target.value;
+    setDetails(text);
+    setCharCount(text.length);
+  };
+
   const passwordRules = [
     { label: "At least one lowercase letter", test: /[a-z]/ },
     { label: "At least one uppercase letter", test: /[A-Z]/ },
@@ -207,7 +216,6 @@ export default function SettingsPage() {
 
     run();
   }, [session]);
-
 
   useEffect(() => {
     console.log("🔍 Session object in Settings page:", session); // 👈 add here
@@ -926,10 +934,11 @@ export default function SettingsPage() {
               <button
                 key={item.key}
                 onClick={() => setActiveTab(item.key)}
-                className={`text-left px-4 py-2 rounded-[8px] transition ${activeTab === item.key
-                  ? "bg-[#120A2A] text-white"
-                  : "text-white/70 hover:bg-[#1A0F3E]"
-                  }`}
+                className={`text-left px-4 py-2 rounded-[8px] transition ${
+                  activeTab === item.key
+                    ? "bg-[#120A2A] text-white"
+                    : "text-white/70 hover:bg-[#1A0F3E]"
+                }`}
               >
                 {item.label}
               </button>
@@ -1039,6 +1048,7 @@ export default function SettingsPage() {
               </section>
 
               {/* Bio */}
+              {/* Bio */}
               <section className="mb-8">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-white/70">Bio</p>
@@ -1047,13 +1057,30 @@ export default function SettingsPage() {
                     onClick={() => setEditBio(!editBio)}
                   />
                 </div>
+
                 {editBio ? (
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-[#120A2A] border border-white/40 rounded-[10px] text-white text-sm resize-none"
-                  />
+                  <div className="flex flex-col gap-[10px]">
+                    <textarea
+                      value={bio}
+                      onChange={(e) => {
+                        setBio(e.target.value);
+                        setCharCount(e.target.value.length); // ✅ update counter
+                      }}
+                      rows={3}
+                      maxLength={300}
+                      className="w-full px-4 py-3 bg-[#120A2A] border border-white/40 rounded-[10px] text-white text-sm resize-none"
+                      placeholder="Write something about yourself..."
+                    />
+                    <div className="flex justify-end">
+                      <span
+                        className={`text-[13px] ${
+                          charCount >= 300 ? "text-red-400" : "text-[#413663]"
+                        }`}
+                      >
+                        {charCount}/300 characters
+                      </span>
+                    </div>
+                  </div>
                 ) : (
                   <p className="text-white/100 whitespace-pre-line">
                     {bio || "Not set"}

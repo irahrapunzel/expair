@@ -3,7 +3,10 @@ import { useSession } from "next-auth/react";
 import { Button } from "../../../../../components/ui/button";
 import { Input } from "../../../../../components/ui/input";
 import { ChevronLeft, ChevronRight, Upload, X } from "lucide-react";
+import { Inter } from "next/font/google";
 import Image from "next/image";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
   const { data: session } = useSession();
@@ -97,8 +100,8 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
   };
 
   return (
-    <div
-      className="pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center"
+     <div
+      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
       {/* Disclaimer */}

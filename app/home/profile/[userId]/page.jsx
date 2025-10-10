@@ -159,13 +159,45 @@ export default function ProfilePage() {
 
   const RAW_ORIGIN = RAW.replace(/\/api\/accounts\/?$/, "");
 
-  const toAbsolute = (u) => {
-    if (!u) return null;
+  const [showDeleteModalForCard, setShowDeleteModalForCard] = useState(null);
+  const [tradeToDelete, setTradeToDelete] = useState(null);
+
+  const handleDeleteTrade = async (trade) => {
+    const tradereqId =
+      trade?.tradereq_id || trade?.id || tradeToDelete?.tradereq_id;
+    if (!tradereqId) {
+      console.error("No tradereq_id provided for delete.", {
+        trade,
+        tradeToDelete,
+      });
+      alert("Unable to delete: missing trade identifier.");
+      return;
+    }
+
     try {
-      // If u is already absolute, URL(u) keeps it; if it's relative, it resolves vs RAW_ORIGIN
-      return new URL(u, RAW_ORIGIN).href;
-    } catch {
-      return u;
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradereqId}/delete/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session?.access}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        setPostedTrades((prevTrades) =>
+          prevTrades.filter((t) => t.tradereq_id !== tradereqId)
+        );
+        setShowDeleteModalForCard(null);
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || "Failed to delete trade request");
+      }
+    } catch (error) {
+      console.error("Error deleting trade request:", error);
+      alert("Failed to delete trade request");
     }
   };
 
@@ -215,6 +247,105 @@ export default function ProfilePage() {
 
     return result;
   }, [slug, session, user?.id, user?.username]);
+
+  const fetchPostedTrades = async () => {
+    console.log("isOwnProfile:", isOwnProfile);
+    console.log("slug:", slug);
+
+    const url = isOwnProfile
+      ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/`
+      : `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/${slug}/`;
+
+    try {
+      setPostedTradesLoading(true);
+      setPostedTradesError(null);
+
+      // 🧠 Define headers FIRST
+      const headers = new Headers();
+      headers.append("Content-Type", "application/json");
+      if (session?.access) {
+        headers.append("Authorization", `Bearer ${session.access}`);
+      }
+
+      console.log("🔑 Sending headers:", Object.fromEntries(headers.entries()));
+      console.log("Fetching posted trades from:", url);
+
+      const response = await fetch(url, { method: "GET", headers });
+
+      console.log("📩 Response status:", response.status);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(
+          "❌ Failed to fetch posted trades:",
+          response.status,
+          errText
+        );
+        throw new Error(`Failed to fetch posted trades (${response.status})`);
+      }
+
+      const data = await response.json();
+      console.log("✅ Posted trades data received:", data);
+
+      const transformed = data.posted_trades.map((trade) => ({
+        id: trade.tradereq_id,
+        tradereq_id: trade.tradereq_id,
+        name:
+          (isOwnProfile
+            ? `${session?.user?.first_name || ""} ${
+                session?.user?.last_name || ""
+              }`.trim()
+            : `${user?.firstname || ""} ${user?.lastname || ""}`.trim()) ||
+          session?.user?.username ||
+          user?.username ||
+          slug ||
+          "User",
+
+        rating: Number(
+          isOwnProfile ? session?.user?.rating ?? 0 : user?.rating ?? 0
+        ),
+        reviews: Number(
+          isOwnProfile ? session?.user?.reviews ?? 0 : user?.reviews ?? 0
+        ),
+        level: Number(
+          isOwnProfile ? session?.user?.level ?? 1 : user?.level ?? 1
+        ),
+        needs: trade.reqname,
+        interested:
+          trade.interested_users
+            ?.filter((u) => u.status === "PENDING")
+            ?.map((u) => ({
+              id: u.id,
+              interest_id: u.interest_id,
+              name: u.name,
+              username: u.username,
+              avatar: u.profilePic
+                ? u.profilePic.startsWith("http")
+                  ? u.profilePic
+                  : `${process.env.NEXT_PUBLIC_BACKEND_URL}${u.profilePic}`
+                : "/assets/defaultavatar.png",
+              rating: u.rating,
+              reviews: u.rating_count,
+              level: u.level,
+              status: u.status,
+            })) || [],
+        until: trade.deadline
+          ? new Date(trade.deadline).toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+            })
+          : "No deadline",
+      }));
+      console.log("🧩 Transformed trades:", transformed);
+
+      setPostedTrades(transformed);
+    } catch (err) {
+      console.error("❌ Failed to fetch posted trades:", err);
+      setPostedTradesError(err.message);
+    } finally {
+      setPostedTradesLoading(false);
+    }
+  };
 
   useEffect(() => {
     console.log("=== USEEFFECT RUNNING ===");
@@ -423,6 +554,31 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, [slug, session?.access, status, router]);
+
+  useEffect(() => {
+    console.log("📡 [fetchPostedTrades useEffect] running...");
+    console.log("slug:", slug);
+    console.log("status:", status);
+    console.log("session:", session);
+
+    if (!slug) {
+      console.log("⛔ No slug, skip fetchPostedTrades");
+      return;
+    }
+
+    if (status === "loading") {
+      console.log("⏳ Auth still loading");
+      return;
+    }
+
+    // We’ll only run once the profile data (user state) is ready
+    if (status === "authenticated" && session?.access) {
+      console.log("✅ Running fetchPostedTrades now...");
+      fetchPostedTrades();
+    } else {
+      console.log("⚠️ Not authenticated — skipping fetchPostedTrades");
+    }
+  }, [slug, status, session?.access]);
 
   useEffect(() => {
     if (!user) return;
@@ -1200,6 +1356,97 @@ export default function ProfilePage() {
     return { interestsToAdd, interestsToRemove };
   };
 
+  const [postedTrades, setPostedTrades] = useState([]);
+  const [postedTradesLoading, setPostedTradesLoading] = useState(true);
+  const [postedTradesError, setPostedTradesError] = useState(null);
+
+  useEffect(() => {
+    if (!slug) return;
+
+    const loadPostedTrades = async () => {
+      try {
+        setPostedTradesLoading(true);
+        setPostedTradesError(null);
+
+        const headers = {
+          "Content-Type": "application/json",
+        };
+        if (session?.access) headers.Authorization = `Bearer ${session.access}`;
+
+        // ✅ Determine which endpoint to call based on profile ownership
+        let url;
+        if (isOwnProfile) {
+          url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/`;
+        } else {
+          url = `${
+            process.env.NEXT_PUBLIC_BACKEND_URL
+          }/posted-trades/${encodeURIComponent(slug)}/`;
+        }
+
+        console.log("[Profile] Fetching posted trades from:", url);
+
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || `Failed to fetch (${res.status})`);
+        }
+
+        const data = await res.json();
+        console.log("[Profile] posted trades response:", data);
+
+        // 🧩 Transform data for consistency
+        const mapped = (data.posted_trades || []).map((trade) => ({
+          id: trade.tradereq_id,
+          tradereq_id: trade.tradereq_id,
+          reqname: trade.reqname,
+          deadline: trade.deadline,
+          name: isOwnProfile
+            ? `${session?.user?.first_name || ""} ${
+                session?.user?.last_name || ""
+              }`.trim() || session?.user?.username
+            : `${user?.firstname || ""} ${user?.lastname || ""}`.trim() ||
+              user?.username,
+          username: isOwnProfile ? session?.user?.username : user?.username,
+          rating: isOwnProfile ? session?.user?.rating || 0 : user?.rating || 0,
+          reviews: isOwnProfile
+            ? session?.user?.reviews || 0
+            : user?.reviews || 0,
+          level: isOwnProfile ? session?.user?.level || 1 : user?.level || 1,
+          offer: trade.requester_skills
+            ? Object.values(trade.requester_skills)
+                .flat()
+                .slice(0, 1)
+                .join(", ")
+            : "N/A",
+        }));
+
+        setPostedTrades(mapped);
+      } catch (err) {
+        console.error("❌ Failed to fetch posted trades:", err);
+        setPostedTradesError(err.message);
+      } finally {
+        setPostedTradesLoading(false);
+      }
+    };
+
+    loadPostedTrades();
+  }, [slug, isOwnProfile, session, user]);
+
+  const fmtUntil = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return `until ${d.toLocaleDateString(undefined, {
+      month: "long",
+      day: "numeric",
+    })}`;
+  };
+
+  const displayName = isOwnProfile
+    ? "You"
+    : `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
+      user?.username ||
+      "User";
+
   // Function to get general skill ID from category name
   const getGeneralSkillIdForInterest = async (categoryName) => {
     try {
@@ -1217,6 +1464,52 @@ export default function ProfilePage() {
       console.error("[getGeneralSkillIdForInterest] error", e);
       throw e;
     }
+  };
+
+  const InlineConfirmationModal = ({ message, onConfirm, onCancel }) => {
+    return (
+      // Outer container: absolute positioning (for inline use)
+      <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-70 z-20 rounded-[20px]">
+        <div
+          // Window size changed from w-[300px] to w-[420px] to be proportional to SavedPopup
+          className="w-[420px] p-8 flex flex-col gap-6 rounded-[15px] shadow-lg"
+          style={{
+            // Window styles copied exactly from SavedPopup
+            background: "rgba(0, 0, 0, 0.4)",
+            border: "2px solid #0038FF",
+            boxShadow: "0px 4px 15px #D78DE5",
+            backdropFilter: "blur(40px)",
+            borderRadius: "15px",
+          }}
+        >
+          {/* Message Text: Adjusted size and margin for better fit */}
+          <h3 className="text-center text-[18px] font-semibold text-white">
+            {message}
+          </h3>
+
+          {/* Buttons Container */}
+          <div className="flex justify-center gap-4 mt-2">
+            {/* Cancel Button - Secondary Style (Transparent, Blue Border) */}
+            <button
+              onClick={onCancel}
+              // Styled to be the secondary action: transparent background, primary blue border
+              className="w-[150px] h-[38px] py-2 rounded-[10px] text-white border-2 border-[#0038FF] bg-transparent text-[15px] hover:bg-white/10 transition duration-300"
+            >
+              <span className="text-[15px]">Cancel</span>
+            </button>
+
+            {/* Confirm Button - Primary Style (Blue from SavedPopup) */}
+            <button
+              onClick={onConfirm}
+              // Styled to be the primary action: Blue background, blue shadow
+              className="w-[150px] h-[38px] py-2 rounded-[10px] text-white bg-[#0038FF] text-[15px] shadow-[0px_0px_10px_#284CCC] hover:bg-[#1a4dff] transition duration-300"
+            >
+              <span className="text-[15px]">Confirm</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // Interests add/remove
@@ -2280,13 +2573,74 @@ export default function ProfilePage() {
     }
   }
 
-  console.log("USER STATE FOR AVATAR:", user);
-console.log("PROFILE PIC URL:", user?.profilePic);
+  // Handle interest in trade for profile public view
+  const [selectedTrade, setSelectedTrade] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
+  const handleInterestedClick = (trade) => {
+    setSelectedTrade(trade);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmInterest = async () => {
+    if (!selectedTrade || !session?.access) return;
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/express-interest/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access}`,
+          },
+          body: JSON.stringify({
+            tradereq_id: selectedTrade.tradereq_id, // ✅ correct key
+          }),
+        }
+      );
+
+      // 🧠 Parse the response early
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // 🧩 Backend often returns { error: "..." } or { message: "..." }
+        const errorMessage =
+          data?.error ||
+          data?.message ||
+          `Failed to send trade request (Error ${res.status})`;
+
+        console.error("❌ Express interest failed:", errorMessage);
+        alert(errorMessage);
+        return;
+      }
+
+      console.log("✅ Interest created successfully!", data);
+      setShowConfirmDialog(false);
+      setShowSuccessDialog(true);
+    } catch (err) {
+      console.error("❌ Network or unexpected error:", err);
+      alert("Network error — please check your connection and try again.");
+    }
+  };
+
+  const handleCancelInterest = () => {
+    setShowConfirmDialog(false);
+    setSelectedTrade(null);
+  };
+
+  const handleSuccessDialogClose = () => {
+    setShowSuccessDialog(false);
+    setSelectedTrade(null);
+  };
+
+  console.log("Rendered isOwnProfile:", isOwnProfile, postedTrades);
 
   // Original Profile Page content
   return (
     <div
-      className={`px-6 pb-20 pt-10 mx-auto max-w-[940px] text-white ${inter.className}`}
+      className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
     >
       {/* SECTION 0 - PAGE TITLE */}
       <h4 className="text-[22px] font-semibold mb-10">My Profile</h4>
@@ -3035,10 +3389,418 @@ console.log("PROFILE PIC URL:", user?.profilePic);
             </div>
           )}
         </div>
+
         {/* Divider */}
         <div className="border-t border-white/20 mt-[50px]" />
 
-        {/* SECTION 4 - REVIEWS */}
+        {/* SECTION 4: Trades You Posted */}
+        {(isOwnProfile || !isOwnProfile) && (
+          <div className="mb-10">
+            <h5 className="text-white text-lg font-semibold flex items-center gap-[15px] mb-[20px]">
+              Trades you posted
+            </h5>
+
+            {postedTradesLoading ? (
+              <div className="text-center py-8 text-white/60">
+                Loading trades...
+              </div>
+            ) : postedTradesError ? (
+              <div className="text-center py-8 text-red-400">
+                {postedTradesError}
+              </div>
+            ) : postedTrades.length === 0 ? (
+              <div className="text-white/60 text-center py-8">
+                You haven't posted any trades yet.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-[25px]">
+                {postedTrades.map((trade, index) => {
+                  console.log(
+                    "🪄 Rendering card:",
+                    trade,
+                    "isOwnProfile:",
+                    isOwnProfile
+                  );
+                  return (
+                    <div key={trade.id} className="relative">
+                      {isOwnProfile ? (
+                        // ✅ OWNER VIEW CARD (delete + offers)
+                        <div
+                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+                          style={{
+                            background:
+                              "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
+                            boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
+                          }}
+                        >
+                          {/* 💥 Copy-paste the header, needs, interested section, date & view button */}
+                          {/* Exactly the same structure from PendingTradesPage */}
+
+                          {/* Header */}
+                          <div className="flex justify-between items-start w-full">
+                            <div className="flex items-start gap-[10px]">
+                              <Link
+                                href={`/home/profile/${session.user.username}`}
+                                className="flex-shrink-0"
+                              >
+                                <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#D78DE5] transition-all">
+                                  <Image
+                                    src={
+                                      session?.user?.image ||
+                                      "/assets/defaultavatar.png"
+                                    }
+                                    alt="Your profile picture"
+                                    width={25}
+                                    height={25}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              </Link>
+                              <div className="flex flex-col items-start gap-[5px]">
+                                <Link
+                                  href={`/home/profile/${session.user.username}`}
+                                  className="text-[16px] text-white hover:text-[#D78DE5] transition-colors cursor-pointer"
+                                >
+                                  <span>{trade.name}</span>
+                                </Link>
+                                <div className="flex items-center gap-[15px]">
+                                  <div className="flex items-center gap-[5px]">
+                                    <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
+                                    <span className="text-[13px] font-bold text-white">
+                                      {trade.rating}
+                                    </span>
+                                    <span className="text-[13px] text-white">
+                                      ({trade.reviews})
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-[5px]">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="12"
+                                      height="13"
+                                      viewBox="0 0 12 13"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
+                                        fill="url(#paint0_radial_1202_2090)"
+                                        stroke="url(#paint1_linear_1202_2090)"
+                                        strokeWidth="1.5"
+                                      />
+                                      <defs>
+                                        <radialGradient
+                                          id="paint0_radial_1202_2090"
+                                          cx="0"
+                                          cy="0"
+                                          r="1"
+                                          gradientUnits="userSpaceOnUse"
+                                          gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
+                                        >
+                                          <stop
+                                            offset="0.4"
+                                            stopColor="#933BFF"
+                                          />
+                                          <stop
+                                            offset="1"
+                                            stopColor="#34188D"
+                                          />
+                                        </radialGradient>
+                                        <linearGradient
+                                          id="paint1_linear_1202_2090"
+                                          x1="6.00002"
+                                          y1="0.0778344"
+                                          x2="6.00002"
+                                          y2="13.2525"
+                                          gradientUnits="userSpaceOnUse"
+                                        >
+                                          <stop stopColor="white" />
+                                          <stop
+                                            offset="0.5"
+                                            stopColor="#999999"
+                                          />
+                                          <stop offset="1" stopColor="white" />
+                                        </linearGradient>
+                                      </defs>
+                                    </svg>
+                                    <span className="text-[13px] text-white">
+                                      LVL {trade.level}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Right: 🗑 Delete Icon */}
+                            <button
+                              onClick={() =>
+                                setShowDeleteModalForCard(trade.id)
+                              }
+                              className="p-1 hover:bg-white/10 rounded-full transition"
+                              title="Delete trade"
+                            >
+                              <Icon
+                                icon="lucide:trash-2"
+                                className="w-5 h-5 text-red-500 hover:text-red-600 transition"
+                              />
+                            </button>
+                          </div>
+
+                          {/* Needs + Interested */}
+                          <div className="flex justify-between items-start w-full">
+                            <div className="flex flex-col items-start gap-[10px]">
+                              <span className="text-[13px] text-white">
+                                Needs
+                              </span>
+                              <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
+                                <span className="text-[12px] text-white leading-tight">
+                                  {trade.needs || trade.reqname || "N/A"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-[10px]">
+                              <span className="text-[13px] text-white">
+                                Look who's interested
+                              </span>
+                              <div className="flex -space-x-2">
+                                {trade.interested &&
+                                trade.interested.length > 0 ? (
+                                  trade.interested.map((person) => (
+                                    <div
+                                      key={person.id}
+                                      className="w-[25px] h-[25px] rounded-full border border-white overflow-hidden"
+                                    >
+                                      <Image
+                                        src={
+                                          person.avatar ||
+                                          "/assets/defaultavatar.png"
+                                        }
+                                        alt={`${person.name}'s profile picture`}
+                                        width={25}
+                                        height={25}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-[12px] text-white/60">
+                                    No requests yet
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Date + View button */}
+                          <div className="flex justify-between items-center w-full">
+                            <span className="text-[13px] text-white/60">
+                              until{" "}
+                              {trade.until || trade.deadline || "No deadline"}
+                            </span>
+                            <button
+                              className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors"
+                              onClick={() => console.log("View trade", trade)}
+                              disabled={
+                                !trade.interested ||
+                                trade.interested.length === 0
+                              }
+                            >
+                              <span className="text-[13px] text-white">
+                                {!trade.interested ||
+                                trade.interested.length === 0
+                                  ? "No offers"
+                                  : "View"}
+                              </span>
+                            </button>
+                            {showDeleteModalForCard === trade.tradereq_id && (
+                              <InlineConfirmationModal
+                                message="Are you sure you want to delete this trade request? This action cannot be undone."
+                                onConfirm={() => handleDeleteTrade(trade)}
+                                onCancel={() => setShowDeleteModalForCard(null)}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        // 🌐 PUBLIC VIEW CARD (Explore-style)
+                        <div
+                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
+                          style={{
+                            background:
+                              "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
+                            boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
+                          }}
+                        >
+                          {/* Top Row */}
+                          <div className="flex justify-between items-start w-full">
+                            <div className="flex gap-[10px]">
+                              <Link
+                                href={`/home/profile/${trade.username}`}
+                                className="flex-shrink-0"
+                              >
+                                <div className="relative w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#0038FF] transition-all">
+                                  <Image
+                                    src={
+                                      trade.profilePic ||
+                                      "/assets/defaultavatar.png"
+                                    }
+                                    alt={`${trade.name}'s avatar`}
+                                    width={25}
+                                    height={25}
+                                    className="rounded-full object-cover"
+                                  />
+                                </div>
+                              </Link>
+                              <div className="flex flex-col gap-[5px]">
+                                <Link
+                                  href={`/home/profile/${trade.username}`}
+                                  className="hover:text-[#0038FF] transition-colors"
+                                >
+                                  <span className="text-base font-medium cursor-pointer">
+                                    {trade.name}
+                                  </span>
+                                </Link>
+                                <div className="flex gap-[15px] items-center text-sm text-white/90">
+                                  <div className="flex gap-1 items-center">
+                                    <Icon
+                                      icon="mdi:star"
+                                      className="text-[#B18AFF]"
+                                      width={14}
+                                      height={14}
+                                    />
+                                    <span className="font-bold">
+                                      {trade.rating.toFixed(1)}
+                                    </span>
+                                    <span className="text-white/70">
+                                      ({trade.reviews})
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1 items-center">
+                                    <Image
+                                      src="/assets/lvlrank_icon.png"
+                                      alt="Level"
+                                      width={12}
+                                      height={12}
+                                    />
+                                    <span className="text-white/80">
+                                      LVL {trade.level}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Needs + Offer */}
+                          <div className="flex justify-between items-start gap-4 flex-wrap mb-3">
+                            <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
+                              <span className="text-sm text-white/80 font-medium">
+                                Needs
+                              </span>
+                              <div className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 w-fit">
+                                {trade.reqname}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
+                              <span className="text-sm text-white/80 font-medium">
+                                Can offer
+                              </span>
+                              <div className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 w-fit text-right">
+                                {trade.offer || trade.matching_skill}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Deadline */}
+                          <div className="mt-[0px] flex justify-end mb-3">
+                            <p className="text-[13px] text-white/70">
+                              {fmtUntil(trade.deadline)}
+                            </p>
+                          </div>
+
+                          {/* CTA */}
+                          <div className="mt-[0px] flex justify-center">
+                            <button
+                              onClick={() => handleInterestedClick(trade)}
+                              className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
+                            >
+                              I’m interested
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Confirm Dialog */}
+        {showConfirmDialog && selectedTrade && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+              <button
+                className="absolute top-4 right-4 text-white hover:text-gray-300"
+                onClick={handleCancelInterest}
+              >
+                <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+              </button>
+              <h2 className="font-bold text-[20px] text-center text-white mb-6 px-2">
+                Send a trade request to {selectedTrade.name}?
+              </h2>
+              <div className="flex flex-row gap-4">
+                <button
+                  className="w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] hover:bg-[#0038FF]/10 transition-colors"
+                  onClick={handleCancelInterest}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="w-[120px] h-[40px] bg-[#0038FF] rounded-[15px] text-white hover:bg-[#1a4dff] transition-colors"
+                  onClick={handleConfirmInterest}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ Success Dialog */}
+        {showSuccessDialog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+              {/* Close button (X) */}
+              <button
+                className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+                onClick={handleSuccessDialogClose}
+              >
+                <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+              </button>
+
+              {/* Message */}
+              <h2 className="font-bold text-[20px] text-center text-white mb-6">
+                Trade invitation successfully sent.
+              </h2>
+
+              {/* Go to Pending Trades button */}
+              <button
+                className="w-[200px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                onClick={() => {
+                  handleSuccessDialogClose(); // close the dialog
+                  router.push("/home/trades/pending");
+                }}
+              >
+                Go to Pending Trades
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="border-t border-white/20 mt-[50px]" />
+
+        {/* SECTION 5 - REVIEWS */}
         <div className="flex flex-col gap-[25px] mt-[25px]">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">

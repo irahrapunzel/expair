@@ -22,6 +22,9 @@ from django.core.mail import send_mail, EmailMultiAlternatives
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+from django.contrib.auth import get_user_model
+
+CustomUser = get_user_model()
 
 from .models import (
     Evaluation, GenSkill, ReputationSystem, TradeDetail, TradeHistory, UserInterest, User, VerificationStatus, UserCredential,
@@ -314,7 +317,41 @@ def reset_password(request):
         print(f"Error in reset_password view: {e}")
         return Response({'error': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-print(f"DEBUG: Expected template path: {os.path.join(settings.BASE_DIR, 'accounts', 'templates', 'emails', 'password_reset_email.html')}")
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  
+def get_user_posted_trades(request, username):
+    """
+    Get all posted trades by the given username.
+    Used for viewing another user's profile.
+    """
+    try:
+        user = CustomUser.objects.get(username=username)
+    except CustomUser.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    posted_trades = TradeRequest.objects.filter(
+        requester=user
+    ).exclude(
+        status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED]
+    ).prefetch_related('interests__interested_user').order_by('-tradereq_id')
+
+    # map the same way as in get_posted_trades
+    trades_data = [
+        {
+            "tradereq_id": t.tradereq_id,
+            "reqname": t.reqname,
+            "deadline": t.reqdeadline.isoformat() if t.reqdeadline else "",
+            "status": t.status,
+            "interest_count": t.interests.count(),
+        }
+        for t in posted_trades
+    ]
+
+    return Response({
+        "posted_trades": trades_data,
+        "count": len(trades_data)
+    }, status=200)
    
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
@@ -1523,7 +1560,7 @@ def express_trade_interest(request):
     tradereq_id = request.data.get('tradereq_id')
     
     if not tradereq_id:
-        return Response({"error": "Trade request ID is required"}, status=400)
+        return Response({"error": "Trade request ID is required."}, status=400)
     
     try:
         # Get the trade request
@@ -1534,13 +1571,26 @@ def express_trade_interest(request):
         # Validate that the user isn't trying to respond to their own request
         if trade_request.requester.id == request.user.id:
             return Response({
-                "error": "You cannot express interest in your own trade request"
+                "error": "You cannot express interest in your own trade request."
             }, status=400)
         
         # ✅ FIX: Check for ANY existing interest record first (regardless of status)
         existing_interest = TradeInterest.objects.filter(
             trade_request=trade_request,
-            interested_user=request.user
+            interested_user=request.user,
+            status__in=[TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]
+        ).exists()
+        
+        if existing_active_interest:
+            return Response({
+                "error": "You have already expressed interest in this trade request."
+            }, status=400)
+        
+        # Check if there's a DECLINED interest - if so, update it to PENDING instead of creating new
+        declined_interest = TradeInterest.objects.filter(
+            trade_request=trade_request,
+            interested_user=request.user,
+            status=TradeInterest.InterestStatus.DECLINED
         ).first()
         
         if existing_interest:
@@ -1575,8 +1625,13 @@ def express_trade_interest(request):
                 return Response({
                     "error": "You have already expressed interest in this trade request"
                 }, status=400)
-             
-        # Get total PENDING interest count (exclude declined and cancelled)
+        
+        # Update trade request status to PENDING if it's the first interest (NULL -> PENDING)
+        if not trade_request.status:  # If status is NULL/empty
+            trade_request.status = TradeRequest.Status.PENDING
+            trade_request.save()
+        
+        # Get total PENDING interest count (exclude declined)
         interest_count = TradeInterest.objects.filter(
             trade_request=trade_request,
             status=TradeInterest.InterestStatus.PENDING

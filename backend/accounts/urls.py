@@ -25,6 +25,7 @@ urlpatterns = [
     path('express-interest/', views.express_trade_interest, name='express_trade_interest'),
     path('posted-trades/', views.get_posted_trades, name='get_posted_trades'),
     path('interested-trades/', views.get_user_interested_trades, name='get_user_interested_trades'),  
+    path('posted-trades/<str:username>/', views.get_user_posted_trades, name='get_user_posted_trades'),
     path('active-trades/', views.get_active_trades, name='get_active_trades'),
     path('home/active-trades/', views.get_home_active_trades, name='home_active_trades'),
 
