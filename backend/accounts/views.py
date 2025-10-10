@@ -1581,7 +1581,7 @@ def express_trade_interest(request):
             status__in=[TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]
         ).exists()
         
-        if existing_active_interest:
+        if existing_interest:
             return Response({
                 "error": "You have already expressed interest in this trade request."
             }, status=400)
@@ -1600,31 +1600,15 @@ def express_trade_interest(request):
                     "error": "You have already expressed interest in this trade request"
                 }, status=400)
             
-            # ✅ Reactivate DECLINED or CANCELLED interest
-            if existing_interest.status in [TradeInterest.InterestStatus.DECLINED, TradeInterest.InterestStatus.CANCELLED]:
-                existing_interest.status = TradeInterest.InterestStatus.PENDING
-                existing_interest.created_at = django_timezone.now()  # Update timestamp
-                existing_interest.save()
-                
-                trade_interest = existing_interest
-                print(f"Reactivated {existing_interest.status} interest for user {request.user.id}")
-                reactivated = True
+            trade_interest = declined_interest
+            print(f"Reactivated declined interest for user {request.user.id}.")
         else:
-            # ✅ No existing record - create new interest
-            try:
-                trade_interest = TradeInterest.objects.create(
-                    trade_request=trade_request,
-                    interested_user=request.user,
-                    status=TradeInterest.InterestStatus.PENDING
-                )
-                print(f"Created new trade interest for user {request.user.id}")
-                reactivated = False
-            except IntegrityError as e:
-                # Handle race condition where record was created between check and create
-                print(f"IntegrityError caught: {e}")
-                return Response({
-                    "error": "You have already expressed interest in this trade request"
-                }, status=400)
+            # Create new interest record
+            trade_interest = TradeInterest.objects.create(
+                trade_request=trade_request,
+                interested_user=request.user,
+            )
+            print(f"Created new trade interest for user {request.user.id}.")
         
         # Update trade request status to PENDING if it's the first interest (NULL -> PENDING)
         if not trade_request.status:  # If status is NULL/empty
@@ -1637,7 +1621,6 @@ def express_trade_interest(request):
             status=TradeInterest.InterestStatus.PENDING
         ).count()
         
-        print(f"Trade interest {'reactivated' if reactivated else 'created'} successfully")
         print(f"Trade status remains: {trade_request.status}")
         print(f"Requester: {trade_request.requester.username}")
         print(f"Interested User: {request.user.username}")
