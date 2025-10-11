@@ -148,6 +148,71 @@ export default function ProfilePage() {
     links: "",
   });
 
+  const RAW_ORIGIN = RAW.replace(/\/api\/accounts\/?$/, "");
+
+  const [showDeleteModalForCard, setShowDeleteModalForCard] = useState(null);
+  const [tradeToDelete, setTradeToDelete] = useState(null);
+
+  const [showAllCreds, setShowAllCreds] = useState(false);
+
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+
+ 
+  // ----------------------------
+  // Skills Editing
+  // ----------------------------
+
+  const [skillsEditing, setSkillsEditing] = useState(false);
+  const [skillsSaving, setSkillsSaving] = useState(false);
+  const [skillsError, setSkillsError] = useState(null);
+
+  // Track original skills for comparison and cancel functionality
+  const [originalSkillGroups, setOriginalSkillGroups] = useState([]);
+  const [selectedSkillGroups, setSelectedSkillGroups] = useState([]);
+
+  // For adding skills
+  const [showAddSkillForm, setShowAddSkillForm] = useState(false);
+  const [addSkillCategory, setAddSkillCategory] = useState("");
+  const [selectedSpecificSkills, setSelectedSpecificSkills] = useState([]);
+
+  // ----------------------------
+  // Interests Editing
+  // ----------------------------
+
+  // Interests editing state
+  const [interestsEditing, setInterestsEditing] = useState(false);
+  const [interestsSaving, setInterestsSaving] = useState(false);
+  const [interestsError, setInterestsError] = useState(null);
+
+  // Track original interests for comparison and cancel functionality
+  const [originalUserInterests, setOriginalUserInterests] = useState([]);
+  const [userInterests, setUserInterests] = useState([]);
+
+  // For adding interests
+  const [showAddInterestForm, setShowAddInterestForm] = useState(false);
+  const [selectedInterests, setSelectedInterests] = useState([]);
+
+  const [postedTrades, setPostedTrades] = useState([]);
+  const [postedTradesLoading, setPostedTradesLoading] = useState(true);
+  const [postedTradesError, setPostedTradesError] = useState(null);
+
+  // ----------------------------
+  // Credentials Editing
+  // ----------------------------
+
+  const [userCredentials, setUserCredentials] = useState([]);
+
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
+  const [credentialsError, setCredentialsError] = useState(null);
+  const [editingCredentials, setEditingCredentials] = useState(null); // null | "all" | credential object
+
+  // Handle interest in trade for profile public view
+  const [selectedTrade, setSelectedTrade] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     if (!basicInfoEditing) {
@@ -157,10 +222,19 @@ export default function ProfilePage() {
     }
   }, [user, basicInfoEditing]);
 
-  const RAW_ORIGIN = RAW.replace(/\/api\/accounts\/?$/, "");
-
-  const [showDeleteModalForCard, setShowDeleteModalForCard] = useState(null);
-  const [tradeToDelete, setTradeToDelete] = useState(null);
+  useEffect(() => {
+    if (!user) return;
+    const s = (
+      user.verification_status
+        ? user.verification_status
+        : user.is_verified
+        ? "VERIFIED"
+        : user.userVerifyId
+        ? "PENDING"
+        : "UNVERIFIED"
+    ).toLowerCase();
+    setVerificationStatus(s);
+  }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
 
   const handleDeleteTrade = async (trade) => {
     const tradereqId =
@@ -644,12 +718,6 @@ export default function ProfilePage() {
     fetchCredentials();
   }, [user?.id, session?.access]);
 
-  const [showAllCreds, setShowAllCreds] = useState(false);
-
-  const [reviews, setReviews] = useState([]);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewsError, setReviewsError] = useState(null);
-
   const toggleCategory = (index) => {
     setExpanded((prev) => {
       const newState = [...prev];
@@ -1005,23 +1073,6 @@ export default function ProfilePage() {
     }
   }
 
-  // ----------------------------
-  // Skills Editing
-  // ----------------------------
-
-  const [skillsEditing, setSkillsEditing] = useState(false);
-  const [skillsSaving, setSkillsSaving] = useState(false);
-  const [skillsError, setSkillsError] = useState(null);
-
-  // Track original skills for comparison and cancel functionality
-  const [originalSkillGroups, setOriginalSkillGroups] = useState([]);
-  const [selectedSkillGroups, setSelectedSkillGroups] = useState([]);
-
-  // For adding skills
-  const [showAddSkillForm, setShowAddSkillForm] = useState(false);
-  const [addSkillCategory, setAddSkillCategory] = useState("");
-  const [selectedSpecificSkills, setSelectedSpecificSkills] = useState([]);
-
   // Helper function to find differences between original and current skills
   const getSkillsDifferences = () => {
     const currentSkillsFlat = new Set();
@@ -1313,23 +1364,6 @@ export default function ProfilePage() {
     return skillsToAdd.length > 0 || skillsToRemove.length > 0;
   };
 
-  // ----------------------------
-  // Interests Editing
-  // ----------------------------
-
-  // Interests editing state
-  const [interestsEditing, setInterestsEditing] = useState(false);
-  const [interestsSaving, setInterestsSaving] = useState(false);
-  const [interestsError, setInterestsError] = useState(null);
-
-  // Track original interests for comparison and cancel functionality
-  const [originalUserInterests, setOriginalUserInterests] = useState([]);
-  const [userInterests, setUserInterests] = useState([]);
-
-  // For adding interests
-  const [showAddInterestForm, setShowAddInterestForm] = useState(false);
-  const [selectedInterests, setSelectedInterests] = useState([]);
-
   // Helper function to find differences between original and current interests
   const getInterestsDifferences = () => {
     const currentSet = new Set(userInterests);
@@ -1347,10 +1381,6 @@ export default function ProfilePage() {
 
     return { interestsToAdd, interestsToRemove };
   };
-
-  const [postedTrades, setPostedTrades] = useState([]);
-  const [postedTradesLoading, setPostedTradesLoading] = useState(true);
-  const [postedTradesError, setPostedTradesError] = useState(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -1686,15 +1716,6 @@ export default function ProfilePage() {
     setSortOption(option);
     setShowSortDropdown(false);
   };
-
-  // ----------------------------
-  // credentials Editing
-  // ----------------------------
-  const [userCredentials, setUserCredentials] = useState([]);
-
-  const [credentialsLoading, setCredentialsLoading] = useState(false);
-  const [credentialsError, setCredentialsError] = useState(null);
-  const [editingCredentials, setEditingCredentials] = useState(null); // null | "all" | credential object
 
   // Inline Button component
   const Button = ({ children, className, onClick, ...props }) => {
@@ -2594,11 +2615,6 @@ export default function ProfilePage() {
     }
   }
 
-  // Handle interest in trade for profile public view
-  const [selectedTrade, setSelectedTrade] = useState(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-
   const handleInterestedClick = (trade) => {
     setSelectedTrade(trade);
     setShowConfirmDialog(true);
@@ -2726,7 +2742,7 @@ export default function ProfilePage() {
                 }
               >
                 <Icon icon="mdi:cog" className="w-5 h-5" />
-                Edit
+                Settings
               </button>
             </div>
           ) : (
@@ -2919,7 +2935,7 @@ export default function ProfilePage() {
       <div className="mt-[50px] flex flex-col gap-[25px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[15px]">
-            <h5 className="text-lg font-semibold">Your Skills</h5>
+            <h5 className="text-lg font-semibold">Skills</h5>
 
             {isOwnProfile && (
               <div className="flex items-center gap-3">
@@ -3149,7 +3165,7 @@ export default function ProfilePage() {
       <div className="mt-[50px] flex flex-col gap-[25px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[15px]">
-            <h5 className="text-lg font-semibold">Your Interests</h5>
+            <h5 className="text-lg font-semibold">Interests</h5>
 
             {isOwnProfile && (
               <div className="flex items-center gap-3">
@@ -3290,7 +3306,7 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-[25px] mt-[25px]">
           <div className="flex items-center justify-between">
             <h5 className="text-white text-lg font-semibold flex items-center gap-[15px]">
-              Your Licenses & Certifications
+              Licenses & Certifications
               {/* Edit all credentials button */}
               {isOwnProfile && (
                 <button onClick={handleEditAllCredentials}>
@@ -3325,7 +3341,7 @@ export default function ProfilePage() {
                     onClick={handleEditAllCredentials}
                     className="block mx-auto mt-2 text-[#0038FF] hover:underline"
                   >
-                    Add your first credential
+                    + Add your first credential
                   </button>
                 )}
               </div>
@@ -3873,9 +3889,7 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-[25px] mt-[25px]">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h5 className="text-white text-lg font-semibold">
-                What others say
-              </h5>
+              <h5 className="text-white text-lg font-semibold">Reviews</h5>
               <span className="text-[16px] text-white/50 mt-[5px]">
                 {user.reviews} trades & reviews
               </span>
@@ -4113,6 +4127,17 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+        )}
+        {editingCredentials && (
+          <EditCredentialsPage
+            credentialsToEdit={
+              editingCredentials === "all"
+                ? userCredentials
+                : [editingCredentials]
+            }
+            onCancel={() => setEditingCredentials(null)}
+            onSave={handleSaveCredentials}
+          />
         )}
       </div>
     </div>
