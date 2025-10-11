@@ -292,8 +292,7 @@ export default function ProfilePage() {
         tradereq_id: trade.tradereq_id,
         name:
           (isOwnProfile
-            ? `${session?.user?.first_name || ""} ${
-                session?.user?.last_name || ""
+            ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
               }`.trim()
             : `${user?.firstname || ""} ${user?.lastname || ""}`.trim()) ||
           session?.user?.username ||
@@ -331,9 +330,9 @@ export default function ProfilePage() {
             })) || [],
         until: trade.deadline
           ? new Date(trade.deadline).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-            })
+            month: "long",
+            day: "numeric",
+          })
           : "No deadline",
       }));
       console.log("🧩 Transformed trades:", transformed);
@@ -461,9 +460,9 @@ export default function ProfilePage() {
           profilePic: data.profilePic || null,
           joined: data.created_at
             ? new Date(data.created_at).toLocaleString(undefined, {
-                month: "long",
-                year: "numeric",
-              })
+              month: "long",
+              year: "numeric",
+            })
             : "",
           rating: Number(data.avgStars ?? data.rating) || 0,
           reviews: Number(data.ratingCount ?? data.reviews) || 0,
@@ -902,13 +901,6 @@ export default function ProfilePage() {
     ],
   };
 
-  const interestsInitial = [
-    "Digital Art",
-    "Photography",
-    "Travel",
-    "Indie Music",
-    "Film Analysis",
-  ];
 
   // ----------------------------
   // Verification state
@@ -926,10 +918,10 @@ export default function ProfilePage() {
       user.verification_status
         ? user.verification_status
         : user.is_verified
-        ? "VERIFIED"
-        : user.userVerifyId
-        ? "PENDING"
-        : "UNVERIFIED"
+          ? "VERIFIED"
+          : user.userVerifyId
+            ? "PENDING"
+            : "UNVERIFIED"
     ).toLowerCase();
     setVerificationStatus(s);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
@@ -999,8 +991,8 @@ export default function ProfilePage() {
           (updated.is_verified
             ? "VERIFIED"
             : updated.userVerifyId
-            ? "PENDING"
-            : "UNVERIFIED")
+              ? "PENDING"
+              : "UNVERIFIED")
         ).toLowerCase()
       );
 
@@ -1161,9 +1153,9 @@ export default function ProfilePage() {
         return prev.map((g) =>
           g.category === addSkillCategory
             ? {
-                ...g,
-                skills: [...new Set([...g.skills, ...selectedSpecificSkills])],
-              }
+              ...g,
+              skills: [...new Set([...g.skills, ...selectedSpecificSkills])],
+            }
             : g
         );
       }
@@ -1378,9 +1370,8 @@ export default function ProfilePage() {
         if (isOwnProfile) {
           url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/`;
         } else {
-          url = `${
-            process.env.NEXT_PUBLIC_BACKEND_URL
-          }/posted-trades/${encodeURIComponent(slug)}/`;
+          url = `${process.env.NEXT_PUBLIC_BACKEND_URL
+            }/posted-trades/${encodeURIComponent(slug)}/`;
         }
 
         console.log("[Profile] Fetching posted trades from:", url);
@@ -1401,23 +1392,20 @@ export default function ProfilePage() {
           reqname: trade.reqname,
           deadline: trade.deadline,
           name: isOwnProfile
-            ? `${session?.user?.first_name || ""} ${
-                session?.user?.last_name || ""
+            ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
               }`.trim() || session?.user?.username
             : `${user?.firstname || ""} ${user?.lastname || ""}`.trim() ||
-              user?.username,
+            user?.username,
           username: isOwnProfile ? session?.user?.username : user?.username,
           rating: isOwnProfile ? session?.user?.rating || 0 : user?.rating || 0,
           reviews: isOwnProfile
             ? session?.user?.reviews || 0
             : user?.reviews || 0,
           level: isOwnProfile ? session?.user?.level || 1 : user?.level || 1,
-          offer: trade.requester_skills
-            ? Object.values(trade.requester_skills)
-                .flat()
-                .slice(0, 1)
-                .join(", ")
-            : "N/A",
+          offer: trade.offer || "Skills & Services",
+          profilePic: isOwnProfile
+            ? (session?.user?.image || session?.user?.profilePic || user?.profilePic)
+            : (trade.profilePic || user?.profilePic),
         }));
 
         setPostedTrades(mapped);
@@ -1432,6 +1420,39 @@ export default function ProfilePage() {
     loadPostedTrades();
   }, [slug, isOwnProfile, session, user]);
 
+  const [userInterestStatus, setUserInterestStatus] = useState({});
+
+  useEffect(() => {
+    if (!isOwnProfile && postedTrades.length > 0 && session?.access) {
+      const fetchInterestStatus = async () => {
+        try {
+          const tradeIds = postedTrades.map(t => t.tradereq_id);
+
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/check-interests/`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access}`
+              },
+              body: JSON.stringify({ trade_ids: tradeIds })
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            setUserInterestStatus(data.interests); // { tradereq_id: "PENDING" | "ACCEPTED" | null }
+          }
+        } catch (error) {
+          console.error('Failed to fetch interest status:', error);
+        }
+      };
+
+      fetchInterestStatus();
+    }
+  }, [isOwnProfile, postedTrades, session?.access]);
+
   const fmtUntil = (iso) => {
     if (!iso) return "";
     const d = new Date(iso);
@@ -1444,8 +1465,8 @@ export default function ProfilePage() {
   const displayName = isOwnProfile
     ? "You"
     : `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
-      user?.username ||
-      "User";
+    user?.username ||
+    "User";
 
   // Function to get general skill ID from category name
   const getGeneralSkillIdForInterest = async (categoryName) => {
@@ -1834,17 +1855,17 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState(() =>
       Array.isArray(credentialsToEdit) && credentialsToEdit
         ? credentialsToEdit.map((cred) => ({
-            // Map backend fields to frontend fields
-            title: cred.credential_title || "",
-            org: cred.issuer || "",
-            issueDate: cred.issue_date || "",
-            expiryDate: cred.expiry_date || "",
-            id: cred.cred_id || "",
-            url: cred.cred_url || "",
-            skills: cred.skills || [],
-            skillCategory: "",
-            usercred_id: cred.usercred_id, // Keep the backend ID for updates
-          }))
+          // Map backend fields to frontend fields
+          title: cred.credential_title || "",
+          org: cred.issuer || "",
+          issueDate: cred.issue_date || "",
+          expiryDate: cred.expiry_date || "",
+          id: cred.cred_id || "",
+          url: cred.cred_url || "",
+          skills: cred.skills || [],
+          skillCategory: "",
+          usercred_id: cred.usercred_id, // Keep the backend ID for updates
+        }))
         : [defaultCredential]
     );
 
@@ -2932,8 +2953,8 @@ export default function ProfilePage() {
                         skillsSaving
                           ? "bg-[#0038FF]/70"
                           : hasUnsavedSkillsChanges()
-                          ? "bg-[#0038FF] hover:bg-[#1a4dff]"
-                          : "bg-white/20 cursor-not-allowed"
+                            ? "bg-[#0038FF] hover:bg-[#1a4dff]"
+                            : "bg-white/20 cursor-not-allowed"
                       )}
                     >
                       {skillsSaving ? "Saving..." : "Save"}
@@ -3162,8 +3183,8 @@ export default function ProfilePage() {
                         interestsSaving
                           ? "bg-[#0038FF]/70"
                           : hasUnsavedInterestChanges()
-                          ? "bg-[#0038FF] hover:bg-[#1a4dff]"
-                          : "bg-white/20 cursor-not-allowed"
+                            ? "bg-[#0038FF] hover:bg-[#1a4dff]"
+                            : "bg-white/20 cursor-not-allowed"
                       )}
                     >
                       {interestsSaving ? "Saving..." : "Save"}
@@ -3397,7 +3418,7 @@ export default function ProfilePage() {
         {(isOwnProfile || !isOwnProfile) && (
           <div className="mb-10">
             <h5 className="text-white text-lg font-semibold flex items-center gap-[15px] mb-[20px]">
-              Trades you posted
+              {isOwnProfile ? "Trades You Posted" : `Trades ${user?.firstname || "they"} Posted`}
             </h5>
 
             {postedTradesLoading ? (
@@ -3562,7 +3583,7 @@ export default function ProfilePage() {
                               </span>
                               <div className="flex -space-x-2">
                                 {trade.interested &&
-                                trade.interested.length > 0 ? (
+                                  trade.interested.length > 0 ? (
                                   trade.interested.map((person) => (
                                     <div
                                       key={person.id}
@@ -3605,7 +3626,7 @@ export default function ProfilePage() {
                             >
                               <span className="text-[13px] text-white">
                                 {!trade.interested ||
-                                trade.interested.length === 0
+                                  trade.interested.length === 0
                                   ? "No offers"
                                   : "View"}
                               </span>
@@ -3718,12 +3739,52 @@ export default function ProfilePage() {
 
                           {/* CTA */}
                           <div className="mt-[0px] flex justify-center">
-                            <button
-                              onClick={() => handleInterestedClick(trade)}
-                              className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
-                            >
-                              I’m interested
-                            </button>
+                            {(() => {
+                              const hasInterest = userInterestStatus[trade.tradereq_id];
+                              const isPending = hasInterest === 'PENDING';
+                              const isAccepted = hasInterest === 'ACCEPTED';
+
+                              if (isPending) {
+                                return (
+                                  <div className="relative group inline-block">
+                                    <button
+                                      disabled
+                                      className="px-[30px] py-[10px] text-white/60 bg-gray-600/50 rounded-[15px] text-sm font-medium cursor-not-allowed border-2 border-gray-500/50"
+                                    >
+                                      Request Pending
+                                    </button>
+                                    {/* Tooltip */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#120A2A]/95 text-white text-xs rounded-lg border border-[#906EFF]/30 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap">
+                                      You already sent an interest request to this trade
+                                      {/* Arrow */}
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px]">
+                                        <div className="border-4 border-transparent border-t-[#120A2A]/95"></div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (isAccepted) {
+                                return (
+                                  <button
+                                    disabled
+                                    className="px-[30px] py-[10px] text-white/60 bg-green-600 rounded-[15px] text-sm font-medium cursor-not-allowed"
+                                  >
+                                    Already Accepted
+                                  </button>
+                                );
+                              }
+
+                              return (
+                                <button
+                                  onClick={() => handleInterestedClick(trade)}
+                                  className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
+                                >
+                                  I'm interested
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
@@ -3735,32 +3796,40 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Confirm Dialog */}
+        {/* Confirmation Dialog */}
         {showConfirmDialog && selectedTrade && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+              {/* Background gradients */}
+              <div className="absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
+              <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
+
+              {/* Close button */}
               <button
                 className="absolute top-4 right-4 text-white hover:text-gray-300"
                 onClick={handleCancelInterest}
               >
                 <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
               </button>
-              <h2 className="font-bold text-[20px] text-center text-white mb-6 px-2">
-                Send a trade request to {selectedTrade.name}?
-              </h2>
-              <div className="flex flex-row gap-4">
-                <button
-                  className="w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] hover:bg-[#0038FF]/10 transition-colors"
-                  onClick={handleCancelInterest}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="w-[120px] h-[40px] bg-[#0038FF] rounded-[15px] text-white hover:bg-[#1a4dff] transition-colors"
-                  onClick={handleConfirmInterest}
-                >
-                  Confirm
-                </button>
+
+              <div className="flex flex-col items-center gap-6 w-full px-8 relative z-10">
+                <h2 className="font-bold text-[20px] text-center text-white leading-tight">
+                  Are you sure you want to add this to your pending trades?
+                </h2>
+                <div className="flex flex-row gap-4">
+                  <button
+                    className="flex items-center justify-center w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#0038FF]/10 transition-colors"
+                    onClick={handleCancelInterest}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="flex items-center justify-center w-[120px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                    onClick={handleConfirmInterest}
+                  >
+                    Confirm
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -3895,9 +3964,8 @@ export default function ProfilePage() {
                           style={{
                             width:
                               user.reviews > 0
-                                ? `${
-                                    (reviewRatings[rating] / user.reviews) * 100
-                                  }%`
+                                ? `${(reviewRatings[rating] / user.reviews) * 100
+                                }%`
                                 : "0%",
                           }}
                           className="h-full bg-[#906EFF] rounded-full"
@@ -4035,11 +4103,10 @@ export default function ProfilePage() {
                 <button
                   onClick={handleSubmitVerification}
                   disabled={!idFile}
-                  className={`rounded-[15px] px-4 py-2 shadow ${
-                    idFile
-                      ? "bg-[#0038FF] hover:bg-[#1a4dff] text-white"
-                      : "bg-white/10 text-white/40 cursor-not-allowed"
-                  }`}
+                  className={`rounded-[15px] px-4 py-2 shadow ${idFile
+                    ? "bg-[#0038FF] hover:bg-[#1a4dff] text-white"
+                    : "bg-white/10 text-white/40 cursor-not-allowed"
+                    }`}
                 >
                   Confirm
                 </button>

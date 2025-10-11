@@ -336,23 +336,51 @@ def get_user_posted_trades(request, username):
         status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED]
     ).prefetch_related('interests__interested_user').order_by('-tradereq_id')
 
-    # map the same way as in get_posted_trades
-    trades_data = [
-        {
+    # Get requester's skills to determine what they can offer
+    requester_skills = {}
+    user_skills = UserSkill.objects.filter(user=user).select_related('specSkills__genSkills_id')
+    for skill in user_skills:
+        gen_category = skill.specSkills.genSkills_id.genCateg
+        if gen_category not in requester_skills:
+            requester_skills[gen_category] = []
+        requester_skills[gen_category].append(skill.specSkills.specName)
+
+    # Fallback skill if user has no skills
+    fallback_skill = GenSkill.objects.first()
+    fallback_skill_name = fallback_skill.genCateg if fallback_skill else "Skills & Services"
+
+    profile_pic_url = user.profilePic if user.profilePic else None
+
+
+    trades_data = []
+    for t in posted_trades:
+        # Determine what the requester can offer
+        offer = ""
+        if requester_skills:
+            offer = list(requester_skills.keys())[0]  # Show first general skill category
+        else:
+            offer = fallback_skill_name
+
+        trades_data.append({
             "tradereq_id": t.tradereq_id,
             "reqname": t.reqname,
             "deadline": t.reqdeadline.isoformat() if t.reqdeadline else "",
             "status": t.status,
             "interest_count": t.interests.count(),
-        }
-        for t in posted_trades
-    ]
+            "offer": offer,
+            "username": user.username,
+            "profilePic": profile_pic_url, 
+            "name": f"{user.first_name} {user.last_name}".strip() or user.username, 
+            "rating": float(user.avgStars or 0), 
+            "reviews": int(user.ratingCount or 0), 
+            "level": int(user.level or 1), 
+        })
 
     return Response({
         "posted_trades": trades_data,
         "count": len(trades_data)
     }, status=200)
-   
+
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -1574,54 +1602,49 @@ def express_trade_interest(request):
                 "error": "You cannot express interest in your own trade request."
             }, status=400)
         
-        # ✅ FIX: Check for ANY existing interest record first (regardless of status)
-        existing_interest = TradeInterest.objects.filter(
+        # ✅ Check for ANY existing PENDING or ACCEPTED interest
+        existing_active_interest = TradeInterest.objects.filter(
             trade_request=trade_request,
             interested_user=request.user,
             status__in=[TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]
         ).exists()
         
-        if existing_interest:
+        if existing_active_interest:
             return Response({
                 "error": "You have already expressed interest in this trade request."
             }, status=400)
         
-        # Check if there's a DECLINED interest - if so, update it to PENDING instead of creating new
+        # Check if there's a DECLINED or CANCELLED interest - if so, reactivate it
         declined_interest = TradeInterest.objects.filter(
             trade_request=trade_request,
             interested_user=request.user,
-            status=TradeInterest.InterestStatus.DECLINED
+            status__in=[TradeInterest.InterestStatus.DECLINED, TradeInterest.InterestStatus.CANCELLED]
         ).first()
         
-        if existing_interest:
-            # Interest record already exists
-            if existing_interest.status in [TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]:
-                return Response({
-                    "error": "You have already expressed interest in this trade request"
-                }, status=400)
-            
+        if declined_interest:
+            # Reactivate the declined/cancelled interest
+            declined_interest.status = TradeInterest.InterestStatus.PENDING
+            declined_interest.save()
             trade_interest = declined_interest
-            print(f"Reactivated declined interest for user {request.user.id}.")
+            reactivated = True
+            print(f"Reactivated declined/cancelled interest for user {request.user.id}.")
         else:
             # Create new interest record
             trade_interest = TradeInterest.objects.create(
                 trade_request=trade_request,
                 interested_user=request.user,
+                status=TradeInterest.InterestStatus.PENDING
             )
+            reactivated = False
             print(f"Created new trade interest for user {request.user.id}.")
-        
-        # Update trade request status to PENDING if it's the first interest (NULL -> PENDING)
-        if not trade_request.status:  # If status is NULL/empty
-            trade_request.status = TradeRequest.Status.PENDING
-            trade_request.save()
-        
-        # Get total PENDING interest count (exclude declined)
+                
+        # Get total PENDING interest count (exclude declined/cancelled)
         interest_count = TradeInterest.objects.filter(
             trade_request=trade_request,
             status=TradeInterest.InterestStatus.PENDING
         ).count()
         
-        print(f"Trade status remains: {trade_request.status}")
+        print(f"Trade status remains: {trade_request.status} (unchanged)")
         print(f"Requester: {trade_request.requester.username}")
         print(f"Interested User: {request.user.username}")
         print(f"Total pending interests: {interest_count}")
@@ -2085,6 +2108,35 @@ def accept_trade_interest(request, interest_id):
         return Response({
             "error": f"Failed to accept interest: {str(e)}"
         }, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def check_user_interests(request):
+    """
+    Check if current user has expressed interest in multiple trades
+    Body: { "trade_ids": [1, 2, 3] }
+    Returns: { "interests": { "1": "PENDING", "2": "ACCEPTED", "3": null } }
+    """
+    trade_ids = request.data.get('trade_ids', [])
+    
+    if not trade_ids:
+        return Response({"interests": {}}, status=200)
+    
+    # Get all interests for current user for these trades
+    interests = TradeInterest.objects.filter(
+        trade_request_id__in=trade_ids,
+        interested_user=request.user
+    ).values('trade_request_id', 'status')
+    
+    # Build response dict
+    result = {}
+    for trade_id in trade_ids:
+        result[str(trade_id)] = None
+    
+    for interest in interests:
+        result[str(interest['trade_request_id'])] = interest['status']
+    
+    return Response({"interests": result}, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

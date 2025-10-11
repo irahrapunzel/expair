@@ -72,6 +72,7 @@ urlpatterns = [
     path("users/add_interests/", views.add_user_interests, name="add-user-interests"),
     path('users/<int:user_id>/skills/', views.user_skills),
     path('users/<int:user_id>/credentials/', views.user_credentials),
+    path('check-interests/', views.check_user_interests, name='check_user_interests'),
 
     path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
