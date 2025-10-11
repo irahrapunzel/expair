@@ -23,7 +23,6 @@ export default function ActiveTradesPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedSort, setSelectedSort] = useState("Date");
   const [showSortOptions, setShowSortOptions] = useState(false);
-  const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [expandedCardId, setExpandedCardId] = useState(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showViewProofDialog, setShowViewProofDialog] = useState(false);
@@ -724,18 +723,6 @@ export default function ActiveTradesPage() {
                   boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)"
                 }}
               >
-                {/* Status Badge */}
-                <div className="flex justify-center mt-4 mb-4">
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    trade.bothProofsApproved 
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : trade.proofWorkflowStatus === "waiting_for_approval"
-                      ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                      : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                  }`}>
-                    {getTradeStatusText(trade)}
-                  </div>
-                </div>
 
                 {expandedCardId === trade.id ? (
                   // Expanded View
@@ -783,22 +770,12 @@ export default function ActiveTradesPage() {
                           )}
                         </div>
                       </div>
-                      <div className="relative">
-                        <button onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuIndex(openMenuIndex === trade.id ? null : trade.id);
-                        }}>
-                          <Icon icon="lucide:more-horizontal" className="w-6 h-6 text-white" />
+                      <Link href="/home/help" onClick={(e) => e.stopPropagation()}>
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
+                          <Icon icon="lucide:flag" className="text-white text-base" />
+                          Report
                         </button>
-                        {openMenuIndex === trade.id && (
-                          <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
-                            <button className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full">
-                              <Icon icon="lucide:alert-circle" className="text-white text-base" />
-                              Report
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      </Link>
                     </div>
 
                     {/* Context Image - Only show if contextPic exists */}
@@ -956,24 +933,12 @@ export default function ActiveTradesPage() {
                           </span>
                         )}
                       </div>
-                      <div className="relative">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuIndex(openMenuIndex === trade.id ? null : trade.id);
-                          }}
-                        >
-                          <Icon icon="lucide:more-horizontal" className="w-6 h-6 text-white" />
+                      <Link href="/home/help" onClick={(e) => e.stopPropagation()}>
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
+                          <Icon icon="lucide:flag" className="text-white text-base" />
+                          Report
                         </button>
-                        {openMenuIndex === trade.id && (
-                          <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
-                            <button className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full">
-                              <Icon icon="lucide:alert-circle" className="text-white text-base" />
-                              Report
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      </Link>
                     </div>
 
                     {/* Middle Row - Requested, In Exchange For, XP */}
@@ -1009,7 +974,7 @@ export default function ActiveTradesPage() {
                     </div>
 
                     {/* Chevron Down + Action Buttons */}
-                    <div className="relative w-full mt-4">
+                    <div className="relative w-full mt-2">
                       <div className="absolute bottom-0 left-0">
                         <Icon
                           icon="lucide:chevron-down"
@@ -1017,8 +982,19 @@ export default function ActiveTradesPage() {
                         />
                       </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex flex-wrap items-center gap-[20px] justify-end">
+                      {/* Action Buttons with Status */}
+                      <div className="flex flex-wrap items-center gap-[15px] justify-end">
+                        {/* Status Badge - left of buttons */}
+                        <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                          trade.bothProofsApproved 
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : trade.proofWorkflowStatus === "waiting_for_approval"
+                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                            : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        }`}>
+                          {getTradeStatusText(trade)}
+                        </div>
+                        
                         {showRateButton ? (
                           <button
                             className="w-[170px] h-[40px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
@@ -1041,7 +1017,7 @@ export default function ActiveTradesPage() {
                           <>
                             {/* Your Proof Button */}
                             <button
-                              className="w-[190px] h-[40px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
+                              className="w-[160px] h-[38px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 proofButtonState.onClick && proofButtonState.onClick();
@@ -1054,18 +1030,18 @@ export default function ActiveTradesPage() {
                                 cursor: proofButtonState.disabled ? "not-allowed" : "pointer"
                               }}
                             >
-                              <div className="flex items-center gap-[10px]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <div className="flex items-center gap-[8px]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none">
                                   <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z" fill="#D9D9D9"/>
                                   <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5" fill="#D9D9D9"/>
                                 </svg>
-                                <span className="text-[16px] text-white">{proofButtonState.text}</span>
+                                <span className="text-[14px] text-white">{proofButtonState.text}</span>
                               </div>
                             </button>
 
                             {/* Partner Proof Button */}
                             <button
-                              className="min-w-[190px] max-w-[280px] h-[40px] flex justify-center items-center rounded-[15px] transition-all"
+                              className="min-w-[160px] max-w-[240px] h-[38px] flex justify-center items-center rounded-[15px] transition-all"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 partnerProofButtonState.onClick && partnerProofButtonState.onClick();
@@ -1078,15 +1054,15 @@ export default function ActiveTradesPage() {
                                 cursor: partnerProofButtonState.disabled ? "not-allowed" : "pointer"
                               }}
                             >
-                              <div className="flex items-center gap-[10px] px-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 21C4.45 21 3.97933 20.8043 3.588 20.413C3.19667 20.0217 3.00067 19.5507 3 19V5C3 4.45 3.196 3.97933 3.588 3.588C3.98 3.19667 4.45067 3.00067 5 3H19C19.55 3 20.021 3.196 20.413 3.588C20.805 3.98 21.0007 3.45067 21 5V19C21 19.55 20.8043 20.021 20.413 20.413C20.0217 20.805 19.5507 21.0007 19 21H5ZM6 17H18L14.25 12L11.25 16L9 13L6 17Z" fill="white"/></svg>
-                                <span className="text-[16px] text-white truncate">{partnerProofButtonState.text}</span>
+                              <div className="flex items-center gap-[8px] px-2.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 21C4.45 21 3.97933 20.8043 3.588 20.413C3.19667 20.0217 3.00067 19.5507 3 19V5C3 4.45 3.196 3.97933 3.588 3.588C3.98 3.19667 4.45067 3.00067 5 3H19C19.55 3 20.021 3.196 20.413 3.588C20.805 3.98 21.0007 3.45067 21 5V19C21 19.55 20.8043 20.021 20.413 20.413C20.0217 20.805 19.5507 21.0007 19 21H5ZM6 17H18L14.25 12L11.25 16L9 13L6 17Z" fill="white"/></svg>
+                                <span className="text-[14px] text-white truncate">{partnerProofButtonState.text}</span>
                               </div>
                             </button>
                           </>
                         )}
                         
-                        <div className="h-[70px] flex items-center">
+                        <div className="h-[55px] flex items-center">
                           <button
                             className="flex justify-center items-center cursor-pointer"
                             onClick={(e) => {
@@ -1095,7 +1071,7 @@ export default function ActiveTradesPage() {
                               setShowEvaluationDialog(true);
                             }}
                           >
-                            <StarEvaluateIcon size="70" />
+                            <StarEvaluateIcon size="55" />
                           </button>
                         </div>
                       </div>

@@ -159,7 +159,20 @@ export default function ProfilePage() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState(null);
 
+<<<<<<< Updated upstream
  
+=======
+  // ----------------------------
+  // Verification state
+  // ----------------------------
+
+  // verification popup state
+  const [showVerificationPopup, setShowVerificationPopup] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState("unverified"); // "unverified" | "pending" | "verified"
+  const [idFile, setIdFile] = useState(null); // File object
+  const [idPreviewUrl, setIdPreviewUrl] = useState(null); // local preview URL for images
+
+>>>>>>> Stashed changes
   // ----------------------------
   // Skills Editing
   // ----------------------------
@@ -366,7 +379,12 @@ export default function ProfilePage() {
         tradereq_id: trade.tradereq_id,
         name:
           (isOwnProfile
+<<<<<<< Updated upstream
             ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
+=======
+            ? `${session?.user?.first_name || ""} ${
+                session?.user?.last_name || ""
+>>>>>>> Stashed changes
               }`.trim()
             : `${user?.firstname || ""} ${user?.lastname || ""}`.trim()) ||
           session?.user?.username ||
@@ -404,9 +422,15 @@ export default function ProfilePage() {
             })) || [],
         until: trade.deadline
           ? new Date(trade.deadline).toLocaleDateString("en-US", {
+<<<<<<< Updated upstream
             month: "long",
             day: "numeric",
           })
+=======
+              month: "long",
+              day: "numeric",
+            })
+>>>>>>> Stashed changes
           : "No deadline",
       }));
       console.log("🧩 Transformed trades:", transformed);
@@ -970,6 +994,7 @@ export default function ProfilePage() {
   };
 
 
+<<<<<<< Updated upstream
   // ----------------------------
   // Verification state
   // ----------------------------
@@ -994,6 +1019,8 @@ export default function ProfilePage() {
     setVerificationStatus(s);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
 
+=======
+>>>>>>> Stashed changes
   // call this when input changes
   const handleIdFileChange = (file) => {
     if (!file) {
@@ -1400,8 +1427,14 @@ export default function ProfilePage() {
         if (isOwnProfile) {
           url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/`;
         } else {
+<<<<<<< Updated upstream
           url = `${process.env.NEXT_PUBLIC_BACKEND_URL
             }/posted-trades/${encodeURIComponent(slug)}/`;
+=======
+          url = `${
+            process.env.NEXT_PUBLIC_BACKEND_URL
+          }/posted-trades/${encodeURIComponent(slug)}/`;
+>>>>>>> Stashed changes
         }
 
         console.log("[Profile] Fetching posted trades from:", url);
@@ -1422,20 +1455,37 @@ export default function ProfilePage() {
           reqname: trade.reqname,
           deadline: trade.deadline,
           name: isOwnProfile
+<<<<<<< Updated upstream
             ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
               }`.trim() || session?.user?.username
             : `${user?.firstname || ""} ${user?.lastname || ""}`.trim() ||
             user?.username,
+=======
+            ? `${session?.user?.first_name || ""} ${
+                session?.user?.last_name || ""
+              }`.trim() || session?.user?.username
+            : `${user?.firstname || ""} ${user?.lastname || ""}`.trim() ||
+              user?.username,
+>>>>>>> Stashed changes
           username: isOwnProfile ? session?.user?.username : user?.username,
           rating: isOwnProfile ? session?.user?.rating || 0 : user?.rating || 0,
           reviews: isOwnProfile
             ? session?.user?.reviews || 0
             : user?.reviews || 0,
           level: isOwnProfile ? session?.user?.level || 1 : user?.level || 1,
+<<<<<<< Updated upstream
           offer: trade.offer || "Skills & Services",
           profilePic: isOwnProfile
             ? (session?.user?.image || session?.user?.profilePic || user?.profilePic)
             : (trade.profilePic || user?.profilePic),
+=======
+          offer: trade.requester_skills
+            ? Object.values(trade.requester_skills)
+                .flat()
+                .slice(0, 1)
+                .join(", ")
+            : "N/A",
+>>>>>>> Stashed changes
         }));
 
         setPostedTrades(mapped);
@@ -1450,6 +1500,7 @@ export default function ProfilePage() {
     loadPostedTrades();
   }, [slug, isOwnProfile, session, user]);
 
+<<<<<<< Updated upstream
   const [userInterestStatus, setUserInterestStatus] = useState({});
 
   useEffect(() => {
@@ -1483,6 +1534,8 @@ export default function ProfilePage() {
     }
   }, [isOwnProfile, postedTrades, session?.access]);
 
+=======
+>>>>>>> Stashed changes
   const fmtUntil = (iso) => {
     if (!iso) return "";
     const d = new Date(iso);
@@ -1495,8 +1548,13 @@ export default function ProfilePage() {
   const displayName = isOwnProfile
     ? "You"
     : `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
+<<<<<<< Updated upstream
     user?.username ||
     "User";
+=======
+      user?.username ||
+      "User";
+>>>>>>> Stashed changes
 
   // Function to get general skill ID from category name
   const getGeneralSkillIdForInterest = async (categoryName) => {
@@ -3434,7 +3492,11 @@ export default function ProfilePage() {
         {(isOwnProfile || !isOwnProfile) && (
           <div className="mb-10">
             <h5 className="text-white text-lg font-semibold flex items-center gap-[15px] mb-[20px]">
+<<<<<<< Updated upstream
               {isOwnProfile ? "Trades You Posted" : `Trades ${user?.firstname || "they"} Posted`}
+=======
+              Trades
+>>>>>>> Stashed changes
             </h5>
 
             {postedTradesLoading ? (
@@ -3599,7 +3661,11 @@ export default function ProfilePage() {
                               </span>
                               <div className="flex -space-x-2">
                                 {trade.interested &&
+<<<<<<< Updated upstream
                                   trade.interested.length > 0 ? (
+=======
+                                trade.interested.length > 0 ? (
+>>>>>>> Stashed changes
                                   trade.interested.map((person) => (
                                     <div
                                       key={person.id}
@@ -3642,7 +3708,11 @@ export default function ProfilePage() {
                             >
                               <span className="text-[13px] text-white">
                                 {!trade.interested ||
+<<<<<<< Updated upstream
                                   trade.interested.length === 0
+=======
+                                trade.interested.length === 0
+>>>>>>> Stashed changes
                                   ? "No offers"
                                   : "View"}
                               </span>
@@ -3755,6 +3825,7 @@ export default function ProfilePage() {
 
                           {/* CTA */}
                           <div className="mt-[0px] flex justify-center">
+<<<<<<< Updated upstream
                             {(() => {
                               const hasInterest = userInterestStatus[trade.tradereq_id];
                               const isPending = hasInterest === 'PENDING';
@@ -3801,6 +3872,14 @@ export default function ProfilePage() {
                                 </button>
                               );
                             })()}
+=======
+                            <button
+                              onClick={() => handleInterestedClick(trade)}
+                              className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
+                            >
+                              I’m interested
+                            </button>
+>>>>>>> Stashed changes
                           </div>
                         </div>
                       )}
@@ -3812,6 +3891,7 @@ export default function ProfilePage() {
           </div>
         )}
 
+<<<<<<< Updated upstream
         {/* Confirmation Dialog */}
         {showConfirmDialog && selectedTrade && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -3821,12 +3901,19 @@ export default function ProfilePage() {
               <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
 
               {/* Close button */}
+=======
+        {/* Confirm Dialog */}
+        {showConfirmDialog && selectedTrade && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+>>>>>>> Stashed changes
               <button
                 className="absolute top-4 right-4 text-white hover:text-gray-300"
                 onClick={handleCancelInterest}
               >
                 <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
               </button>
+<<<<<<< Updated upstream
 
               <div className="flex flex-col items-center gap-6 w-full px-8 relative z-10">
                 <h2 className="font-bold text-[20px] text-center text-white leading-tight">
@@ -3846,6 +3933,24 @@ export default function ProfilePage() {
                     Confirm
                   </button>
                 </div>
+=======
+              <h2 className="font-bold text-[20px] text-center text-white mb-6 px-2">
+                Send a trade request to {selectedTrade.name}?
+              </h2>
+              <div className="flex flex-row gap-4">
+                <button
+                  className="w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] hover:bg-[#0038FF]/10 transition-colors"
+                  onClick={handleCancelInterest}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="w-[120px] h-[40px] bg-[#0038FF] rounded-[15px] text-white hover:bg-[#1a4dff] transition-colors"
+                  onClick={handleConfirmInterest}
+                >
+                  Confirm
+                </button>
+>>>>>>> Stashed changes
               </div>
             </div>
           </div>
