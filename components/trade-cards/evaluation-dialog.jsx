@@ -373,10 +373,10 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
         {/* Content container */}
         <div className="flex flex-col justify-center items-center gap-[40px] w-[792px] h-[613px] z-[2]">
           {/* Header section */}
-          <div className="flex flex-col items-center gap-[25px] w-[792px] h-[150px]">
-            <div className="flex flex-row justify-between items-center w-[792px] h-[150px]">
+        <div className="flex flex-col items-center gap-[20px] w-[792px]">
+            <div className="flex flex-row justify-between items-center w-[792px]">
               {/* Left side */}
-              <div className="flex flex-col items-start justify-between w-[300px] h-full">
+              <div className="flex flex-col items-start gap-[6px] w-[300px]">
                 <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-white">
                   {data.requestTitle}
                 </h3>
@@ -386,12 +386,12 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
               </div>
 
               {/* Center - Logo */}
-              <div className="flex items-center justify-center w-[200px] h-[200px]">
+              <div className="flex items-center justify-center w-[140px] h-[140px]">
                 <StarLogo />
               </div>
 
               {/* Right side */}
-              <div className="flex flex-col items-end justify-between w-[300px] h-full">
+              <div className="flex flex-col items-end gap-[6px] w-[300px]">
                 <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-right text-white">
                   {data.offerTitle}
                 </h3>

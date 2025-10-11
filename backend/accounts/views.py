@@ -336,6 +336,7 @@ def get_user_posted_trades(request, username):
         status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED]
     ).prefetch_related('interests__interested_user').order_by('-tradereq_id')
 
+<<<<<<< Updated upstream
     # Get requester's skills to determine what they can offer
     requester_skills = {}
     user_skills = UserSkill.objects.filter(user=user).select_related('specSkills__genSkills_id')
@@ -362,11 +363,17 @@ def get_user_posted_trades(request, username):
             offer = fallback_skill_name
 
         trades_data.append({
+=======
+    # map the same way as in get_posted_trades
+    trades_data = [
+        {
+>>>>>>> Stashed changes
             "tradereq_id": t.tradereq_id,
             "reqname": t.reqname,
             "deadline": t.reqdeadline.isoformat() if t.reqdeadline else "",
             "status": t.status,
             "interest_count": t.interests.count(),
+<<<<<<< Updated upstream
             "offer": offer,
             "username": user.username,
             "profilePic": profile_pic_url, 
@@ -375,12 +382,21 @@ def get_user_posted_trades(request, username):
             "reviews": int(user.ratingCount or 0), 
             "level": int(user.level or 1), 
         })
+=======
+        }
+        for t in posted_trades
+    ]
+>>>>>>> Stashed changes
 
     return Response({
         "posted_trades": trades_data,
         "count": len(trades_data)
     }, status=200)
+<<<<<<< Updated upstream
 
+=======
+   
+>>>>>>> Stashed changes
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -1609,11 +1625,16 @@ def express_trade_interest(request):
             status__in=[TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]
         ).exists()
         
+<<<<<<< Updated upstream
         if existing_active_interest:
+=======
+        if existing_interest:
+>>>>>>> Stashed changes
             return Response({
                 "error": "You have already expressed interest in this trade request."
             }, status=400)
         
+<<<<<<< Updated upstream
         # Check if there's a DECLINED or CANCELLED interest - if so, reactivate it
         declined_interest = TradeInterest.objects.filter(
             trade_request=trade_request,
@@ -1628,23 +1649,57 @@ def express_trade_interest(request):
             trade_interest = declined_interest
             reactivated = True
             print(f"Reactivated declined/cancelled interest for user {request.user.id}.")
+=======
+        # Check if there's a DECLINED interest - if so, update it to PENDING instead of creating new
+        declined_interest = TradeInterest.objects.filter(
+            trade_request=trade_request,
+            interested_user=request.user,
+            status=TradeInterest.InterestStatus.DECLINED
+        ).first()
+        
+        if existing_interest:
+            # Interest record already exists
+            if existing_interest.status in [TradeInterest.InterestStatus.PENDING, TradeInterest.InterestStatus.ACCEPTED]:
+                return Response({
+                    "error": "You have already expressed interest in this trade request"
+                }, status=400)
+            
+            trade_interest = declined_interest
+            print(f"Reactivated declined interest for user {request.user.id}.")
+>>>>>>> Stashed changes
         else:
             # Create new interest record
             trade_interest = TradeInterest.objects.create(
                 trade_request=trade_request,
                 interested_user=request.user,
+<<<<<<< Updated upstream
                 status=TradeInterest.InterestStatus.PENDING
             )
             reactivated = False
             print(f"Created new trade interest for user {request.user.id}.")
                 
         # Get total PENDING interest count (exclude declined/cancelled)
+=======
+            )
+            print(f"Created new trade interest for user {request.user.id}.")
+        
+        # Update trade request status to PENDING if it's the first interest (NULL -> PENDING)
+        if not trade_request.status:  # If status is NULL/empty
+            trade_request.status = TradeRequest.Status.PENDING
+            trade_request.save()
+        
+        # Get total PENDING interest count (exclude declined)
+>>>>>>> Stashed changes
         interest_count = TradeInterest.objects.filter(
             trade_request=trade_request,
             status=TradeInterest.InterestStatus.PENDING
         ).count()
         
+<<<<<<< Updated upstream
         print(f"Trade status remains: {trade_request.status} (unchanged)")
+=======
+        print(f"Trade status remains: {trade_request.status}")
+>>>>>>> Stashed changes
         print(f"Requester: {trade_request.requester.username}")
         print(f"Interested User: {request.user.username}")
         print(f"Total pending interests: {interest_count}")

@@ -678,8 +678,8 @@ useEffect(() => {
         </div>
 
         {/* Search Input */}
-        <div className="w-full mb-8">
-          <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border-[1px] border border-[rgba(255,255,255,0.40)]">
+        <div className="w-full max-w-[940px] mb-8">
+          <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border border-[rgba(255,255,255,0.40)]">
             <Icon icon="lucide:search" className="text-white mr-2 text-xl" />
             <input
               type="text"

@@ -371,7 +371,7 @@ export default function Onboarding2({ onNext, onPrev }) {
                 filteredAndSortedItems.map((item, index) => (
                   <div
                     key={`explore-${item.tradereq_id || index}`}
-                    className="w-[311px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#284CCC]/80"
+                    className="w-full max-w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#284CCC]/80"
                     style={{
                       background:
                         "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",

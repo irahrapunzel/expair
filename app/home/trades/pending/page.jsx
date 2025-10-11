@@ -19,7 +19,6 @@ export default function PendingTradesPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedSort, setSelectedSort] = useState("Date");
   const [showSortOptions, setShowSortOptions] = useState(false);
-  const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [showOffersPopup, setShowOffersPopup] = useState(false);
   const [selectedService, setSelectedService] = useState("");
   const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
@@ -451,7 +450,6 @@ export default function PendingTradesPage() {
 
       if (response.ok) {
         refreshAllTrades();
-        setOpenMenuIndex(null);
         setShowCancelModalForCard(null);
       } else {
         const errorData = await response.json();
@@ -755,37 +753,19 @@ export default function PendingTradesPage() {
                         </div>
                       </div>
                       {/* --- REMOVED: Old Locked - Pending Status Indicator --- */}
-                      <div className="relative">
-                        <button
-                          onClick={() =>
-                            setOpenMenuIndex(
-                              openMenuIndex === index ? null : index
-                            )
-                          }
-                        >
-                          <Icon
-                            icon="lucide:more-horizontal"
-                            className="w-6 h-6 text-white"
-                          />
-                        </button>
-                        {openMenuIndex === index && (
-                          <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
-                            <button
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full"
-                              onClick={() => {
-                                setShowDeleteModalForCard(trade.id);
-                                setOpenMenuIndex(null);
-                              }}
-                            >
-                              <Icon
-                                icon="lucide:trash-2"
-                                className="text-white text-base"
-                              />
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDeleteModalForCard(trade.id);
+                        }}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        title="Delete trade"
+                      >
+                        <Icon
+                          icon="lucide:trash-2"
+                          className="w-5 h-5 text-white hover:text-red-400 transition-colors"
+                        />
+                      </button>
                     </div>
 
                     {/* Needs and Interested Section */}
@@ -898,7 +878,7 @@ export default function PendingTradesPage() {
             {initiatedTrades.map((trade, index) => (
               <div
                 key={trade.id}
-                className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between duration-300 hover:scale-[1.01] h-[240px] rounded-[20px] border-[3px] border-[#FB9696]/80"
+                className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#FB9696]/80"
                 style={{
                   background:
                     "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -1194,41 +1174,19 @@ export default function PendingTradesPage() {
                               )}
                             </div>
                           </div>
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuIndex(
-                                  openMenuIndex === `final-${index}`
-                                    ? null
-                                    : `final-${index}`
-                                );
-                              }}
-                            >
-                              <Icon
-                                icon="lucide:more-horizontal"
-                                className="w-6 h-6 text-white"
-                              />
-                            </button>
-                            {openMenuIndex === `final-${index}` && (
-                              <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
-                                <button
-                                  className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowCancelModalForCard(trade.id);
-                                    setOpenMenuIndex(null);
-                                  }}
-                                >
-                                  <Icon
-                                    icon="lucide:x"
-                                    className="text-white text-base"
-                                  />
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowCancelModalForCard(trade.id);
+                            }}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                            title="Cancel trade"
+                          >
+                            <Icon
+                              icon="lucide:x-circle"
+                              className="w-5 h-5 text-white hover:text-red-400 transition-colors"
+                            />
+                          </button>
                         </div>
 
                         {/* Context Image - Only show if contextpic exists */}
@@ -1591,42 +1549,20 @@ export default function PendingTradesPage() {
                                 </Tooltip>
                               )}
 
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  setOpenMenuIndex(
-                                    openMenuIndex === `final-${index}`
-                                      ? null
-                                      : `final-${index}`
-                                  );
-                                }}
-                              >
-                                <Icon
-                                  icon="lucide:more-horizontal"
-                                  className="w-6 h-6 text-white"
-                                />
-                              </button>
-                              {openMenuIndex === `final-${index}` && (
-                                <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
-                                  <button
-                                    className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setShowCancelModalForCard(trade.id);
-                                      setOpenMenuIndex(null);
-                                    }}
-                                  >
-                                    <Icon
-                                      icon="lucide:x"
-                                      className="text-white text-base"
-                                    />
-                                    Cancel
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setShowCancelModalForCard(trade.id);
+                              }}
+                              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                              title="Cancel trade"
+                            >
+                              <Icon
+                                icon="lucide:x-circle"
+                                className="w-5 h-5 text-white hover:text-red-400 transition-colors"
+                              />
+                            </button>
                             {showCancelModalForCard === trade.id && (
                               <InlineConfirmationModal
                                 message="Are you sure you want to cancel this trade?"
@@ -1735,15 +1671,21 @@ export default function PendingTradesPage() {
                           })()}
 
                           <button
-                            className={`h-[35px] flex justify-center items-center border border-white rounded-[10px] transition-colors ${trade.detailsStatus?.submission_status
+                            className={`relative h-[35px] flex justify-center items-center rounded-[10px] transition-colors p-[2px] ${trade.detailsStatus?.submission_status
                               ?.both_submitted
-                              ? "w-[120px] bg-[#120A2A] cursor-pointer hover:bg-[#1A0F3E]"
-                              : "w-[170px] bg-[#413663] cursor-not-allowed opacity-50"
+                              ? "w-[120px] cursor-pointer"
+                              : "w-[170px] cursor-not-allowed opacity-50"
                               }`}
                             disabled={
                               !trade.detailsStatus?.submission_status
                                 ?.both_submitted
                             }
+                            style={{
+                              background: trade.detailsStatus?.submission_status
+                                ?.both_submitted
+                                ? "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"
+                                : "#413663"
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
@@ -1765,17 +1707,24 @@ export default function PendingTradesPage() {
                               }
                             }}
                           >
-                            <div className="flex items-center gap-[10px]">
-                              <Icon
-                                icon="lucide:star"
-                                className="w-4 h-4 text-white"
-                              />
-                              <span className="text-[14px] text-white">
-                                {trade.detailsStatus?.submission_status
-                                  ?.both_submitted
-                                  ? "Evaluate"
-                                  : "Waiting for details"}
-                              </span>
+                            <div className={`w-full h-full rounded-[8px] flex justify-center items-center ${trade.detailsStatus?.submission_status
+                              ?.both_submitted
+                              ? "bg-[#120A2A]"
+                              : "bg-[#413663]"
+                              }`}>
+                              <div className="flex items-center gap-[8px]">
+                                <img
+                                  src="/assets/logos/White=Logo S.png"
+                                  alt="Logo"
+                                  className="w-[14px] h-[14px]"
+                                />
+                                <span className="text-[14px] text-white">
+                                  {trade.detailsStatus?.submission_status
+                                    ?.both_submitted
+                                    ? "Evaluate"
+                                    : "Waiting for details"}
+                                </span>
+                              </div>
                             </div>
                           </button>
                         </div>

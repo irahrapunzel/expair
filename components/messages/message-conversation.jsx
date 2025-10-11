@@ -238,7 +238,12 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
         
-        <div className="flex items-center gap-2"></div>
+        <Link href="/home/help">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
+            <Icon icon="lucide:flag" className="text-white text-base" />
+            Report
+          </button>
+        </Link>
       </div>
       
       {/* Request/Exchange info */}
