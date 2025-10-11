@@ -119,6 +119,11 @@ export default function SettingsPage() {
   const [details, setDetails] = useState("");
   const [charCount, setCharCount] = useState(0);
 
+  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+  const [twoFACode, setTwoFACode] = useState("");
+
   const handleDetailsChange = (e) => {
     const text = e.target.value;
     setDetails(text);
@@ -132,11 +137,17 @@ export default function SettingsPage() {
     { label: "Minimum 8 characters", test: /.{8,}/ },
   ];
 
-  const menuItems = [{ key: "profile", label: "Profile" }];
+  const menuItems = [
+    { key: "profile", label: "Profile" },
+    { key: "privacy", label: "Privacy & Safety" },
+  ];
 
   const checkAvailability = async (field, value) => {
     // Check if the new username is the same as the original (no need to check API)
-    if (field === "username" && value.toLowerCase() === originalUsername.toLowerCase()) {
+    if (
+      field === "username" &&
+      value.toLowerCase() === originalUsername.toLowerCase()
+    ) {
       return false; // Not taken (it's the current user's username)
     }
 
@@ -159,7 +170,8 @@ export default function SettingsPage() {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `API call failed with status: ${response.status
+          `API call failed with status: ${
+            response.status
           }. Response: ${errorText.substring(0, 100)}...`
         );
       }
@@ -174,7 +186,6 @@ export default function SettingsPage() {
       return true; // Safer default: block submission on network failure
     }
   };
-
 
   // for Username Validation
   useEffect(() => {
@@ -514,7 +525,8 @@ export default function SettingsPage() {
     }
 
     // Check if backend is available
-    const configuredBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl;
+    const configuredBackendUrl =
+      process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl;
     if (!configuredBackendUrl) {
       console.warn("[settings] No backend URL configured, simulating save");
       // Simulate save without backend
@@ -1115,8 +1127,9 @@ export default function SettingsPage() {
                         setSaved(false);
                         setUsernameError(""); // Clear error on change
                       }}
-                      className={`w-full px-4 py-3 bg-[#120A2A] border rounded-[10px] text-white text-sm ${usernameError ? "border-red-500" : "border-white/40"
-                        }`}
+                      className={`w-full px-4 py-3 bg-[#120A2A] border rounded-[10px] text-white text-sm ${
+                        usernameError ? "border-red-500" : "border-white/40"
+                      }`}
                     />
                     {/* NEW: Username validation feedback */}
                     {isCheckingUsername && (
@@ -1134,7 +1147,8 @@ export default function SettingsPage() {
                     {!isCheckingUsername &&
                       !usernameError &&
                       username.trim() !== "" &&
-                      username.toLowerCase() !== originalUsername.toLowerCase() && (
+                      username.toLowerCase() !==
+                        originalUsername.toLowerCase() && (
                         <p className="text-emerald-400 text-xs mt-1">
                           Username is available.
                         </p>
@@ -1434,6 +1448,132 @@ export default function SettingsPage() {
                 </button>
               </div>
             </>
+          )}
+
+          {activeTab === "privacy" && (
+            <section className="flex flex-col gap-8">
+              {/* Two-Factor Authentication Section */}
+              <div className="p-6 border border-white/20 rounded-[15px] bg-[#120A2A]">
+                <h3 className="text-lg font-semibold mb-2 text-white">
+                  Two-Factor Authentication (2FA)
+                </h3>
+                <p className="text-white/70 mb-4 text-sm leading-relaxed">
+                  Add an extra layer of security to your account. When 2FA is
+                  enabled, you’ll need to enter a 6-digit verification code sent
+                  to your email whenever you log in from a new device.
+                </p>
+
+                {/* Toggle */}
+                <div className="flex items-center justify-end gap-3">
+                  <span className="text-white/90 text-sm">Enable 2FA</span>
+                  <button
+                    onClick={() => {
+                      if (!twoFAEnabled) setShow2FAModal(true);
+                      else setShowDisableConfirm(true);
+                    }}
+                    className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${
+                      twoFAEnabled ? "bg-[#0038FF]" : "bg-gray-600"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-[3px] left-[3px] w-5 h-5 rounded-full bg-white transition-transform duration-300 ${
+                        twoFAEnabled ? "translate-x-7" : ""
+                      }`}
+                    ></span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2FA Enable Modal */}
+              {show2FAModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                  <div className="bg-[#120A2A] border-2 border-[#0038FF] rounded-[15px] shadow-[0px_4px_15px_#284CCC] w-[420px] p-6 relative">
+                    <button
+                      className="absolute top-3 right-3 text-white/70 hover:text-white"
+                      onClick={() => setShow2FAModal(false)}
+                    >
+                      ✕
+                    </button>
+                    <h3 className="text-lg font-semibold text-white mb-3">
+                      Verify your email
+                    </h3>
+                    <p className="text-white/70 text-sm mb-4">
+                      We’ve sent a 6-digit verification code to your email.
+                      Enter it below to enable 2FA.
+                    </p>
+
+                    <input
+                      type="text"
+                      placeholder="Enter 6-digit code"
+                      maxLength={6}
+                      className="w-full px-4 py-3 text-center bg-[#0B0420] border border-white/30 rounded-[10px] text-white text-lg tracking-[6px]"
+                      value={twoFACode}
+                      onChange={(e) =>
+                        setTwoFACode(e.target.value.replace(/\D/g, ""))
+                      }
+                    />
+
+                    <div className="flex justify-end gap-3 mt-6">
+                      <button
+                        onClick={() => setShow2FAModal(false)}
+                        className="px-4 py-2 rounded-[8px] bg-[#1a1a3d] text-white/90 text-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTwoFAEnabled(true);
+                          setShow2FAModal(false);
+                          setTwoFACode("");
+                        }}
+                        disabled={twoFACode.length !== 6}
+                        className="px-4 py-2 rounded-[8px] bg-[#0038FF] text-white text-sm disabled:bg-[#0038FF]/50"
+                      >
+                        Verify
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Disable Confirmation Modal */}
+              {showDisableConfirm && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                  <div className="bg-[#120A2A] border-2 border-[#0038FF] rounded-[15px] shadow-[0px_4px_15px_#284CCC] w-[400px] p-6 relative">
+                    <button
+                      className="absolute top-3 right-3 text-white/70 hover:text-white"
+                      onClick={() => setShowDisableConfirm(false)}
+                    >
+                      ✕
+                    </button>
+                    <h3 className="text-lg font-semibold text-white mb-3">
+                      Disable Two-Factor Authentication?
+                    </h3>
+                    <p className="text-white/70 text-sm mb-5">
+                      You’ll no longer be asked for a verification code when
+                      logging in.
+                    </p>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => setShowDisableConfirm(false)}
+                        className="px-4 py-2 rounded-[8px] bg-[#1a1a3d] text-white/90 text-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTwoFAEnabled(false);
+                          setShowDisableConfirm(false);
+                        }}
+                        className="px-4 py-2 rounded-[8px] bg-red-600 text-white text-sm hover:bg-red-700"
+                      >
+                        Disable
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
           )}
         </main>
         {/* Confirm before saving */}

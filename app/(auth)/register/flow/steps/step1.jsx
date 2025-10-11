@@ -234,7 +234,7 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
               </p>
             </div>
           ) : (
-            <h1 className="font-[600] text-[25px] text-center mb-[90px]">
+            <h1 className="font-[600] text-[25px] text-center mb-[70px]">
               Let's get your account started.
             </h1>
           )}
@@ -371,7 +371,7 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
           )}
         </div>
 
-        <p className="underline text-center text-sm text-[16px] mt-[px] mb-[60px]">
+        <p className="underline text-center text-sm text-[16px] mt-[16px] mb-[40px]">
           <a
             href="/signin"
             className="text-[#6DDFFF]"

@@ -152,7 +152,9 @@ export default function Navbar() {
                 Trades <ChevronDown className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-[#15042C] text-white border border-[#2B124C]">
+            <DropdownMenuContent
+              className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C]`}
+            >
               <Link href="/home/trades/pending">
                 <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
                   Pending
@@ -175,11 +177,20 @@ export default function Navbar() {
               {/* per-conversation unread count aggregated; read from localStorage key 'unread_counts' */}
               {(() => {
                 try {
-                  const data = JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('unread_counts') || '{}') : '{}');
-                  const total = Object.values(data).reduce((a, b) => a + Number(b || 0), 0);
+                  const data = JSON.parse(
+                    typeof window !== "undefined"
+                      ? localStorage.getItem("unread_counts") || "{}"
+                      : "{}"
+                  );
+                  const total = Object.values(data).reduce(
+                    (a, b) => a + Number(b || 0),
+                    0
+                  );
                   if (total > 0) {
                     return (
-                      <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">{total}</span>
+                      <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
+                        {total}
+                      </span>
                     );
                   }
                 } catch {}
@@ -207,13 +218,13 @@ export default function Navbar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="rounded-full border border-white focus:outline-none focus:ring-2 focus:ring-[#6DDFFF]">
-                {/* Use the new profileImage variable here */}
                 <ProfileAvatar src={profileImage} size={25} />
               </button>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent
               align="end"
-              className="bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]"
+              className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]`}
             >
               <Link href={profileHref}>
                 <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">

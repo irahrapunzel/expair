@@ -294,11 +294,8 @@ export default function Step2({ step2Data, onDataSubmit, onNext, onPrev }) {
             alt="Logo"
             width={250}
             height={76}
-            className="rounded-full mb-[30px]"
+            className="rounded-full mb-[20px]"
           />
-          <h1 className="font-[600] text-[25px] text-center mb-[90px]">
-            Let's get your account started.
-          </h1>
         </div>
 
         <p className="text-white text-[16px] sm:text-[20px] font-[500] mb-[20px]">
