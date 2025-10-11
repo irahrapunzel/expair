@@ -15,7 +15,7 @@ import {
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useSession } from "next-auth/react";
-import { authFetch } from "./authFetch";
+import { authFetch } from "@/lib/authFetch";
 import Map, { Marker } from "react-map-gl";
 import ProfileAvatar from "@/components/avatar";
 
