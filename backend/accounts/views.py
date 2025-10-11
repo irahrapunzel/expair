@@ -29,13 +29,18 @@ CustomUser = get_user_model()
 from .models import (
     Evaluation, GenSkill, ReputationSystem, TradeDetail, TradeHistory, UserInterest, User, VerificationStatus, UserCredential,
     SpecSkill, UserSkill, TradeRequest, TradeInterest, PasswordResetToken,
-    Conversation, Message
+    Conversation, Message, Report, SupportTicket
 )
 from .serializers import (
     ProfileUpdateSerializer, UserCredentialSerializer,
     SpecSkillSerializer, UserSkillBulkSerializer,
-    UserSerializer, GenSkillSerializer, UserInterestBulkSerializer
+    UserSerializer, GenSkillSerializer, UserInterestBulkSerializer, ReportSerializer
 )
+
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from .emails import send_support_emails
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_or_create_conversation(request, tradereq_id):
@@ -3851,3 +3856,88 @@ def user_reviews(request, user_id: int):
             "reviews": [],
             "total_count": 0
         }, status=500) 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_report(request):
+    """
+    Create a new user/trade report.
+    """
+    try:
+        data = request.data
+
+        reporter = request.user
+        reported_user_id = data.get('reported_user')
+        tradereq_id = data.get('tradereq')
+        category = data.get('category')
+        issue_detail = data.get('issue_detail')
+        description = data.get('description', '')
+
+        report = Report.objects.create(
+            reporter=reporter,
+            reported_user_id=reported_user_id,
+            tradereq_id=tradereq_id,
+            category=category,
+            issue_detail=issue_detail,
+            description=description,
+            status="Pending",
+            created_at=django_timezone.now()
+        )
+        
+        print(Report.objects.last().__dict__)
+
+        serializer = ReportSerializer(report)
+        return Response(serializer.data, status=201)
+
+    except Exception as e:
+        print(f"Report creation error: {str(e)}")
+        return Response({"error": str(e)}, status=400)
+
+def send_support_email(ticket):
+    context = {
+        "name": ticket.ticket_name,
+        "ticket_ref": f"SUP-{ticket.ticket_id:05d}",
+        "title": ticket.ticket_title,
+        "desc": ticket.ticket_desc,
+    }
+
+    subject = f"[Expair Support] Ticket #{ticket.ticket_id}: {ticket.ticket_title}"
+    from_email = "expaircs@gmail.com"
+    to = [ticket.ticket_email]  # main recipient (user)
+    cc = ["expaircs@gmail.com"]  # add your CS inbox here
+
+    text_content = render_to_string("emails/support_confirmation.txt", context)
+    html_content = render_to_string("emails/support_confirmation.html", context)
+
+    email = EmailMultiAlternatives(
+        subject, text_content, from_email, to, cc=cc
+    )
+    email.attach_alternative(html_content, "text/html")
+    email.send(fail_silently=False)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_support_ticket(request):
+    ticket_name = request.data.get("name")
+    ticket_email = request.data.get("email")
+    ticket_title = request.data.get("subject")
+    ticket_desc = request.data.get("message")
+    ticket_pic = request.FILES.get("photo").name if request.FILES.get("photo") else None
+
+    ticket = SupportTicket.objects.create(
+        ticket_name=ticket_name,
+        ticket_email=ticket_email,
+        ticket_title=ticket_title,
+        ticket_desc=ticket_desc,
+        ticket_pic=ticket_pic,
+        ticket_datesubmitted=django_timezone.now()
+    )
+
+    # send emails (wrap in try/except so ticket creation won't fail on email error)
+    try:
+        send_support_email(ticket)
+    except Exception as e:
+        # log, but don't crash
+        print("send_support_emails error:", e)
+
+    return Response({"success": True, "ticket_id": ticket.ticket_id}, status=201)

@@ -416,3 +416,49 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message #{self.message_id} in convo {self.conversation_id}"
+    
+class Report(models.Model):
+    report_id = models.AutoField(primary_key=True)
+    reporter = models.ForeignKey(
+        'accounts.User',   # ✅ correct model reference
+        on_delete=models.CASCADE,
+        related_name='reports_made'
+    )
+    reported_user = models.ForeignKey(
+        'accounts.User',   # ✅ correct model reference
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports_received'
+    )
+    tradereq = models.ForeignKey(
+        'accounts.TradeRequest',   # ✅ correct model reference
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    category = models.CharField(max_length=100)
+    issue_detail = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=50, default='Pending')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'reports_tbl'
+        managed = True
+
+    def __str__(self):
+        return f"Report #{self.report_id} - {self.category} by {self.reporter.username}"
+    
+class SupportTicket(models.Model):
+    ticket_id = models.AutoField(primary_key=True)
+    ticket_name = models.CharField(max_length=255, null=True, blank=True)
+    ticket_email = models.CharField(max_length=255, null=True, blank=True)
+    ticket_title = models.CharField(max_length=255, null=True, blank=True)
+    ticket_desc = models.TextField(null=True, blank=True)
+    ticket_pic = models.TextField(null=True, blank=True)
+    ticket_datesubmitted = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "supptix_tbl"
+        managed = False   # ❗ since manual edits tayo sa table

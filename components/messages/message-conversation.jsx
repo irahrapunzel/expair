@@ -213,7 +213,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                 </span>
               </div>
 
-              {/* Group 3: SVG + Rating Label */}
+              {/* Group 3: SVG + Rating Label
               <div className="flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="13" viewBox="0 0 12 13" fill="none">
                   <path d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z" fill="url(#paint0_radial_1202_2090)" stroke="url(#paint1_linear_1202_2090)" strokeWidth="1.5"/>
@@ -233,7 +233,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                 <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">
                   {conversation.ratingLabel}
                 </span>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
