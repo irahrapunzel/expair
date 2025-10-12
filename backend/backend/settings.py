@@ -258,7 +258,7 @@ from datetime import timedelta
 
 # JWT Configuration
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=120),  # 2 hours
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # 24 hours
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # 7 days
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
