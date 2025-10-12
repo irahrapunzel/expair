@@ -5,14 +5,16 @@ import Image from "next/image";
 import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
 
-export default function MessageList({ conversations = [], selectedId, onSelect }) {
+export default function MessageList({ conversations = [], selectedId, onSelect, onDeleteConversation }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOpen, setSortOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const filteredConversations = conversations.filter(
     (conv) => conv.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
 
   return (
     <div className="w-[400px] bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden">
@@ -114,72 +116,79 @@ export default function MessageList({ conversations = [], selectedId, onSelect }
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {filteredConversations.length > 0 ? (
           filteredConversations.map((conversation) => (
-            <button
+            <div
               key={conversation.id}
-              onClick={() => onSelect(conversation.id)}
               className={cn(
-                "w-full p-5 flex items-start gap-3 border-b border-[#1A0F3E] hover:bg-[#120A2A] transition text-left",
+                "relative group",
                 selectedId === conversation.id && "bg-[#120A2A]"
               )}
             >
-              <div className="relative">
-                <Image
-                  src={conversation.avatar}
-                  alt={conversation.name}
-                  width={45}
-                  height={45}
-                  className="rounded-full"
-                  onError={(e) => {
-                    e.target.src = "/assets/defaultavatar.png";
-                  }}
-                />
-                {conversation.unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-[4px] bg-[#0038FF] text-white text-[10px] leading-[18px] rounded-full text-center">
-                    {conversation.unreadCount}
-                  </span>
+              <button
+                onClick={() => onSelect(conversation.id)}
+                className={cn(
+                  "w-full p-5 flex items-start gap-3 border-b border-[#1A0F3E] hover:bg-[#120A2A] transition text-left"
                 )}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-1">
-                  <h4 className="text-[16px] text-white truncate">{conversation.name}</h4>
-                  <span className="text-[13px] text-[#8E7EB3]">{conversation.time}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <p className={cn(
-                    "text-sm truncate flex-1",
-                    conversation.unread ? "text-white" : "text-[#8E7EB3]"
-                  )}>
-                    {conversation.messages && conversation.messages.length > 0 ? (
-                      <>
-                        {conversation.messages[conversation.messages.length - 1].isUser ? "You: " : `${conversation.name.split(' ')[0]}: `}
-                        {conversation.messages[conversation.messages.length - 1].attachment && !conversation.messages[conversation.messages.length - 1].content
-                          ? `📎 ${conversation.messages[conversation.messages.length - 1].attachment.type.startsWith('image/') ? 'Image' : 'File'}`
-                          : (conversation.messages[conversation.messages.length - 1].content || conversation.lastMessage)}
-                      </>
-                    ) : (
-                      conversation.lastMessage
-                    )}
-                  </p>
-                  {conversation.unread && (
-                    <div className="w-2 h-2 bg-[#0038FF] rounded-full flex-shrink-0"></div>
+              >
+                <div className="relative">
+                  <Image
+                    src={conversation.avatar || "/assets/defaultavatar.png"}
+                    alt={conversation.name || "User"}
+                    width={45}
+                    height={45}
+                    className="rounded-full"
+                    onError={(e) => {
+                      e.currentTarget.src = "/assets/defaultavatar.png";
+                    }}
+                    unoptimized
+                  />
+                  {conversation.unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-[4px] bg-[#0038FF] text-white text-[10px] leading-[18px] rounded-full text-center">
+                      {conversation.unreadCount}
+                    </span>
                   )}
                 </div>
                 
-                {/* Trade tags */}
-                {conversation.requests && (
-                  <div className="flex flex-wrap items-center gap-1.5 mt-2 w-full">
-                    <div className="max-w-[45%] text-[#0038FF] text-[13px] font-normal truncate">
-                      {conversation.requests.requested}
-                    </div>
-                    <span className="text-xs text-[#8E7EB3] flex-shrink-0">×</span>
-                    <div className="max-w-[45%] text-[#906EFF] text-[13px] font-normal truncate">
-                      {conversation.requests.exchange}
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <h4 className="text-[16px] text-white truncate">{conversation.name}</h4>
+                    <span className="text-[13px] text-[#8E7EB3]">{conversation.time}</span>
                   </div>
-                )}
-              </div>
-            </button>
+                  <div className="flex items-center gap-2">
+                    <p className={cn(
+                      "text-sm truncate flex-1",
+                      conversation.unread ? "text-white" : "text-[#8E7EB3]"
+                    )}>
+                      {conversation.messages && conversation.messages.length > 0 ? (
+                        <>
+                          {conversation.messages[conversation.messages.length - 1].isUser ? "You: " : `${conversation.name.split(' ')[0]}: `}
+                          {conversation.messages[conversation.messages.length - 1].attachment && !conversation.messages[conversation.messages.length - 1].content
+                            ? `📎 ${conversation.messages[conversation.messages.length - 1].attachment.type.startsWith('image/') ? 'Image' : 'File'}`
+                            : (conversation.messages[conversation.messages.length - 1].content || conversation.lastMessage)}
+                        </>
+                      ) : (
+                        conversation.lastMessage
+                      )}
+                    </p>
+                    {conversation.unread && (
+                      <div className="w-2 h-2 bg-[#0038FF] rounded-full flex-shrink-0"></div>
+                    )}
+                  </div>
+                  
+                  {/* Trade tags */}
+                  {conversation.requests && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2 w-full">
+                      <div className="max-w-[45%] text-[#0038FF] text-[13px] font-normal truncate">
+                        {conversation.requests.requested}
+                      </div>
+                      <span className="text-xs text-[#8E7EB3] flex-shrink-0">×</span>
+                      <div className="max-w-[45%] text-[#906EFF] text-[13px] font-normal truncate">
+                        {conversation.requests.exchange}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </button>
+            </div>
           ))
         ) : (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center">

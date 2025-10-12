@@ -35,7 +35,7 @@ export function MessageBubble({ message, bubbleIndex, showAvatar = true, showTim
   };
 
   return (
-      <div 
+    <div 
       className={cn(
         "flex gap-3 group/message relative",
         message.isUser ? "justify-end" : "justify-start"
@@ -47,14 +47,15 @@ export function MessageBubble({ message, bubbleIndex, showAvatar = true, showTim
       {!message.isUser && showAvatar && (
         <div className="flex-shrink-0 mt-1">
           <Image
-            src={userAvatar}
-            alt={message.sender}
+            src={userAvatar || "/assets/defaultavatar.png"}
+            alt={message.sender || "User"}
             width={32}
             height={32}
             className="rounded-full"
             onError={(e) => {
-              e.target.src = "/assets/defaultavatar.png";
+              e.currentTarget.src = "/assets/defaultavatar.png";
             }}
+            unoptimized
           />
         </div>
       )}
@@ -104,11 +105,20 @@ export function MessageBubble({ message, bubbleIndex, showAvatar = true, showTim
                 {message.replyTo.attachment && message.replyTo.attachment.type.startsWith('image/') ? (
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-10 h-10 rounded overflow-hidden bg-[#0A0519] flex-shrink-0">
-                      <img 
-                        src={message.replyTo.attachment.url} 
-                        alt="Attachment preview" 
-                        className="w-full h-full object-cover"
-                      />
+                      {message.replyTo.attachment.url ? (
+                        <img 
+                          src={message.replyTo.attachment.url} 
+                          alt="Attachment preview" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Icon icon="lucide:image-off" className="w-4 h-4 text-[#413663]" />
+                        </div>
+                      )}
                     </div>
                     <p className={cn(
                       "text-xs",
@@ -151,26 +161,37 @@ export function MessageBubble({ message, bubbleIndex, showAvatar = true, showTim
               )}>
                 {message.attachment.type.startsWith('image/') ? (
                   <div className="relative">
-                    <img 
-                      src={message.attachment.url} 
-                      alt={message.attachment.name}
-                      className="max-w-full rounded-lg max-h-[200px] object-contain bg-[#0A0519]"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white truncate max-w-[150px]">{message.attachment.name}</span>
-                        <a 
-                          href={message.attachment.url} 
-                          download={message.attachment.name}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Icon icon="lucide:download" className="w-3 h-3 text-white" />
-                        </a>
+                    {message.attachment.url ? (
+                      <>
+                        <img 
+                          src={message.attachment.url} 
+                          alt={message.attachment.name || "Attachment"}
+                          className="max-w-full rounded-lg max-h-[200px] object-contain bg-[#0A0519]"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-white truncate max-w-[150px]">{message.attachment.name}</span>
+                            <a 
+                              href={message.attachment.url} 
+                              download={message.attachment.name}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Icon icon="lucide:download" className="w-3 h-3 text-white" />
+                            </a>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-[200px] bg-[#0A0519] rounded-lg flex items-center justify-center">
+                        <Icon icon="lucide:image-off" className="w-8 h-8 text-[#413663]" />
                       </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 p-2 bg-[#0A0519] rounded-lg">
@@ -190,16 +211,18 @@ export function MessageBubble({ message, bubbleIndex, showAvatar = true, showTim
                         {message.attachment.type.split('/')[1].toUpperCase()} • {(message.attachment.size / 1024).toFixed(1)} KB
                       </p>
                     </div>
-                    <a 
-                      href={message.attachment.url} 
-                      download={message.attachment.name}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-8 h-8 bg-[#120A2A] rounded-full flex items-center justify-center"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Icon icon="lucide:download" className="w-4 h-4 text-[#906EFF]" />
-                    </a>
+                    {message.attachment.url && (
+                      <a 
+                        href={message.attachment.url} 
+                        download={message.attachment.name}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 bg-[#120A2A] rounded-full flex items-center justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Icon icon="lucide:download" className="w-4 h-4 text-[#906EFF]" />
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

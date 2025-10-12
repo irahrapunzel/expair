@@ -13,7 +13,7 @@ import EvaluationDialog from "../trade-cards/evaluation-dialog";
 import { Star } from "lucide-react";
 import Tooltip from "../ui/tooltip";
 
-export default function MessageConversation({ conversation, onSendMessage, onConversationViewed }) {
+export default function MessageConversation({ conversation, onSendMessage, onConversationViewed, onDeleteConversation }) {
   const { data: session } = useSession();
   const [newMessage, setNewMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -22,9 +22,47 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   const [replyingTo, setReplyingTo] = useState(null);
   const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
+
+  console.log('MessageConversation props:', { 
+    hasOnDeleteConversation: !!onDeleteConversation,
+    conversationId: conversation?.id 
+  });
+
+  const handleDeleteConversation = async () => {
+    if (!conversation?.id) return;
+    
+    // Show confirmation modal instead of browser confirm
+    setShowDeleteConfirmation(true);
+  };
+
+  const confirmDelete = async () => {
+    console.log('Confirm delete clicked for conversation:', conversation.id);
+    try {
+      if (onDeleteConversation) {
+        await onDeleteConversation(conversation.id);
+        console.log('Delete completed successfully');
+        setShowDeleteConfirmation(false);
+      } else {
+        console.error('onDeleteConversation prop is not defined');
+        setShowDeleteConfirmation(false);
+      }
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+      setShowDeleteConfirmation(false);
+      
+      // Show error message - check if it's a trade status error
+      const errorMessage = error.message || "Failed to delete conversation. Please try again.";
+      alert(errorMessage);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirmation(false);
+  };
 
   // Initialize messages when conversation changes and mark as read (fetch from backend if thread id present)
   useEffect(() => {
@@ -50,8 +88,8 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           const isUser = currentId && senderId === currentId;
           return {
             sender: isUser ? 'You' : 'Partner',
-          content: m.content,
-          time: '',
+            content: m.content,
+            time: '',
             isUser,
           };
         });
@@ -72,7 +110,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           store[String(conversation.id)] = 0;
           localStorage.setItem(key, JSON.stringify(store));
         }
-      } catch {}
+      } catch { }
     };
     load();
   }, [conversation?.id, onConversationViewed]);
@@ -91,7 +129,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (newMessage.trim() === "" && !attachedFile) return;
-    
+
     // Create new message object
     const newMessageObj = {
       sender: "You",
@@ -106,7 +144,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       } : null,
       replyTo: replyingTo
     };
-    
+
     // give a local id for client-side delete-only
     const withId = { ...newMessageObj, __localId: `${Date.now()}-${Math.random().toString(16).slice(2)}` };
     // Optimistic add to local state
@@ -124,12 +162,12 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           credentials: 'include',
           body: JSON.stringify({ content: newMessage }),
         });
-      } catch {}
+      } catch { }
     }
 
     // Update parent (sidebar preview)
     if (onSendMessage) onSendMessage(withId);
-    
+
     // Clear form
     setNewMessage("");
     setAttachedFile(null);
@@ -139,7 +177,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   const handleFileUpload = () => {
     fileInputRef.current?.click();
   };
-  
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -152,7 +190,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       });
     }
   };
-  
+
   const removeAttachedFile = () => {
     if (attachedFile?.url) {
       URL.revokeObjectURL(attachedFile.url);
@@ -178,8 +216,45 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   }
 
   return (
-    <div className="flex-1 bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden">
+    <div className="flex-1 bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden relative">
       <Toaster />
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div className="absolute inset-0 flex justify-center items-center z-50 rounded-[25px]">
+          <div
+            className="w-[420px] p-8 flex flex-col gap-6 rounded-[15px] shadow-lg"
+            style={{
+              background: "rgba(0, 0, 0, 0.9)",
+              border: "2px solid #0038FF",
+              boxShadow: "0px 4px 15px #D78DE5",
+              backdropFilter: "blur(40px)",
+              borderRadius: "15px",
+            }}
+          >
+            <h3 className="text-center text-[18px] font-semibold text-white">
+              Are you sure you want to delete this conversation? You can no longer see the messages but the other person still can.
+            </h3>
+
+            <div className="flex justify-center gap-4 mt-2">
+              <button
+                onClick={cancelDelete}
+                className="w-[150px] h-[38px] py-2 rounded-[10px] text-white border-2 border-[#0038FF] bg-transparent text-[15px] hover:bg-white/10 transition duration-300"
+              >
+                <span className="text-[15px]">Cancel</span>
+              </button>
+
+              <button
+                onClick={confirmDelete}
+                className="w-[150px] h-[38px] py-2 rounded-[10px] text-white bg-[#0038FF] text-[15px] shadow-[0px_0px_10px_#284CCC] hover:bg-[#1a4dff] transition duration-300"
+              >
+                <span className="text-[15px]">Confirm</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Conversation header */}
       <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -192,6 +267,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             onError={(e) => {
               e.target.src = "/assets/defaultavatar.png";
             }}
+            unoptimized
           />
           <div>
             <h3 className="text-[16px] text-white flex items-center gap-2">
@@ -212,40 +288,30 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                   {conversation.rating}
                 </span>
               </div>
-
-              {/* Group 3: SVG + Rating Label
-              <div className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="13" viewBox="0 0 12 13" fill="none">
-                  <path d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z" fill="url(#paint0_radial_1202_2090)" stroke="url(#paint1_linear_1202_2090)" strokeWidth="1.5"/>
-                  <defs>
-                    <radialGradient id="paint0_radial_1202_2090" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)">
-                      <stop offset="0.4" stopColor="#933BFF"/>
-                      <stop offset="1" stopColor="#34188D"/>
-                    </radialGradient>
-                    <linearGradient id="paint1_linear_1202_2090" x1="6.00002" y1="0.0778344" x2="6.00002" y2="13.2525" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="white"/>
-                      <stop offset="0.5" stopColor="#999999"/>
-                      <stop offset="1" stopColor="white"/>
-                    </linearGradient>
-                  </defs>
-                </svg>
-
-                <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">
-                  {conversation.ratingLabel}
-                </span>
-              </div> */}
             </div>
           </div>
         </div>
-        
-        <Link href="/home/help">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
-            <Icon icon="lucide:flag" className="text-white text-base" />
-            Report
-          </button>
-        </Link>
+
+        <div className="flex items-center gap-2">
+          <Tooltip content="Delete this conversation. You can no longer see the messages but the other person still can." position="left">
+            <button 
+              onClick={handleDeleteConversation}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            >
+              <Icon icon="lucide:trash-2" className="text-red-400 text-base" />
+              Delete
+            </button>
+          </Tooltip>
+          
+          <Link href="/home/help">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
+              <Icon icon="lucide:flag" className="text-white text-base" />
+              Report
+            </button>
+          </Link>
+        </div>
       </div>
-      
+
       {/* Request/Exchange info */}
       {conversation.requests && (
         <div className="px-5 py-3 bg-[#0A0519]">
@@ -264,14 +330,14 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-end gap-3 pb-1">
               <Link href={`/home/trades/add-details?requested=${encodeURIComponent(conversation.requests.requested)}&exchange=${encodeURIComponent(conversation.requests.exchange)}`}>
                 <button className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors">
                   <span className="text-[13px] text-white">Add details</span>
                 </button>
               </Link>
-              
+
               <Tooltip content="Expair's evaluation system will assess your trade using predefined criteria for task difficulty, time, and skills. Make sure to add all details before you can run the evaluation." position="left">
                 <button
                   onClick={() => {
@@ -300,11 +366,11 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                       xmlns="http://www.w3.org/2000/svg"
                       className="w-4 h-4"
                     >
-                      <path d="M8.49991 16.5L9.95148 8.5L8.49991 0.5L7.04834 8.5L8.49991 16.5Z" fill="#FFFFFF"/>
-                      <path d="M2.03425 3.56167L8.31776 9.75624L10.1393 7.21373L2.03425 3.56167Z" fill="#FFFFFF"/>
-                      <path d="M14.9618 13.4129L8.67834 7.21837L6.85676 9.76088L14.9618 13.4129Z" fill="#FFFFFF"/>
-                      <path d="M14.9657 3.56167L8.68224 9.75624L6.86067 7.21373L14.9657 3.56167Z" fill="#FFFFFF"/>
-                      <path d="M2.03816 13.4129L8.32166 7.21837L10.1432 9.76088L2.03816 13.4129Z" fill="#FFFFFF"/>
+                      <path d="M8.49991 16.5L9.95148 8.5L8.49991 0.5L7.04834 8.5L8.49991 16.5Z" fill="#FFFFFF" />
+                      <path d="M2.03425 3.56167L8.31776 9.75624L10.1393 7.21373L2.03425 3.56167Z" fill="#FFFFFF" />
+                      <path d="M14.9618 13.4129L8.67834 7.21837L6.85676 9.76088L14.9618 13.4129Z" fill="#FFFFFF" />
+                      <path d="M14.9657 3.56167L8.68224 9.75624L6.86067 7.21373L14.9657 3.56167Z" fill="#FFFFFF" />
+                      <path d="M2.03816 13.4129L8.32166 7.21837L10.1432 9.76088L2.03816 13.4129Z" fill="#FFFFFF" />
                     </svg>
                     <span className="text-[13px] text-white ml-1">Evaluate</span>
                   </div>
@@ -314,9 +380,9 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
       )}
-      
+
       {/* Messages */}
-      <div 
+      <div
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-5 custom-scrollbar"
       >
@@ -327,7 +393,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
               message={message}
               bubbleIndex={index}
               showAvatar={index === 0 || messages[index - 1].isUser !== message.isUser}
-              showTime={index === messages.length - 1 || 
+              showTime={index === messages.length - 1 ||
                 messages[index + 1]?.isUser !== message.isUser}
               userAvatar={conversation.avatar}
               onReply={(msg) => setReplyingTo(msg)}
@@ -335,14 +401,14 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                 setMessages(prev => prev.filter((_, idx) => idx !== i));
               }}
               onHeart={(i) => {
-                setMessages(prev => prev.map((m, idx) => idx === i ? { ...m, reactions: { ...(m.reactions||{}), heart: !m.reactions?.heart } } : m));
+                setMessages(prev => prev.map((m, idx) => idx === i ? { ...m, reactions: { ...(m.reactions || {}), heart: !m.reactions?.heart } } : m));
               }}
             />
           ))}
           <div ref={messagesEndRef} />
         </div>
       </div>
-      
+
       {/* Message input */}
       <form onSubmit={handleSendMessage} className="p-5 border-t border-[#1A0F3E]">
         {/* Reply preview */}
@@ -355,7 +421,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                 <p className="text-sm text-white truncate">{replyingTo.content}</p>
               </div>
             </div>
-            
+
             <button
               type="button"
               onClick={() => setReplyingTo(null)}
@@ -365,24 +431,24 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             </button>
           </div>
         )}
-        
+
         {/* File attachment preview */}
         {attachedFile && (
           <div className="mb-3 p-3 bg-[#120A2A] rounded-[15px] flex items-center justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="w-10 h-10 rounded-md bg-[#15042C] flex items-center justify-center flex-shrink-0">
-                <Icon 
+                <Icon
                   icon={
-                    attachedFile.type.startsWith('image/') 
-                      ? "lucide:image" 
+                    attachedFile.type.startsWith('image/')
+                      ? "lucide:image"
                       : attachedFile.type.includes('pdf')
-                      ? "lucide:file-text"
-                      : "lucide:file"
-                  } 
-                  className="w-5 h-5 text-[#906EFF]" 
+                        ? "lucide:file-text"
+                        : "lucide:file"
+                  }
+                  className="w-5 h-5 text-[#906EFF]"
                 />
               </div>
-              
+
               <div className="overflow-hidden">
                 <p className="text-sm text-white truncate">{attachedFile.name}</p>
                 <p className="text-xs text-[#8E7EB3]">
@@ -390,7 +456,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                 </p>
               </div>
             </div>
-            
+
             <button
               type="button"
               onClick={removeAttachedFile}
@@ -400,16 +466,16 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             </button>
           </div>
         )}
-      
+
         <div className="relative flex items-center gap-2">
-          <button 
+          <button
             type="button"
             onClick={handleFileUpload}
             className="w-[40px] h-[40px] flex items-center justify-center rounded-full hover:bg-[#120A2A] transition"
           >
             <Icon icon="lucide:paperclip" className="w-5 h-5 text-[#8E7EB3]" />
           </button>
-          
+
           <div className="relative flex-1">
             <input
               type="text"
@@ -425,26 +491,26 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             >
               <Icon icon="lucide:smile" className="w-5 h-5" />
             </button>
-            
+
             {showEmojiPicker && (
               <div className="absolute bottom-full right-0 mb-2 p-2 bg-[#15042C] rounded-[10px] border border-[#2B124C] shadow-md">
                 <div className="grid grid-cols-8 gap-1">
-                  {["😊", "😂", "❤️", "👍", "🙌", "🔥", "✨", "⭐", 
-                    "🎉", "🤔", "😍", "👋", "🙏", "💯", "🌟", "👏"].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => handleEmojiSelect(emoji)}
-                      className="w-8 h-8 flex items-center justify-center hover:bg-[#1A0F3E] rounded-md"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+                  {["😊", "😂", "❤️", "👍", "🙌", "🔥", "✨", "⭐",
+                    "🎉", "🤔", "😍", "👋", "🙏", "💯", "🌟", "💪"].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => handleEmojiSelect(emoji)}
+                        className="w-8 h-8 flex items-center justify-center hover:bg-[#1A0F3E] rounded-md"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
                 </div>
               </div>
             )}
           </div>
-          
+
           <button
             type="submit"
             disabled={newMessage.trim() === "" && !attachedFile}
@@ -452,8 +518,8 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           >
             <Icon icon="lucide:send" className="w-5 h-5" />
           </button>
-          
-          <input 
+
+          <input
             type="file"
             ref={fileInputRef}
             className="hidden"

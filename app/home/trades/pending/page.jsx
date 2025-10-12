@@ -116,31 +116,61 @@ export default function PendingTradesPage() {
           );
 
           if (updatedTrade) {
-            const statusResponse = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradeRequestId}/details/status/`,
-              {
-                headers: {
-                  Authorization: `Bearer ${session.access}`,
-                  "Content-Type": "application/json",
-                },
-              }
-            );
+            // Fetch both status and evaluation data
+            const [statusResponse, evaluationResponse] = await Promise.all([
+              fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradeRequestId}/details/status/`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${session.access}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              ),
+              fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradeRequestId}/evaluation/`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${session.access}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              )
+            ]);
 
             const statusData = statusResponse.ok
               ? await statusResponse.json()
               : null;
+            
+            const evaluationData = evaluationResponse.ok
+              ? await evaluationResponse.json()
+              : null;
+
             const tradeWithStatus = {
               ...updatedTrade,
               detailsStatus: statusData,
+              evaluationStatus: evaluationData,
             };
 
-            setFinalizationTrades((prevTrades) =>
-              prevTrades.map((trade) =>
+            setFinalizationTrades((prevTrades) => {
+              const filtered = prevTrades.filter((trade) => {
+                // Remove if both users accepted evaluation
+                if (trade.trade_request_id === tradeRequestId) {
+                  const isFullyConfirmed =
+                    evaluationData?.both_users_responded &&
+                    evaluationData?.both_accepted;
+                  return !isFullyConfirmed;
+                }
+                return true;
+              });
+
+              // Update the trade if it wasn't filtered out
+              return filtered.map((trade) =>
                 trade.trade_request_id === tradeRequestId
                   ? tradeWithStatus
                   : trade
-              )
-            );
+              );
+            });
           }
         }
       } catch (error) {
@@ -1189,16 +1219,21 @@ export default function PendingTradesPage() {
                           </button>
                         </div>
 
-                        {/* Context Image - Only show if contextpic exists */}
+                       {/* Context Image - Only show if contextpic exists */}
                         {trade.tradeDetails?.contextpic && (
                           <div className="px-[25px] pb-[20px]">
                             <div className="w-full h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
                               <Image
-                                src={trade.tradeDetails.contextpic}
+                                src={
+                                  trade.tradeDetails.contextpic.startsWith('http')
+                                    ? trade.tradeDetails.contextpic
+                                    : `${process.env.NEXT_PUBLIC_BACKEND_URL}${trade.tradeDetails.contextpic}`
+                                }
                                 alt="Trade Context"
                                 width={900}
                                 height={300}
                                 className="w-full h-full object-cover"
+                                unoptimized={trade.tradeDetails.contextpic.startsWith('http')}
                               />
                             </div>
                           </div>
@@ -1258,7 +1293,7 @@ export default function PendingTradesPage() {
                               </div>
                             </div>
 
-                            <p className="text-[13px] text-[rgba(255,255,255,0.60)]">
+                            <p className="text-[15px] text-[rgba(255,255,255,0.60)]">
                               {trade.tradeDetails?.reqbio ||
                                 `Trade request: ${trade.needs}`}
                             </p>
@@ -1750,11 +1785,19 @@ export default function PendingTradesPage() {
       {/* Evaluation Dialog */}
       <EvaluationDialog
         isOpen={showEvaluationDialog}
-        onClose={() => setShowEvaluationDialog(false)}
+        onClose={() => {
+          setShowEvaluationDialog(false);
+          // Refresh the specific trade after closing
+          if (selectedTrade?.tradereq_id) {
+            updateFinalizationTrade(selectedTrade.tradereq_id);
+          }
+        }}
         tradeData={selectedTrade}
-        onTradeUpdate={(tradeRequestId) =>
-          updateFinalizationTrade(tradeRequestId)
-        }
+        onTradeUpdate={(tradeRequestId) => {
+          updateFinalizationTrade(tradeRequestId);
+          // Also refresh all trades to update other sections
+          refreshAllTrades(false);
+        }}
       />
     </div>
   );

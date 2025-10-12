@@ -90,6 +90,8 @@ urlpatterns = [
     path('trades/<int:tradereq_id>/conversation/', views.get_or_create_conversation, name='get_or_create_conversation'),
     path('conversations/', views.list_conversations, name='list_conversations'),
     path('conversations/<int:conversation_id>/messages/', views.messages_handler, name='messages_handler'),
+    path('conversations/<int:conversation_id>/delete/', views.delete_conversation, name='delete_conversation'),
+
 
     # Ticketing endpoints
     path('reports/', create_report, name='create-report'),

@@ -19,7 +19,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export default function ActiveTradesPage() {
   const { data: session } = useSession();
-  
+
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedSort, setSelectedSort] = useState("Date");
   const [showSortOptions, setShowSortOptions] = useState(false);
@@ -46,11 +46,11 @@ export default function ActiveTradesPage() {
         setLoading(false);
         return;
       }
-      
+
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/home/active-trades/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -61,158 +61,130 @@ export default function ActiveTradesPage() {
         if (response.ok) {
           const data = await response.json();
           console.log("Active trades data:", data);
-          
+
           if (!isMounted) return;
-          
+
           const transformedTrades = await Promise.all(
-          data.home_active_trades.map(async (trade) => {
-            try {
-              // Fetch comprehensive proof status
-              const proofStatusResponse = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/home/trade-proof-status/${trade.tradereq_id}/`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                }
-              );
-
-              const tradeDetailsResponse = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-details/${trade.tradereq_id}/`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                }
-              );
-                        
-              let proofStatus = {
-                current_user_submitted: false,
-                partner_submitted: false,
-                both_submitted: false,
-                current_user_approved: false,
-                partner_approved: false,
-                both_approved: false,
-                current_user_is_requester: trade.is_requester,
-                status: "waiting_for_proofs"
-              };
-
-              let tradeDetails = null;
-              
-              if (proofStatusResponse.ok) {
-                proofStatus = await proofStatusResponse.json();
-              }
-
-              console.log(`=== TRADE DETAILS DEBUG FOR TRADE ${trade.tradereq_id} ===`);
-              console.log('Trade details response status:', tradeDetailsResponse.status);
-              console.log('Trade details response ok:', tradeDetailsResponse.ok);
-              
-              if (tradeDetailsResponse.ok) {
-                try {
-                  const detailsData = await tradeDetailsResponse.json();
-                  console.log('Full trade details response:', detailsData);
-                  console.log('Session user ID:', session.user.id);
-                  console.log('Available details array:', detailsData.details);
-                  
-                  if (detailsData.details && Array.isArray(detailsData.details)) {
-                    console.log('Details array length:', detailsData.details.length);
-                    detailsData.details.forEach((detail, index) => {
-                      console.log(`Detail ${index}:`, {
-                        user_id: detail.user_id,
-                        user_name: detail.user_name,
-                        skillprof: detail.skillprof,
-                        modedel: detail.modedel,
-                        reqtype: detail.reqtype,
-                        reqbio: detail.reqbio
-                      });
-                    });
-                    
-                    // Find current user's trade detail
-                    tradeDetails = detailsData.details.find(detail => detail.user_id === session.user.id);
-                    console.log('Found current user trade details:', tradeDetails);
-                    
-                    // If current user details not found, maybe use partner's details for display
-                    if (!tradeDetails && detailsData.details.length > 0) {
-                      console.log('Current user details not found, using first available details');
-                      tradeDetails = detailsData.details[0];
-                    }
-                  } else {
-                    console.log('Details is not an array or is missing:', detailsData.details);
+            data.home_active_trades.map(async (trade) => {
+              try {
+                // Fetch comprehensive proof status
+                const proofStatusResponse = await fetch(
+                  `${process.env.NEXT_PUBLIC_BACKEND_URL}/home/trade-proof-status/${trade.tradereq_id}/`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
                   }
-                } catch (jsonError) {
-                  console.log('Failed to parse trade details JSON:', jsonError);
-                }
-              } else {
-                console.log('Trade details response failed with status:', tradeDetailsResponse.status);
-                try {
-                  const errorText = await tradeDetailsResponse.text();
-                  console.log('Error response:', errorText);
-                } catch (textError) {
-                  console.log('Could not read error response:', textError);
-                }
-              }  
+                );
 
-              
-              return {
-                id: trade.tradereq_id,
-                tradereq_id: trade.tradereq_id,
-                firstname: trade.other_user.name.split(' ')[0] || trade.other_user.name,
-                lastname: trade.other_user.name.split(' ').slice(1).join(' ') || '',
-                username: trade.other_user.username,
-                avatar: trade.other_user.profilePic || "/defaultavatar.png",
-                rating: trade.other_user.rating.toFixed(1),
-                reviews: "0",
-                level: trade.other_user.level.toString(),
-                requested: trade.is_requester ? trade.reqname : trade.offering,
-                offering: trade.is_requester ? trade.offering : trade.reqname, 
-                location: "Online",
-                deadline: trade.deadline_formatted,
-                xp: `${trade.total_xp} XP`,
-                
-                // Updated description to use actual trade bio instead of generic text
-                description: tradeDetails?.reqbio || `Trade request: ${trade.reqname}`,
-                
-                status: "active",
-                is_requester: trade.is_requester,
-                
-                // Store the actual trade detail values instead of null
-                skillProficiency: tradeDetails?.skillprof || null,
-                modeOfDelivery: tradeDetails?.modedel || null, 
-                requestType: tradeDetails?.reqtype || null,
-                requestBio: tradeDetails?.reqbio || `Trade request: ${trade.reqname}`,
-                contextPic: tradeDetails?.contextpic || null,
-                
-                // Updated proof tracking
-                myProofSubmitted: proofStatus.current_user_submitted,
-                partnerProofSubmitted: proofStatus.partner_submitted,
-                partnerHasProof: proofStatus.partner_submitted,
-                
-                // Approval tracking
-                myProofApproved: proofStatus.current_user_approved,
-                partnerProofApproved: proofStatus.partner_approved,
-                bothProofsApproved: proofStatus.both_approved,
-                
-                // Overall status for UI decisions
-                proofWorkflowStatus: proofStatus.status,
-                
-                // Rating availability - more flexible logic
-                canRate: proofStatus.both_approved || proofStatus.status === "ready_to_rate",
-                
-                traderId: `${trade.other_user.name.toLowerCase().replace(' ', '_')}_${trade.other_user.id}`
-              };
-            } catch (error) {
-              console.error(`Error processing trade ${trade.tradereq_id}:`, error);
-              return null;
-            }
-          })
-        );
+                const tradeDetailsResponse = await fetch(
+                  `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-details/${trade.tradereq_id}/`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                  }
+                );
 
-          
+                let proofStatus = {
+                  current_user_submitted: false,
+                  partner_submitted: false,
+                  both_submitted: false,
+                  current_user_approved: false,
+                  partner_approved: false,
+                  both_approved: false,
+                  current_user_is_requester: trade.is_requester,
+                  status: "waiting_for_proofs"
+                };
+
+                let tradeDetails = null;
+
+                if (proofStatusResponse.ok) {
+                  proofStatus = await proofStatusResponse.json();
+                }
+
+                if (tradeDetailsResponse.ok) {
+                  try {
+                    const detailsData = await tradeDetailsResponse.json();
+
+                    if (detailsData.details && Array.isArray(detailsData.details)) {
+                      // Find OTHER user's trade detail (the one you're trading with)
+                      const otherUserId = trade.other_user.id;
+                      tradeDetails = detailsData.details.find(detail => detail.user_id === otherUserId);
+
+                      // If partner details not found, use current user's details
+                      if (!tradeDetails) {
+                        tradeDetails = detailsData.details.find(detail => detail.user_id === session.user.id);
+                      }
+
+                      // If still nothing, use first available
+                      if (!tradeDetails && detailsData.details.length > 0) {
+                        tradeDetails = detailsData.details[0];
+                      }
+                    }
+                  } catch (jsonError) {
+                    console.log('Failed to parse trade details JSON:', jsonError);
+                  }
+                }
+
+                return {
+                  id: trade.tradereq_id,
+                  tradereq_id: trade.tradereq_id,
+                  firstname: trade.other_user.name.split(' ')[0] || trade.other_user.name,
+                  lastname: trade.other_user.name.split(' ').slice(1).join(' ') || '',
+                  username: trade.other_user.username,
+                  avatar: trade.other_user.profilePic || "/defaultavatar.png",
+                  rating: trade.other_user.rating.toFixed(1),
+                  reviews: "0",
+                  level: trade.other_user.level.toString(),
+
+                  // Use database fields directly
+                  requested: trade.reqname,
+                  offering: trade.exchange,
+
+                  deadline: trade.deadline_formatted,
+                  xp: `${trade.total_xp} XP`,
+                  description: tradeDetails?.reqbio || `Trade request: ${trade.reqname}`,
+                  status: "active",
+                  is_requester: trade.is_requester,
+
+                  // Store the actual trade detail values
+                  skillProficiency: tradeDetails?.skillprof || null,
+                  modeOfDelivery: tradeDetails?.modedel || null,
+                  requestType: tradeDetails?.reqtype || null,
+                  requestBio: tradeDetails?.reqbio || `Trade request: ${trade.reqname}`,
+                  contextPic: tradeDetails?.contextpic || null,
+
+                  // Updated proof tracking
+                  myProofSubmitted: proofStatus.current_user_submitted,
+                  partnerProofSubmitted: proofStatus.partner_submitted,
+                  partnerHasProof: proofStatus.partner_submitted,
+
+                  // Approval tracking
+                  myProofApproved: proofStatus.current_user_approved,
+                  partnerProofApproved: proofStatus.partner_approved,
+                  bothProofsApproved: proofStatus.both_approved,
+
+                  // Overall status for UI decisions
+                  proofWorkflowStatus: proofStatus.status,
+
+                  // Rating availability
+                  canRate: proofStatus.both_approved || proofStatus.status === "ready_to_rate",
+
+                  traderId: `${trade.other_user.name.toLowerCase().replace(' ', '_')}_${trade.other_user.id}`
+                };
+              } catch (error) {
+                console.error(`Error processing trade ${trade.tradereq_id}:`, error);
+                return null;
+              }
+            })
+          );
+
           // Filter out failed trades
           const validTrades = transformedTrades.filter(trade => trade !== null);
-          
+
           if (isMounted) {
             setActiveTrades(validTrades);
           }
@@ -239,62 +211,62 @@ export default function ActiveTradesPage() {
   }, [session]);
 
   const getTradeDetailTags = (trade) => {
-  const tags = [];
-  
-  console.log(`Getting tags for trade ${trade.id}:`, {
-    skillProficiency: trade.skillProficiency,
-    modeOfDelivery: trade.modeOfDelivery,
-    requestType: trade.requestType
-  });
-  
-  // Skill Proficiency
-  if (trade.skillProficiency) {
-    const skillMap = {
-      'BEGINNER': 'Beginner Level',
-      'INTERMEDIATE': 'Intermediate Level', 
-      'ADVANCED': 'Advanced Level',
-      'CERTIFIED': 'Certified'
-    };
-    const skillTag = skillMap[trade.skillProficiency] || trade.skillProficiency;
-    tags.push(skillTag);
-    console.log(`Added skill tag: ${skillTag}`);
-  }
-  
-  // Mode of Delivery
-  if (trade.modeOfDelivery) {
-    const deliveryMap = {
-      'ONLINE': 'Online',
-      'ONSITE': 'Onsite',
-      'HYBRID': 'Hybrid'
-    };
-    const deliveryTag = deliveryMap[trade.modeOfDelivery] || trade.modeOfDelivery;
-    tags.push(deliveryTag);
-    console.log(`Added delivery tag: ${deliveryTag}`);
-  }
-  
-  // Request Type
-  if (trade.requestType) {
-    const typeMap = {
-      'SERVICE': 'Service',
-      'OUTPUT': 'Output',
-      'PROJECT': 'Project'
-    };
-    const typeTag = typeMap[trade.requestType] || trade.requestType;
-    tags.push(typeTag);
-    console.log(`Added type tag: ${typeTag}`);
-  }
-  
-  // Debug: Log final tags
-  console.log(`Final tags for trade ${trade.id}:`, tags);
-  
-  // Only show fallback tags if no actual trade details were found
-  if (tags.length === 0) {
-    console.log(`No trade details found for trade ${trade.id}, using fallback tags`);
-    tags.push("Active Trade", "In Progress", "Proof Required");
-  }
-  
-  return tags;
-};
+    const tags = [];
+
+    console.log(`Getting tags for trade ${trade.id}:`, {
+      skillProficiency: trade.skillProficiency,
+      modeOfDelivery: trade.modeOfDelivery,
+      requestType: trade.requestType
+    });
+
+    // Skill Proficiency
+    if (trade.skillProficiency) {
+      const skillMap = {
+        'BEGINNER': 'Beginner Level',
+        'INTERMEDIATE': 'Intermediate Level',
+        'ADVANCED': 'Advanced Level',
+        'CERTIFIED': 'Certified'
+      };
+      const skillTag = skillMap[trade.skillProficiency] || trade.skillProficiency;
+      tags.push(skillTag);
+      console.log(`Added skill tag: ${skillTag}`);
+    }
+
+    // Mode of Delivery
+    if (trade.modeOfDelivery) {
+      const deliveryMap = {
+        'ONLINE': 'Online',
+        'ONSITE': 'Onsite',
+        'HYBRID': 'Hybrid'
+      };
+      const deliveryTag = deliveryMap[trade.modeOfDelivery] || trade.modeOfDelivery;
+      tags.push(deliveryTag);
+      console.log(`Added delivery tag: ${deliveryTag}`);
+    }
+
+    // Request Type
+    if (trade.requestType) {
+      const typeMap = {
+        'SERVICE': 'Service',
+        'OUTPUT': 'Output',
+        'PROJECT': 'Project'
+      };
+      const typeTag = typeMap[trade.requestType] || trade.requestType;
+      tags.push(typeTag);
+      console.log(`Added type tag: ${typeTag}`);
+    }
+
+    // Debug: Log final tags
+    console.log(`Final tags for trade ${trade.id}:`, tags);
+
+    // Only show fallback tags if no actual trade details were found
+    if (tags.length === 0) {
+      console.log(`No trade details found for trade ${trade.id}, using fallback tags`);
+      tags.push("Active Trade", "In Progress", "Proof Required");
+    }
+
+    return tags;
+  };
 
 
   const toggleCardExpand = (id) => {
@@ -307,7 +279,7 @@ export default function ActiveTradesPage() {
 
   const handleProofSubmission = async (files) => {
     if (!selectedTrade || !files.length) return;
-    
+
     try {
       // Create FormData for file upload
       const formData = new FormData();
@@ -315,7 +287,7 @@ export default function ActiveTradesPage() {
         formData.append('proof_files', fileData.file);
       });
       formData.append('trade_request_id', selectedTrade.tradereq_id);
-      
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/upload/`, {
         method: 'POST',
         headers: {
@@ -323,17 +295,17 @@ export default function ActiveTradesPage() {
         },
         body: formData
       });
-      
+
       if (response.ok) {
         // Update local state to reflect proof submission
-        setActiveTrades(prevTrades => 
-          prevTrades.map(trade => 
-            trade.id === selectedTrade.id 
+        setActiveTrades(prevTrades =>
+          prevTrades.map(trade =>
+            trade.id === selectedTrade.id
               ? { ...trade, myProofSubmitted: true }
               : trade
           )
         );
-        
+
         setShowUploadDialog(false);
         console.log("Proof submitted successfully");
       } else {
@@ -348,7 +320,7 @@ export default function ActiveTradesPage() {
 
   const handleTradeRating = async (ratingData) => {
     if (!selectedTrade) return;
-    
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-rating/submit/`, {
         method: 'POST',
@@ -362,11 +334,11 @@ export default function ActiveTradesPage() {
           review_description: ratingData.feedback
         })
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         console.log("Rating submitted successfully:", result);
-        
+
         // Award XP immediately after rating
         try {
           const xpResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-xp/award/${selectedTrade.tradereq_id}/`, {
@@ -376,7 +348,7 @@ export default function ActiveTradesPage() {
               'Content-Type': 'application/json',
             },
           });
-          
+
           if (xpResponse.ok) {
             const xpResult = await xpResponse.json();
             console.log("XP awarded:", xpResult);
@@ -384,21 +356,21 @@ export default function ActiveTradesPage() {
         } catch (xpError) {
           console.error("Error awarding XP:", xpError);
         }
-        
+
         // Remove trade from local state immediately (user has rated)
-        setActiveTrades(prevTrades => 
+        setActiveTrades(prevTrades =>
           prevTrades.filter(trade => trade.id !== selectedTrade.id)
         );
-        
+
         setShowSuccessDialog(false);
-        
+
         // Show success message
-        const message = result.both_users_rated ? 
+        const message = result.both_users_rated ?
           "Trade completed! Both users have rated each other." :
           "Rating submitted! Trade will be removed from your active trades.";
-        
+
         alert(message);
-        
+
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to submit rating");
@@ -420,7 +392,7 @@ export default function ActiveTradesPage() {
           },
         }
       );
-      
+
       if (response.ok) {
         const partnerProofData = await response.json();
         setSelectedTrade({
@@ -445,7 +417,7 @@ export default function ActiveTradesPage() {
 
   const handleApproveProof = async () => {
     if (!selectedTrade) return;
-    
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/${selectedTrade.tradereq_id}/approve/`,
@@ -457,35 +429,35 @@ export default function ActiveTradesPage() {
           },
         }
       );
-      
+
       if (response.ok) {
         const approvalData = await response.json();
         console.log("Approval response:", approvalData); // Debug log
-        
+
         setShowViewProofDialog(false);
-        
+
         // Update local state with more comprehensive data
-        setActiveTrades(prevTrades => 
-          prevTrades.map(trade => 
-            trade.id === selectedTrade.id 
-              ? { 
-                  ...trade, 
-                  myProofApproved: true,
-                  partnerProofApproved: true,
-                  bothProofsApproved: approvalData.both_approved || approvalData.trade_completed || false,
-                  canRate: approvalData.both_approved || approvalData.trade_completed || false,
-                  proofWorkflowStatus: (approvalData.both_approved || approvalData.trade_completed) ? "ready_to_rate" : "waiting_for_approval"
-                }
+        setActiveTrades(prevTrades =>
+          prevTrades.map(trade =>
+            trade.id === selectedTrade.id
+              ? {
+                ...trade,
+                myProofApproved: true,
+                partnerProofApproved: true,
+                bothProofsApproved: approvalData.both_approved || approvalData.trade_completed || false,
+                canRate: approvalData.both_approved || approvalData.trade_completed || false,
+                proofWorkflowStatus: (approvalData.both_approved || approvalData.trade_completed) ? "ready_to_rate" : "waiting_for_approval"
+              }
               : trade
           )
         );
-        
+
         // If both approved, show success dialog but don't reload immediately
         if (approvalData.both_approved || approvalData.trade_completed) {
           console.log("Both proofs approved, showing success dialog"); // Debug log
           setShowSuccessDialog(true);
         }
-        
+
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to approve proof");
@@ -498,7 +470,7 @@ export default function ActiveTradesPage() {
 
   const handleRejectProof = async () => {
     if (!selectedTrade) return;
-    
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/${selectedTrade.tradereq_id}/reject/`,
@@ -510,29 +482,29 @@ export default function ActiveTradesPage() {
           },
         }
       );
-      
+
       if (response.ok) {
         setShowViewProofDialog(false);
-        
+
         // Show immediate feedback
         alert(`${selectedTrade.firstname} will be notified to resubmit their proof.`);
-        
-        setActiveTrades(prevTrades => 
-          prevTrades.map(trade => 
-            trade.id === selectedTrade.id 
-              ? { 
-                  ...trade, 
-                  partnerProofSubmitted: false, // Partner needs to resubmit
-                  partnerHasProof: false,
-                  myProofApproved: false,
-                  partnerProofApproved: false,
-                  bothProofsApproved: false,
-                  canRate: false
-                }
+
+        setActiveTrades(prevTrades =>
+          prevTrades.map(trade =>
+            trade.id === selectedTrade.id
+              ? {
+                ...trade,
+                partnerProofSubmitted: false, // Partner needs to resubmit
+                partnerHasProof: false,
+                myProofApproved: false,
+                partnerProofApproved: false,
+                bothProofsApproved: false,
+                canRate: false
+              }
               : trade
           )
-        );      
-      
+        );
+
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to reject proof");
@@ -563,7 +535,7 @@ export default function ActiveTradesPage() {
         }
       };
     }
-     
+
     if (trade.proofWorkflowStatus === "waiting_for_approval") {
       return {
         text: "Waiting for approval",
@@ -594,7 +566,7 @@ export default function ActiveTradesPage() {
         onClick: null
       };
     }
-      
+
     if (!trade.partnerHasProof) {
       return {
         text: `Waiting for ${trade.firstname}`,
@@ -602,7 +574,7 @@ export default function ActiveTradesPage() {
         onClick: null
       };
     }
-      
+
     if (trade.partnerProofApproved) {
       return {
         text: `${trade.firstname}'s Proof ✓`,
@@ -625,7 +597,7 @@ export default function ActiveTradesPage() {
       proofWorkflowStatus: trade.proofWorkflowStatus,
       showRateButton: trade.bothProofsApproved || trade.proofWorkflowStatus === "ready_to_rate"
     });
-    
+
     return trade.bothProofsApproved || trade.proofWorkflowStatus === "ready_to_rate";
   };
 
@@ -633,29 +605,29 @@ export default function ActiveTradesPage() {
     if (trade.bothProofsApproved) {
       return "Ready to rate";
     }
-    
+
     switch (trade.proofWorkflowStatus) {
       case "waiting_for_proofs":
         if (!trade.myProofSubmitted && !trade.partnerProofSubmitted) {
-          return "No one has submitted their proof of trade yet.";
+          return "Trade is ongoing. No proofs submitted yet.";
         } else if (!trade.myProofSubmitted) {
           return "Submit your proof";
         } else {
           return `Waiting for ${trade.firstname}'s proof`;
         }
-      
+
       case "waiting_for_your_proof":
         return "Submit your proof";
-      
+
       case "waiting_for_partner_proof":
         return `Waiting for ${trade.firstname}'s proof`;
-      
+
       case "waiting_for_approval":
         return "Waiting for proof approval";
-      
+
       case "ready_to_rate":
         return "Ready to rate";
-      
+
       default:
         return "In progress";
     }
@@ -713,7 +685,7 @@ export default function ActiveTradesPage() {
             const proofButtonState = getProofButtonState(trade);
             const partnerProofButtonState = getPartnerProofButtonState(trade);
             const showRateButton = shouldShowRateButton(trade);
-            
+
             return (
               <div
                 key={trade.id}
@@ -756,7 +728,7 @@ export default function ActiveTradesPage() {
                             />
                           </div>
                         )}
-                        
+
                         <div>
                           {/* Clickable Name */}
                           {trade.username ? (
@@ -809,23 +781,21 @@ export default function ActiveTradesPage() {
                       </div>
 
                       <div className="flex flex-col gap-4">
+                        {/* Tags and Deadline Row - aligned */}
                         <div className="flex items-center justify-between w-full">
-                          <div className="flex items-center gap-2">
-                            <Icon icon="lucide:map-pin" className="w-4 h-4 text-[rgba(255,255,255,0.60)]" />
-                            <span className="text-[13px] text-[rgba(255,255,255,0.60)]">{trade.location}</span>
+                          <div className="flex flex-wrap gap-[15px]">
+                            {getTradeDetailTags(trade).map((tag, index) => (
+                              <div
+                                key={index}
+                                className="px-[15px] py-[4px] border-[2px] border-white rounded-[15px]"
+                              >
+                                <span className="text-[13px] font-normal text-white">{tag}</span>
+                              </div>
+                            ))}
                           </div>
-                          <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">Due on {trade.deadline}</span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-[15px]">
-                          {getTradeDetailTags(trade).map((tag, index) => (
-                            <div
-                              key={index}
-                              className="px-[15px] py-[4px] border-[2px] border-white rounded-[15px]"
-                            >
-                              <span className="text-[13px] font-normal text-white">{tag}</span>
-                            </div>
-                          ))}
+                          <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap ml-4">
+                            Due on {trade.deadline}
+                          </span>
                         </div>
 
                         <div>
@@ -834,22 +804,22 @@ export default function ActiveTradesPage() {
                           </div>
                         </div>
 
-                        <p className="text-[13px] text-[rgba(255,255,255,0.60)]">{trade.requestBio}</p>
+                        <p className="text-[15px] text-[rgba(255,255,255,0.60)]">{trade.requestBio}</p>
                       </div>
                     </div>
 
                     {/* Action Buttons */}
                     <div className="px-[25px] pb-[25px] flex flex-wrap justify-between">
-                      <button 
+                      <button
                         className="flex items-center justify-center"
                         onClick={() => toggleCardExpand(trade.id)}
                       >
-                        <Icon icon="lucide:chevron-up" className="w-[30px] h-[30px] text-white"/>
+                        <Icon icon="lucide:chevron-up" className="w-[30px] h-[30px] text-white" />
                       </button>
-                      
+
                       <div className="flex items-center gap-[15px]">
                         {showRateButton ? (
-                          <button 
+                          <button
                             className="w-[170px] h-[40px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -919,7 +889,7 @@ export default function ActiveTradesPage() {
                             />
                           </div>
                         )}
-                        
+
                         {/* Clickable Name */}
                         {trade.username ? (
                           <Link href={`/home/profile/${trade.username}`} className="hover:text-[#284CCC] transition-colors">
@@ -964,13 +934,9 @@ export default function ActiveTradesPage() {
                       <span className="text-[16px] font-semibold text-[#906EFF]">{trade.xp}</span>
                     </div>
 
-                    {/* Bottom Row - Location and Due Date */}
-                    <div className="flex justify-between items-center w-full opacity-60">
-                      <div className="flex items-center gap-[5px]">
-                        <Icon icon="lucide:map-pin" className="w-4 h-4 text-[rgba(255,255,255,0.60)]" />
-                        <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">{trade.location}</span>
-                      </div>
-                      <span className="text-[13px] font-normal text-white/60">Due on {trade.deadline}</span>
+                    {/* Bottom Row - Due Date */}
+                    <div className="flex justify-end items-center w-full">
+                      <span className="text-[15px] font-normal text-white/60">Due on {trade.deadline}</span>
                     </div>
 
                     {/* Chevron Down + Action Buttons */}
@@ -985,16 +951,15 @@ export default function ActiveTradesPage() {
                       {/* Action Buttons with Status */}
                       <div className="flex flex-wrap items-center gap-[15px] justify-end">
                         {/* Status Badge - left of buttons */}
-                        <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                          trade.bothProofsApproved 
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                            : trade.proofWorkflowStatus === "waiting_for_approval"
+                        <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${trade.bothProofsApproved
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : trade.proofWorkflowStatus === "waiting_for_approval"
                             ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                             : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                        }`}>
+                          }`}>
                           {getTradeStatusText(trade)}
                         </div>
-                        
+
                         {showRateButton ? (
                           <button
                             className="w-[170px] h-[40px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
@@ -1032,8 +997,8 @@ export default function ActiveTradesPage() {
                             >
                               <div className="flex items-center gap-[8px]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none">
-                                  <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z" fill="#D9D9D9"/>
-                                  <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5" fill="#D9D9D9"/>
+                                  <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z" fill="#D9D9D9" />
+                                  <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5" fill="#D9D9D9" />
                                 </svg>
                                 <span className="text-[14px] text-white">{proofButtonState.text}</span>
                               </div>
@@ -1055,13 +1020,13 @@ export default function ActiveTradesPage() {
                               }}
                             >
                               <div className="flex items-center gap-[8px] px-2.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 21C4.45 21 3.97933 20.8043 3.588 20.413C3.19667 20.0217 3.00067 19.5507 3 19V5C3 4.45 3.196 3.97933 3.588 3.588C3.98 3.19667 4.45067 3.00067 5 3H19C19.55 3 20.021 3.196 20.413 3.588C20.805 3.98 21.0007 3.45067 21 5V19C21 19.55 20.8043 20.021 20.413 20.413C20.0217 20.805 19.5507 21.0007 19 21H5ZM6 17H18L14.25 12L11.25 16L9 13L6 17Z" fill="white"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 21C4.45 21 3.97933 20.8043 3.588 20.413C3.19667 20.0217 3.00067 19.5507 3 19V5C3 4.45 3.196 3.97933 3.588 3.588C3.98 3.19667 4.45067 3.00067 5 3H19C19.55 3 20.021 3.196 20.413 3.588C20.805 3.98 21.0007 3.45067 21 5V19C21 19.55 20.8043 20.021 20.413 20.413C20.0217 20.805 19.5507 21.0007 19 21H5ZM6 17H18L14.25 12L11.25 16L9 13L6 17Z" fill="white" /></svg>
                                 <span className="text-[14px] text-white truncate">{partnerProofButtonState.text}</span>
                               </div>
                             </button>
                           </>
                         )}
-                        
+
                         <div className="h-[55px] flex items-center">
                           <button
                             className="flex justify-center items-center cursor-pointer"
