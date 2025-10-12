@@ -65,7 +65,7 @@ export default function UploadProofDialog({
     };
 
     fetchExistingProof();
-  }, [isOpen, mode, tradereq_id, session]);
+  }, [isOpen, mode, tradereq_id, session?.access]);
 
   // Reset files when dialog closes
   useEffect(() => {
@@ -76,9 +76,13 @@ export default function UploadProofDialog({
           URL.revokeObjectURL(file.preview);
         }
       });
-      setUploadedFiles([]);
+      // Only reset if we're in upload mode and closing successfully
+      if (mode === "upload") {
+        setUploadedFiles([]);
+        setLinkProof("");
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, mode]);
 
   // Cleanup preview URLs when component unmounts
   useEffect(() => {
@@ -187,14 +191,24 @@ export default function UploadProofDialog({
   };
 
   const handleSubmit = () => {
-    if (uploadedFiles.length > 0) {
-      // Only submit non-existing files (new uploads)
-      const newFiles = uploadedFiles.filter((file) => !file.isExisting);
-      if (newFiles.length > 0) {
-        onSubmit(newFiles);
-      }
+  const proofItems = [];
+
+  // Add uploaded files
+  uploadedFiles.forEach(file => {
+    if (file.url) {
+      proofItems.push({ type: "file", url: file.url });
+    } else if (file.file) {
+      proofItems.push({ type: "file", file: file.file }); // for upload
     }
-  };
+  });
+
+  // Add link proof if provided
+  if (linkProof.trim()) {
+    proofItems.push({ type: "link", url: linkProof.trim() });
+  }
+
+  onSubmit(proofItems);
+};
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -225,77 +239,76 @@ export default function UploadProofDialog({
           </div>
 
           {/* Upload area (only in upload mode) */}
-{mode === "upload" && (
-  <>
-    <div
-      className={`w-full h-[280px] border-2 border-dashed rounded-[25px] flex flex-col items-center justify-center ${
-        dragActive ? "border-white" : "border-white/60"
-      }`}
-      onDragEnter={handleDrag}
-      onDragLeave={handleDrag}
-      onDragOver={handleDrag}
-      onDrop={handleDrop}
-    >
-      <div className="flex flex-col items-center gap-[15px]">
-        <Icon
-          icon="lucide:cloud-upload"
-          className="w-[120px] h-[80px] text-white/40"
-        />
-        <p className="text-[18px] text-white/60 text-center">
-          Drag and drop your files here
-        </p>
-      </div>
-      <button
-        onClick={() => fileInputRef.current.click()}
-        className="mt-[30px] px-[60px] py-[15px] border border-white rounded-[12px] text-[14px] text-white hover:bg-[#1A0F3E] transition-colors"
-      >
-        Browse files
-      </button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        onChange={handleChange}
-        className="hidden"
-      />
-    </div>
+          {mode === "upload" && (
+            <>
+              <div
+                className={`w-full h-[280px] border-2 border-dashed rounded-[25px] flex flex-col items-center justify-center ${dragActive ? "border-white" : "border-white/60"
+                  }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <div className="flex flex-col items-center gap-[15px]">
+                  <Icon
+                    icon="lucide:cloud-upload"
+                    className="w-[120px] h-[80px] text-white/40"
+                  />
+                  <p className="text-[18px] text-white/60 text-center">
+                    Drag and drop your files here
+                  </p>
+                </div>
+                <button
+                  onClick={() => fileInputRef.current.click()}
+                  className="mt-[30px] px-[60px] py-[15px] border border-white rounded-[12px] text-[14px] text-white hover:bg-[#1A0F3E] transition-colors"
+                >
+                  Browse files
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleChange}
+                  className="hidden"
+                />
+              </div>
 
-    {/* Optional link proof input (moved BELOW upload box) */}
-    <div className="flex flex-col w-full mt-6 gap-2">
-      <label className="text-[16px] text-white/80 font-medium">
-        Or submit a link as proof
-      </label>
-      <div className="flex gap-3">
-        <input
-          type="url"
-          placeholder="https://drive.google.com/your-proof-link"
-          value={linkProof}
-          onChange={(e) => setLinkProof(e.target.value)}
-          className="flex-1 bg-[#120A2A] border border-white/40 rounded-[12px] p-3 text-white text-sm placeholder:text-white/40 outline-none"
-        />
-        <button
-          onClick={() => {
-            if (!linkProof.trim()) return;
-            const newLink = {
-              name: linkProof,
-              file: null,
-              isImage: false,
-              preview: null,
-              url: linkProof,
-              isExisting: false,
-              isLink: true,
-            };
-            setUploadedFiles([...uploadedFiles, newLink]);
-            setLinkProof("");
-          }}
-          className="px-5 bg-[#0038FF] text-white rounded-[12px] text-sm font-medium hover:bg-[#1a4dff] transition-colors"
-        >
-          Add Link
-        </button>
-      </div>
-    </div>
-  </>
-)}
+              {/* Optional link proof input (moved BELOW upload box) */}
+              <div className="flex flex-col w-full mt-6 gap-2">
+                <label className="text-[16px] text-white/80 font-medium">
+                  Or submit a link as proof
+                </label>
+                <div className="flex gap-3">
+                  <input
+                    type="url"
+                    placeholder="https://drive.google.com/your-proof-link"
+                    value={linkProof}
+                    onChange={(e) => setLinkProof(e.target.value)}
+                    className="flex-1 bg-[#120A2A] border border-white/40 rounded-[12px] p-3 text-white text-sm placeholder:text-white/40 outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      if (!linkProof.trim()) return;
+                      const newLink = {
+                        name: linkProof,
+                        file: null,
+                        isImage: false,
+                        preview: null,
+                        url: linkProof,
+                        isExisting: false,
+                        isLink: true,
+                      };
+                      setUploadedFiles([...uploadedFiles, newLink]);
+                      setLinkProof("");
+                    }}
+                    className="px-5 bg-[#0038FF] text-white rounded-[12px] text-sm font-medium hover:bg-[#1a4dff] transition-colors"
+                  >
+                    Add Link
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
 
           {/* Uploaded files */}
@@ -426,11 +439,9 @@ export default function UploadProofDialog({
             {mode === "upload" && (
               <div className="space-y-3 mt-[15px]">
                 <p className="text-[14px] text-white/50 text-center leading-relaxed">
-                  Files and final approval are withheld from the other party
-                  until both users upload their outputs. Ensure that the file
-                  you have uploaded is final, as this will not become editable
-                  after. Files and final approval are withheld from the other
-                  party until both users upload their outputs.
+                  Final approval of your proof and the submitted files are withheld until the 
+                  other party uploads their output. Once uploaded, your file is final and cannot 
+                  be edited unless the other party declines the submission.
                 </p>
               </div>
             )}

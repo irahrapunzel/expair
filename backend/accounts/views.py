@@ -3088,148 +3088,72 @@ def check_trade_details_status(request, tradereq_id):
             "error": "Trade request not found"
         }, status=404)
 
-@api_view(['POST'])
-@parser_classes([MultiPartParser, FormParser])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
 def upload_trade_proof(request):
     """
-    Upload proof files/links for a trade request to Cloudinary
-    Supports multiple files AND links
+    Handles proof submissions (both uploaded files and entered links).
+    Saves them in TradeHistory.requester_proof or responder_proof as JSON objects.
     """
-    print("=== UPLOAD TRADE PROOF DEBUG ===")
-    print(f"Request data: {request.data}")
-    print(f"Files: {list(request.FILES.keys())}")
-    print(f"User: {request.user.id}")
-    
-    trade_request_id = request.data.get('trade_request_id')
-    proof_links = request.data.getlist('proof_links')  # Array of URLs
-    
+    user = request.user
+    trade_request_id = request.data.get("trade_request_id")
+
     if not trade_request_id:
-        return Response({"error": "trade_request_id is required"}, status=400)
-    
+        return Response({"error": "Missing trade_request_id"}, status=400)
+
     try:
-        trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
-            tradereq_id=trade_request_id,
-            status=TradeRequest.Status.ACTIVE
-        )
-        
-        if request.user not in [trade_request.requester, trade_request.responder]:
-            return Response({"error": "You are not authorized to upload proof for this trade"}, status=403)
-        
-        # Get or create trade history record
-        trade_history, created = TradeHistory.objects.get_or_create(
-            trade_request=trade_request
-        )
-        
-        # Determine if user is requester or responder
-        current_user_is_requester = (request.user == trade_request.requester)
-        
-        # Get existing proofs or initialize empty list
-        if current_user_is_requester:
-            existing_proofs = trade_history.requester_proof or []
-        else:
-            existing_proofs = trade_history.responder_proof or []
-        
-        # Check if this is a resubmission (clear old proofs)
-        is_resubmission = len(existing_proofs) > 0
-        if is_resubmission:
-            print(f"Resubmission detected - clearing old proofs")
-            existing_proofs = []
-        
-        new_proofs = []
-        
-        # ✅ HANDLE FILE UPLOADS
-        proof_files = request.FILES.getlist('proof_files')
-        
-        if proof_files:
-            for proof_file in proof_files:
-                # Validate file size (10MB limit per file)
-                if proof_file.size > 10 * 1024 * 1024:
-                    return Response({"error": f"File {proof_file.name} is too large (max 10MB)"}, status=400)
-                
-                try:
-                    folder_path = f"media/trade_proofs/{'requester' if current_user_is_requester else 'responder'}"
-                    
-                    # Generate unique public_id for each file
-                    timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
-                    public_id = f"trade_{trade_request_id}_{'req' if current_user_is_requester else 'resp'}_{request.user.id}_{timestamp}"
-                    
-                    # Determine resource type
-                    resource_type = "image" if proof_file.content_type.startswith("image/") else "raw"
-                    
-                    upload_result = cloudinary.uploader.upload(
-                        proof_file,
-                        folder=folder_path,
-                        public_id=public_id,
-                        resource_type=resource_type,
-                        overwrite=True,
-                        invalidate=True
-                    )
-                    
-                    proof_url = upload_result['secure_url']
-                    print(f"[DEBUG] Uploaded proof to Cloudinary: {proof_url}")
-                    
-                    new_proofs.append({
-                        "type": "file",
-                        "url": proof_url,
-                        "filename": proof_file.name,
-                        "uploaded_at": timezone.now().isoformat(),
-                        "file_type": proof_file.content_type
-                    })
-                    
-                except Exception as e:
-                    print(f"[ERROR] Cloudinary upload failed for {proof_file.name}: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    return Response({"error": f"Failed to upload {proof_file.name}: {str(e)}"}, status=500)
-        
-        # ✅ HANDLE LINK SUBMISSIONS
-        if proof_links:
-            for link in proof_links:
-                if link.strip():
-                    new_proofs.append({
-                        "type": "link",
-                        "url": link.strip(),
-                        "uploaded_at": timezone.now().isoformat()
-                    })
-        
-        # Check if at least one proof was provided
-        if not new_proofs:
-            return Response({"error": "At least one proof file or link is required"}, status=400)
-        
-        # Save proofs to database
-        with transaction.atomic():
-            if current_user_is_requester:
-                trade_history.requester_proof = new_proofs
-                trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
-                user_type = "requester"
-            else:
-                trade_history.responder_proof = new_proofs
-                trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
-                user_type = "responder"
-            
-            trade_history.save()
-        
-        message = "Proof resubmitted successfully" if is_resubmission else "Proof uploaded successfully"
-        print(f"Proof {'resubmitted' if is_resubmission else 'uploaded'} successfully for {user_type}")
-        
-        return Response({
-            "message": message,
-            "trade_request_id": trade_request.tradereq_id,
-            "user_type": user_type,
-            "proof_status": "PENDING",
-            "proofs": new_proofs,
-            "total_proofs": len(new_proofs),
-            "is_resubmission": is_resubmission
-        }, status=201)
-        
+        trade_request = TradeRequest.objects.get(tradereq_id=trade_request_id)
     except TradeRequest.DoesNotExist:
-        return Response({"error": "Active trade request not found"}, status=404)
-    except Exception as e:
-        print(f"Upload proof error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return Response({"error": f"Failed to upload proof: {str(e)}"}, status=500)
+        return Response({"error": "Trade request not found"}, status=404)
+
+    # Determine if user is requester or responder
+    is_requester = trade_request.requester_id == user.id
+    is_responder = trade_request.responder_id == user.id
+
+    if not (is_requester or is_responder):
+        return Response({"error": "You are not part of this trade"}, status=403)
+
+    trade_history, _ = TradeHistory.objects.get_or_create(trade_request=trade_request)
+
+    proof_items = []
+
+    # ✅ Handle uploaded files
+    for f in request.FILES.getlist("proof_files"):
+        upload_result = cloudinary.uploader.upload(f)
+        proof_items.append({
+            "type": "file",
+            "url": upload_result["secure_url"]
+        })
+
+    # ✅ Handle external links
+    links = request.data.getlist("proof_links[]") or request.data.getlist("proof_links")
+    for link in links:
+        clean_link = link.strip()
+        if clean_link:
+            proof_items.append({
+                "type": "link",
+                "url": clean_link
+            })
+
+    if not proof_items:
+        return Response({"error": "No proof files or links provided."}, status=400)
+
+    # ✅ Merge with existing proofs (append, not overwrite)
+    if is_requester:
+        trade_history.requester_proof = (trade_history.requester_proof or []) + proof_items
+        trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
+    elif is_responder:
+        trade_history.responder_proof = (trade_history.responder_proof or []) + proof_items
+        trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
+
+    trade_history.save()
+
+    return Response({
+        "message": "Proof uploaded successfully.",
+        "proof_items": proof_items
+    }, status=200)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -3338,28 +3262,33 @@ def get_partner_proof(request, tradereq_id):
         
         if current_user_is_requester:
             # Current user is requester, get responder's proof
-            partner_proof = trade_history.responder_proof
+            partner_proof_list = trade_history.responder_proof
             partner_proof_status = trade_history.responder_proof_status
             partner_name = f"{trade_request.responder.first_name} {trade_request.responder.last_name}".strip() or trade_request.responder.username
         else:
             # Current user is responder, get requester's proof
-            partner_proof = trade_history.requester_proof
+            partner_proof_list = trade_history.requester_proof
             partner_proof_status = trade_history.requester_proof_status
             partner_name = f"{trade_request.requester.first_name} {trade_request.requester.last_name}".strip() or trade_request.requester.username
         
-        if not partner_proof:
+        if not partner_proof_list:
             return Response({"error": "Partner has not submitted proof yet"}, status=404)
         
-        # Build proof file URL
-        proof_url = request.build_absolute_uri(partner_proof.url) if partner_proof else None
+        # ❗ FIXED: Handle the JSONField which is a list of dictionaries
+        # We'll return the first proof item to match the frontend's expectation.
+        first_proof_item = partner_proof_list[0]
+        proof_url = first_proof_item.get("url")
+        file_name = first_proof_item.get("filename", "proof_file")
+        file_type = first_proof_item.get("file_type", "")
+        is_image = file_type.startswith("image/")
         
         return Response({
             "trade_request_id": trade_request.tradereq_id,
             "partner_name": partner_name,
             "proof_file": {
-                "url": proof_url,
-                "name": partner_proof.name.split('/')[-1] if partner_proof else None,
-                "is_image": partner_proof.name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')) if partner_proof else False
+                "url": proof_url,       # Already a full Cloudinary URL
+                "name": file_name,
+                "is_image": is_image    # Matches what frontend expects
             },
             "proof_status": partner_proof_status
         }, status=200)
@@ -3393,30 +3322,32 @@ def get_my_proof(request, tradereq_id):
         current_user_is_requester = (request.user == trade_request.requester)
         
         if current_user_is_requester:
-            user_proof = trade_history.requester_proof
+            user_proof_list = trade_history.requester_proof
             user_proof_status = trade_history.requester_proof_status
         else:
-            user_proof = trade_history.responder_proof
+            user_proof_list = trade_history.responder_proof
             user_proof_status = trade_history.responder_proof_status
         
-        if not user_proof:
+        if not user_proof_list:
             return Response({
                 "message": "You have not submitted proof yet",
                 "has_proof": False
             }, status=200)
         
-        # Build proof file URL and info
-        proof_url = request.build_absolute_uri(user_proof.url) if user_proof else None
-        file_name = user_proof.name.split('/')[-1] if user_proof else None
-        is_image = user_proof.name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) if user_proof else False
-        
+        # ❗ FIXED: Handle the JSONField which is a list of dictionaries
+        first_proof_item = user_proof_list[0]
+        proof_url = first_proof_item.get("url")
+        file_name = first_proof_item.get("filename", "proof_file")
+        file_type = first_proof_item.get("file_type", "")
+        is_image = file_type.startswith("image/")
+
         return Response({
             "trade_request_id": trade_request.tradereq_id,
             "has_proof": True,
             "proof_file": {
-                "url": proof_url,
+                "url": proof_url,       # Already a full Cloudinary URL
                 "name": file_name,
-                "is_image": is_image
+                "is_image": is_image    # Matches what frontend expects
             },
             "proof_status": user_proof_status,
             "submitted_by": {

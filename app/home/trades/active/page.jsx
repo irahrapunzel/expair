@@ -47,6 +47,12 @@ export default function ActiveTradesPage() {
         return;
       }
 
+      // Don't fetch if dialogs are open to prevent data loss
+      if (showUploadDialog || showViewProofDialog || showSuccessDialog || showEvaluationDialog) {
+        console.log("Skipping fetch - dialog is open");
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
@@ -277,44 +283,55 @@ export default function ActiveTradesPage() {
     }
   };
 
-  const handleProofSubmission = async (files) => {
-    if (!selectedTrade || !files.length) return;
+  const handleProofSubmission = async (proofItems) => {
+    if (!selectedTrade || !proofItems.length) return;
 
     try {
-      // Create FormData for file upload
       const formData = new FormData();
-      files.forEach(fileData => {
-        formData.append('proof_files', fileData.file);
-      });
-      formData.append('trade_request_id', selectedTrade.tradereq_id);
+      formData.append("trade_request_id", selectedTrade.tradereq_id);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/upload/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access}`,
-        },
-        body: formData
-      });
+      proofItems.forEach((item) => {
+      if (item.type === "file" && item.file) {
+        formData.append("proof_files", item.file);
+      } else if (item.type === "link" && item.url) {
+        formData.append("proof_links[]", item.url);
+      }
+    });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/upload/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access}`,
+          },
+          body: formData,
+        }
+      );
 
       if (response.ok) {
-        // Update local state to reflect proof submission
-        setActiveTrades(prevTrades =>
-          prevTrades.map(trade =>
+        const result = await response.json();
+        console.log("Proof uploaded successfully:", result);
+
+        // Update local UI state
+        setActiveTrades((prevTrades) =>
+          prevTrades.map((trade) =>
             trade.id === selectedTrade.id
               ? { ...trade, myProofSubmitted: true }
               : trade
           )
         );
 
+        // Close dialog and optionally show a notification
         setShowUploadDialog(false);
-        console.log("Proof submitted successfully");
+        alert("Proof submitted successfully!");
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to submit proof");
+        console.error("Upload failed:", errorData);
+        alert(errorData.error || "Failed to submit proof. Please try again.");
       }
     } catch (error) {
       console.error("Error submitting proof:", error);
-      alert("Failed to submit proof. Please try again.");
+      alert("An error occurred while submitting your proof. Please try again.");
     }
   };
 
