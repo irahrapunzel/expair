@@ -263,7 +263,7 @@ class Evaluation(models.Model):
         REJECTED = 'REJECTED', 'Rejected'  
 
     evaluation_id = models.AutoField(primary_key=True, db_column='evaluation_id')
-    trade_request = models.ForeignKey('TradeRequest', on_delete=models.CASCADE, db_column='tradereq_id')
+    trade_request = models.ForeignKey('TradeRequest', on_delete=models.CASCADE, db_column='tradereq_id', related_name='evaluation')
     taskcomplexity = models.IntegerField(db_column='taskcomplexity')
     timecommitment = models.IntegerField(db_column='timecommitment')
     skilllevel = models.IntegerField(db_column='skilllevel')
@@ -295,6 +295,48 @@ class Evaluation(models.Model):
 
     def __str__(self):
         return f"Evaluation for Trade Request {self.trade_request.reqname} - Task Complexity: {self.taskcomplexity}"
+
+    @property
+    def overall_score(self):
+        """Calculate overall score (average of 3 metrics)"""
+        return round((self.taskcomplexity + self.timecommitment + self.skilllevel) / 3)
+    
+    @property
+    def overall_score_out_of_10(self):
+        """Convert overall score to 0-10 for display"""
+        return round(self.overall_score / 10, 1)
+    
+    @property
+    def taskcomplexity_out_of_10(self):
+        """Convert task complexity to 0-10 for display"""
+        return round(self.taskcomplexity / 10, 1)
+    
+    @property
+    def timecommitment_out_of_10(self):
+        """Convert time commitment to 0-10 for display"""
+        return round(self.timecommitment / 10, 1)
+    
+    @property
+    def skilllevel_out_of_10(self):
+        """Convert skill level to 0-10 for display"""
+        return round(self.skilllevel / 10, 1)
+    
+    @property
+    def quality_label(self):
+        """Get quality label based on overall score"""
+        score_out_of_10 = self.overall_score / 10
+        if score_out_of_10 < 3:
+            return "Very poor trade"
+        elif score_out_of_10 < 5:
+            return "Poor trade"
+        elif score_out_of_10 < 7:
+            return "Okay trade"
+        elif score_out_of_10 < 8:
+            return "Good trade"
+        elif score_out_of_10 < 9:
+            return "Great trade"
+        else:
+            return "Excellent trade"
     
 class TradeInterest(models.Model):
     class InterestStatus(models.TextChoices):
