@@ -3852,13 +3852,13 @@ def user_reviews(request, user_id: int):
                 "reviewer_first_name": reviewer.first_name,
                 "reviewer_last_name": reviewer.last_name,
                 "reviewer_username": reviewer.username,
+                "reviewer_profilepic": reviewer.profilePic if reviewer.profilePic else None,
                 "request_title": trade_request.reqname,
                 "offer_title": trade_request.exchange or "Service Exchange",
                 "rating": rating,
                 "review_description": review_description,
                 "completed_at": completed_at.isoformat() if completed_at else None,
                 "rated_at": rated_at.isoformat() if rated_at else None,
-                "likes_count": 0,  # You can implement likes later if needed
             })
         
         return Response({
