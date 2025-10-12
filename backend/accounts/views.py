@@ -3088,6 +3088,8 @@ def check_trade_details_status(request, tradereq_id):
             "error": "Trade request not found"
         }, status=404)
 
+# In your views.py
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
@@ -3095,7 +3097,13 @@ def upload_trade_proof(request):
     """
     Handles proof submissions (both uploaded files and entered links).
     Saves them in TradeHistory.requester_proof or responder_proof as JSON objects.
+    ✅ UPDATED: Now handles multiple files and links, and appends to existing proof.
     """
+    print("=== UPLOAD TRADE PROOF DEBUG ===")
+    print(f"User: {request.user.id}")
+    print(f"Request data keys: {list(request.data.keys())}")
+    print(f"Request FILES keys: {list(request.FILES.keys())}")
+    
     user = request.user
     trade_request_id = request.data.get("trade_request_id")
 
@@ -3118,42 +3126,74 @@ def upload_trade_proof(request):
 
     proof_items = []
 
-    # ✅ Handle uploaded files
-    for f in request.FILES.getlist("proof_files"):
-        upload_result = cloudinary.uploader.upload(f)
-        proof_items.append({
-            "type": "file",
-            "url": upload_result["secure_url"]
-        })
-
-    # ✅ Handle external links
-    links = request.data.getlist("proof_links[]") or request.data.getlist("proof_links")
-    for link in links:
-        clean_link = link.strip()
-        if clean_link:
+    # ✅ Handle multiple uploaded files
+    uploaded_files = request.FILES.getlist("proof_files")
+    print(f"Processing {len(uploaded_files)} files")
+    
+    for f in uploaded_files:
+        try:
+            resource_type = "image" if f.content_type.startswith("image/") else "raw"
+            
+            upload_result = cloudinary.uploader.upload(
+                f,
+                folder="media/trade_proofs",
+                resource_type=resource_type,
+                use_filename=True,
+                unique_filename=True
+            )
+            
             proof_items.append({
-                "type": "link",
-                "url": clean_link
+                "type": "file",
+                "url": upload_result["secure_url"],
+                "filename": f.name,
+                "file_type": f.content_type,
+                "uploaded_at": django_timezone.now().isoformat()
             })
+            print(f"✅ Uploaded file: {f.name} -> {upload_result['secure_url']}")
+        except Exception as e:
+            print(f"❌ Error uploading file {f.name}: {e}")
+            return Response({"error": f"Failed to upload file {f.name}: {str(e)}"}, status=500)
+
+    # ✅ Handle multiple external links (sent as 'proof_links[]')
+    links = request.data.getlist("proof_links[]")
+    links = list(dict.fromkeys([link.strip() for link in links if link and link.strip()]))
+    
+    print(f"Processing {len(links)} unique links: {links}")
+    
+    for link in links:
+        proof_items.append({
+            "type": "link",
+            "url": link,
+            "filename": link,  # Use URL for consistency
+            "added_at": django_timezone.now().isoformat()
+        })
+        print(f"✅ Added link: {link}")
 
     if not proof_items:
-        return Response({"error": "No proof files or links provided."}, status=400)
+        return Response({"error": "No new proof files or links were provided."}, status=400)
 
-    # ✅ Merge with existing proofs (append, not overwrite)
-    if is_requester:
-        trade_history.requester_proof = (trade_history.requester_proof or []) + proof_items
-        trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
-    elif is_responder:
-        trade_history.responder_proof = (trade_history.responder_proof or []) + proof_items
-        trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
+    # ✅ Append new proof items to the existing list, don't overwrite
+    try:
+        with transaction.atomic():
+            if is_requester:
+                existing_proof = trade_history.requester_proof or []
+                trade_history.requester_proof = existing_proof + proof_items
+                trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
+            elif is_responder:
+                existing_proof = trade_history.responder_proof or []
+                trade_history.responder_proof = existing_proof + proof_items
+                trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
 
-    trade_history.save()
+            trade_history.save()
 
-    return Response({
-        "message": "Proof uploaded successfully.",
-        "proof_items": proof_items
-    }, status=200)
-
+        return Response({
+            "message": "Proof uploaded successfully.",
+            "files_uploaded": len(uploaded_files),
+            "links_added": len(links)
+        }, status=200)
+    except Exception as e:
+        print(f"❌ Database error: {e}")
+        return Response({"error": f"Failed to save proof: {str(e)}"}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -3243,11 +3283,11 @@ def get_trade_proof_status(request, tradereq_id):
 def get_partner_proof(request, tradereq_id):
     """
     Get partner's proof files for viewing/approval
+    Returns array of all proof items (files and links)
     """
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
-            Q(tradereq_id=tradereq_id) &
-            Q(status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED])
+            tradereq_id=tradereq_id
         )
         
         if request.user not in [trade_request.requester, trade_request.responder]:
@@ -3262,34 +3302,23 @@ def get_partner_proof(request, tradereq_id):
         
         if current_user_is_requester:
             # Current user is requester, get responder's proof
-            partner_proof_list = trade_history.responder_proof
+            partner_proof_list = trade_history.responder_proof or []
             partner_proof_status = trade_history.responder_proof_status
             partner_name = f"{trade_request.responder.first_name} {trade_request.responder.last_name}".strip() or trade_request.responder.username
         else:
             # Current user is responder, get requester's proof
-            partner_proof_list = trade_history.requester_proof
+            partner_proof_list = trade_history.requester_proof or []
             partner_proof_status = trade_history.requester_proof_status
             partner_name = f"{trade_request.requester.first_name} {trade_request.requester.last_name}".strip() or trade_request.requester.username
         
         if not partner_proof_list:
             return Response({"error": "Partner has not submitted proof yet"}, status=404)
         
-        # ❗ FIXED: Handle the JSONField which is a list of dictionaries
-        # We'll return the first proof item to match the frontend's expectation.
-        first_proof_item = partner_proof_list[0]
-        proof_url = first_proof_item.get("url")
-        file_name = first_proof_item.get("filename", "proof_file")
-        file_type = first_proof_item.get("file_type", "")
-        is_image = file_type.startswith("image/")
-        
+        # ✅ Return the full array of proof items (files and links)
         return Response({
             "trade_request_id": trade_request.tradereq_id,
             "partner_name": partner_name,
-            "proof_file": {
-                "url": proof_url,       # Already a full Cloudinary URL
-                "name": file_name,
-                "is_image": is_image    # Matches what frontend expects
-            },
+            "proof_file": partner_proof_list,  # This key now contains an array
             "proof_status": partner_proof_status
         }, status=200)
         
@@ -3297,13 +3326,17 @@ def get_partner_proof(request, tradereq_id):
         return Response({"error": "Active trade request not found"}, status=404)
     except Exception as e:
         print(f"Get partner proof error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return Response({"error": f"Failed to get partner proof: {str(e)}"}, status=500)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_my_proof(request, tradereq_id):
     """
     Get current user's own proof submission for a trade
+    Returns array of all proof items (files and links)
     """
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
@@ -3322,10 +3355,10 @@ def get_my_proof(request, tradereq_id):
         current_user_is_requester = (request.user == trade_request.requester)
         
         if current_user_is_requester:
-            user_proof_list = trade_history.requester_proof
+            user_proof_list = trade_history.requester_proof or []
             user_proof_status = trade_history.requester_proof_status
         else:
-            user_proof_list = trade_history.responder_proof
+            user_proof_list = trade_history.responder_proof or []
             user_proof_status = trade_history.responder_proof_status
         
         if not user_proof_list:
@@ -3333,35 +3366,23 @@ def get_my_proof(request, tradereq_id):
                 "message": "You have not submitted proof yet",
                 "has_proof": False
             }, status=200)
-        
-        # ❗ FIXED: Handle the JSONField which is a list of dictionaries
-        first_proof_item = user_proof_list[0]
-        proof_url = first_proof_item.get("url")
-        file_name = first_proof_item.get("filename", "proof_file")
-        file_type = first_proof_item.get("file_type", "")
-        is_image = file_type.startswith("image/")
 
+        # ✅ Return the full array of proof items (files and links)
         return Response({
             "trade_request_id": trade_request.tradereq_id,
-            "has_proof": True,
-            "proof_file": {
-                "url": proof_url,       # Already a full Cloudinary URL
-                "name": file_name,
-                "is_image": is_image    # Matches what frontend expects
-            },
-            "proof_status": user_proof_status,
-            "submitted_by": {
-                "id": request.user.id,
-                "name": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-            }
+            "has_proof": bool(user_proof_list),
+            "proof_file": user_proof_list,  # This key now contains an array
+            "proof_status": user_proof_status
         }, status=200)
         
     except TradeRequest.DoesNotExist:
         return Response({"error": "Active trade request not found"}, status=404)
     except Exception as e:
         print(f"Get my proof error: {str(e)}")
-        return Response({"error": f"Failed to get proof: {str(e)}"}, status=500)
-    
+        import traceback
+        traceback.print_exc()
+        return Response({"error": f"Failed to get proof: {str(e)}"}, status=500)  
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def approve_partner_proof(request, tradereq_id):
@@ -3424,15 +3445,14 @@ def approve_partner_proof(request, tradereq_id):
 @permission_classes([IsAuthenticated])
 def reject_partner_proof(request, tradereq_id):
     """
-    Reject partner's proof submission - resets their proof status so they can resubmit
+    Reject partner's proof submission.
+    ✅ UPDATED: Sets partner's proof status to REJECTED, clears their proof array,
+    and deletes their submitted files from Cloudinary.
     """
-    import os
-    from django.conf import settings
-    
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
             tradereq_id=tradereq_id,
-            status=TradeRequest.Status.ACTIVE
+            status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED] # Allow rejection in completed state too
         )
         
         if request.user not in [trade_request.requester, trade_request.responder]:
@@ -3445,43 +3465,49 @@ def reject_partner_proof(request, tradereq_id):
         current_user_is_requester = (request.user == trade_request.requester)
         
         with transaction.atomic():
+            proof_to_clear = []
             if current_user_is_requester:
                 # Requester rejecting responder's proof
-                old_proof = trade_history.responder_proof
-                if old_proof:
-                    # Delete the old file from filesystem
-                    try:
-                        old_file_path = os.path.join(settings.MEDIA_ROOT, str(old_proof))
-                        if os.path.exists(old_file_path):
-                            os.remove(old_file_path)
-                            print(f"Deleted rejected proof file: {old_file_path}")
-                    except Exception as e:
-                        print(f"Warning: Could not delete old proof file: {e}")
-                    
-                trade_history.responder_proof = None
-                trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
+                if not trade_history.responder_proof:
+                     return Response({"error": "Partner has not submitted proof to reject."}, status=400)
+                proof_to_clear = trade_history.responder_proof
+                trade_history.responder_proof = [] # Clear the proof array
+                trade_history.responder_proof_status = TradeHistory.ProofStatus.REJECTED # ✅ Set status to REJECTED
             else:
                 # Responder rejecting requester's proof
-                old_proof = trade_history.requester_proof
-                if old_proof:
-                    # Delete the old file from filesystem
-                    try:
-                        old_file_path = os.path.join(settings.MEDIA_ROOT, str(old_proof))
-                        if os.path.exists(old_file_path):
-                            os.remove(old_file_path)
-                            print(f"Deleted rejected proof file: {old_file_path}")
-                    except Exception as e:
-                        print(f"Warning: Could not delete old proof file: {e}")
-                
-                trade_history.requester_proof = None
-                trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
+                if not trade_history.requester_proof:
+                    return Response({"error": "Partner has not submitted proof to reject."}, status=400)
+                proof_to_clear = trade_history.requester_proof
+                trade_history.requester_proof = [] # Clear the proof array
+                trade_history.requester_proof_status = TradeHistory.ProofStatus.REJECTED # ✅ Set status to REJECTED
             
             trade_history.save()
-        
+
+            # ✅ Delete rejected files from Cloudinary
+            public_ids_to_delete = []
+            for item in proof_to_clear:
+                if item.get("type") == "file":
+                    # Extract public_id from URL (e.g., .../media/trade_proofs/file.jpg)
+                    try:
+                        parts = item["url"].split('/')
+                        folder_index = parts.index("media")
+                        public_id_with_ext = "/".join(parts[folder_index:])
+                        public_id = os.path.splitext(public_id_with_ext)[0]
+                        public_ids_to_delete.append(public_id)
+                    except (ValueError, KeyError, IndexError):
+                        print(f"Could not parse public_id from URL: {item.get('url')}")
+            
+            if public_ids_to_delete:
+                try:
+                    cloudinary.api.delete_resources(public_ids_to_delete, resource_type="raw")
+                    cloudinary.api.delete_resources(public_ids_to_delete, resource_type="image")
+                    print(f"Deleted {len(public_ids_to_delete)} rejected files from Cloudinary: {public_ids_to_delete}")
+                except Exception as e:
+                    print(f"Warning: Cloudinary deletion failed for some resources: {e}")
+
         return Response({
-            "message": "Proof rejected successfully. Partner can now resubmit.",
+            "message": "Proof rejected successfully. Partner has been notified to resubmit.",
             "trade_request_id": trade_request.tradereq_id,
-            "file_cleanup_completed": True
         }, status=200)
         
     except TradeRequest.DoesNotExist:
@@ -3497,7 +3523,8 @@ def reject_partner_proof(request, tradereq_id):
 def submit_trade_rating(request):
     """
     Submit rating and review for a completed trade.
-    Awards XP IMMEDIATELY upon rating and updates user's rated flag.
+    Awards XP IMMEDIATELY upon rating (from PARTNER's trade detail complexity).
+    Updates PARTNER's rating stats with the stars YOU give them.
     Trade disappears from that user's Active Trades list immediately.
     Trade becomes COMPLETED only after both users rate.
     """
@@ -3565,29 +3592,38 @@ def submit_trade_rating(request):
             )
             
             # Save rating and description with timestamp
+            # The rating YOU give goes to YOUR PARTNER
+            # Your review description is stored under YOUR field (describing your experience)
             current_time = django_timezone.now()
             if current_user_is_requester:
-                reputation_record.requester_starcount = rating
-                reputation_record.requester_rating_desc = review_description
+                # Requester's rating goes to responder
+                reputation_record.requester_starcount = rating  # This will update responder's avgStars
+                reputation_record.requester_rating_desc = review_description  # Requester's review about responder
                 reputation_record.requester_rated_at = current_time
             else:
-                reputation_record.responder_starcount = rating
-                reputation_record.responder_rating_desc = review_description
+                # Responder's rating goes to requester
+                reputation_record.responder_starcount = rating  # This will update requester's avgStars
+                reputation_record.responder_rating_desc = review_description  # Responder's review about requester
                 reputation_record.responder_rated_at = current_time
             
             reputation_record.save()
             
-            # ✅ IMMEDIATE XP AWARD - Award XP to current user immediately upon their rating
-            trade_detail = TradeDetail.objects.filter(trade_request=trade_request, user=request.user).first()
+            # ✅ CORRECTED XP AWARD - Award XP from PARTNER's trade detail
+            # Partner's complexity (what they're offering you) = Your XP reward
+            partner_trade_detail = TradeDetail.objects.filter(
+                trade_request=trade_request, 
+                user=partner_user
+            ).first()
+            
             xp_awarded = 0
-            if trade_detail:
-                xp_awarded = trade_detail.total_xp or 0
+            if partner_trade_detail:
+                xp_awarded = partner_trade_detail.total_xp or 0
                 request.user.tot_XpPts += xp_awarded
                 request.user.level = max(1, (request.user.tot_XpPts // 1000) + 1)
                 request.user.save()
-                print(f"Awarded {xp_awarded} XP to user {request.user.id} immediately upon rating")
+                print(f"Awarded {xp_awarded} XP to user {request.user.id} from partner's trade detail (partner: {partner_user.id})")
             
-            # ✅ UPDATE PARTNER'S RATING - Update partner's rating stats immediately
+            # ✅ UPDATE PARTNER'S RATING - The stars YOU gave update PARTNER's profile
             partner_new_rating_count = partner_user.ratingCount + 1
             partner_total_stars = (float(partner_user.avgStars or 0) * partner_user.ratingCount) + rating
             partner_new_avg = partner_total_stars / partner_new_rating_count
@@ -3597,6 +3633,7 @@ def submit_trade_rating(request):
             partner_user.save()
             
             print(f"Updated partner {partner_user.id} rating: {partner_user.avgStars} stars ({partner_user.ratingCount} reviews)")
+            print(f"Rating {rating} stars from {request.user.id} added to partner {partner_user.id}")
             
             # Check if both users have now rated
             both_rated = trade_request.requester_rated and trade_request.responder_rated
@@ -3622,11 +3659,16 @@ def submit_trade_rating(request):
             "both_users_rated": both_rated,
             "trade_completed": both_rated,
             "trade_status": "COMPLETED" if both_rated else "ACTIVE",
-            "xp_awarded": xp_awarded,  # XP awarded immediately
+            "xp_awarded": xp_awarded,  # XP awarded immediately from partner's complexity
             "new_total_xp": request.user.tot_XpPts,
             "new_level": request.user.level,
             "trade_disappears_for_user": True,  # Trade will disappear from this user's active trades
-            "partner_still_needs_to_rate": not both_rated
+            "partner_still_needs_to_rate": not both_rated,
+            "partner_rating_updated": {
+                "partner_id": partner_user.id,
+                "new_avg_stars": float(partner_user.avgStars),
+                "new_rating_count": partner_user.ratingCount
+            }
         }, status=200)
         
     except TradeRequest.DoesNotExist:
@@ -3700,11 +3742,14 @@ def get_trade_rating_status(request, tradereq_id):
 @permission_classes([IsAuthenticated])
 def award_trade_xp(request, tradereq_id: int):
     """
-    Awards XP to the current user for this trade once THEY have submitted their rating.
-    Idempotent: will not award twice for the same user+trade.
+    Awards XP to the current user for this trade.
+    XP comes from the PARTNER's trade detail (their complexity = your reward).
+    This endpoint is now redundant since XP is awarded during rating submission,
+    but kept for potential manual admin use or edge cases.
     """
     try:
         trade_request = TradeRequest.objects.select_related('requester','responder').get(tradereq_id=tradereq_id)
+        
         if request.user not in [trade_request.requester, trade_request.responder]:
             return Response({"error":"Not authorized for this trade"}, status=403)
 
@@ -3715,42 +3760,44 @@ def award_trade_xp(request, tradereq_id: int):
 
         current_user_is_requester = (request.user == trade_request.requester)
         has_rated = (rep.requester_starcount is not None) if current_user_is_requester else (rep.responder_starcount is not None)
+        
         if not has_rated:
             return Response({"error":"You must submit a rating first"}, status=400)
 
-        # Idempotency: prevent double-award (flag per user in TradeDetail, or a separate table)
-        detail = TradeDetail.objects.filter(trade_request=trade_request, user=request.user).first()
-        if not detail:
-            return Response({"error":"Trade detail not found for user"}, status=404)
-        if getattr(detail, "xp_awarded", False):
-            return Response({
-                "message":"XP already awarded",
-                "updated_users":[{"user_id": request.user.id, "xp_gained": 0,
-                                  "new_total_xp": request.user.tot_XpPts,
-                                  "new_level": request.user.level}]
-            }, status=200)
-
-        # Award this user's XP from total_xp
-        gained = int(detail.total_xp or 0)
+        # Determine partner
+        partner_user = trade_request.responder if current_user_is_requester else trade_request.requester
+        
+        # Get PARTNER's trade detail (their complexity = your XP)
+        partner_detail = TradeDetail.objects.filter(
+            trade_request=trade_request, 
+            user=partner_user
+        ).first()
+        
+        if not partner_detail:
+            return Response({"error":"Partner's trade detail not found"}, status=404)
+        
+        # Award XP from partner's complexity
+        gained = int(partner_detail.total_xp or 0)
         request.user.tot_XpPts = int(request.user.tot_XpPts or 0) + gained
-
-        # (Simple level; replace with your cumulative thresholds if you want it server-side)
         request.user.level = max(1, (request.user.tot_XpPts // 1000) + 1)
         request.user.save()
 
-        # mark as awarded
-        detail.xp_awarded = True
-        detail.save(update_fields=["xp_awarded"])
-
         return Response({
-            "message": "XP awarded",
-            "updated_users":[{"user_id": request.user.id, "xp_gained": gained,
-                              "new_total_xp": request.user.tot_XpPts,
-                              "new_level": request.user.level}]
+            "message": "XP awarded from partner's trade complexity",
+            "updated_users": [{
+                "user_id": request.user.id, 
+                "xp_gained": gained,
+                "new_total_xp": request.user.tot_XpPts,
+                "new_level": request.user.level
+            }]
         }, status=200)
+        
     except TradeRequest.DoesNotExist:
         return Response({"error":"Trade not found"}, status=404)
     except Exception as e:
+        print(f"Award XP error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return Response({"error": f"Failed to award XP: {e}"}, status=500)
 
 @api_view(['GET'])
