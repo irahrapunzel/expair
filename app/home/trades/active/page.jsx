@@ -109,6 +109,9 @@ export default function ActiveTradesPage() {
 
                 if (proofStatusResponse.ok) {
                   proofStatus = await proofStatusResponse.json();
+                } else {
+                  console.log(`Failed to fetch proof status for trade ${trade.tradereq_id}`);
+                  // Keep default proofStatus values
                 }
 
                 if (tradeDetailsResponse.ok) {
@@ -283,120 +286,112 @@ export default function ActiveTradesPage() {
     }
   };
 
-  const handleProofSubmission = async (proofItems) => {
-    if (!selectedTrade || !proofItems.length) return;
+  const handleProofSubmission = async (proofData) => {
+    if (!selectedTrade || (!proofData.files?.length && !proofData.links?.length)) {
+      console.error("No new proof data to submit");
+      return;
+    }
 
     try {
       const formData = new FormData();
       formData.append("trade_request_id", selectedTrade.tradereq_id);
 
-      proofItems.forEach((item) => {
-      if (item.type === "file" && item.file) {
-        formData.append("proof_files", item.file);
-      } else if (item.type === "link" && item.url) {
-        formData.append("proof_links[]", item.url);
+      // ✅ Append each file to 'proof_files'
+      if (proofData.files && proofData.files.length > 0) {
+        proofData.files.forEach((fileItem) => {
+          if (fileItem.file) {
+            formData.append("proof_files", fileItem.file);
+          }
+        });
       }
-    });
+
+      // ✅ Append each link to 'proof_links[]'
+      if (proofData.links && proofData.links.length > 0) {
+        proofData.links.forEach((linkItem) => {
+          if (linkItem.url) {
+            formData.append("proof_links[]", linkItem.url);
+          }
+        });
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/upload/`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${session?.access}`,
-          },
+          headers: { Authorization: `Bearer ${session?.access}` },
           body: formData,
         }
       );
 
       if (response.ok) {
         const result = await response.json();
-        console.log("Proof uploaded successfully:", result);
+        console.log("✅ Proof uploaded successfully:", result);
 
         // Update local UI state
         setActiveTrades((prevTrades) =>
           prevTrades.map((trade) =>
             trade.id === selectedTrade.id
-              ? { ...trade, myProofSubmitted: true }
+              ? {
+                ...trade,
+                myProofSubmitted: true,
+                proofWorkflowStatus: "waiting_for_approval"
+              }
               : trade
           )
         );
 
-        // Close dialog and optionally show a notification
+        // Close dialog and show success message
         setShowUploadDialog(false);
-        alert("Proof submitted successfully!");
+        alert(`Proof submitted successfully! (${result.files_uploaded} files, ${result.links_added} links)`);
       } else {
         const errorData = await response.json();
-        console.error("Upload failed:", errorData);
+        console.error("❌ Upload failed:", errorData);
         alert(errorData.error || "Failed to submit proof. Please try again.");
       }
     } catch (error) {
-      console.error("Error submitting proof:", error);
+      console.error("❌ Error submitting proof:", error);
       alert("An error occurred while submitting your proof. Please try again.");
     }
   };
 
   const handleTradeRating = async (ratingData) => {
-    if (!selectedTrade) return;
+  if (!selectedTrade) return;
 
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-rating/submit/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          trade_request_id: selectedTrade.tradereq_id,
-          rating: ratingData.rating,
-          review_description: ratingData.feedback
-        })
-      });
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-rating/submit/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session?.access}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        trade_request_id: selectedTrade.tradereq_id,
+        rating: ratingData.rating,
+        review_description: ratingData.feedback
+      })
+    });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Rating submitted successfully:", result);
+    if (response.ok) {
+      const result = await response.json();
+      console.log("Rating submitted successfully:", result);
 
-        // Award XP immediately after rating
-        try {
-          const xpResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-xp/award/${selectedTrade.tradereq_id}/`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session?.access}`,
-              'Content-Type': 'application/json',
-            },
-          });
+      // ✅ Remove trade from local state (user has rated)
+      setActiveTrades(prevTrades =>
+        prevTrades.filter(trade => trade.id !== selectedTrade.id)
+      );
 
-          if (xpResponse.ok) {
-            const xpResult = await xpResponse.json();
-            console.log("XP awarded:", xpResult);
-          }
-        } catch (xpError) {
-          console.error("Error awarding XP:", xpError);
-        }
+      // ✅ RETURN the result so success-dialog can use it
+      return result;
 
-        // Remove trade from local state immediately (user has rated)
-        setActiveTrades(prevTrades =>
-          prevTrades.filter(trade => trade.id !== selectedTrade.id)
-        );
-
-        setShowSuccessDialog(false);
-
-        // Show success message
-        const message = result.both_users_rated ?
-          "Trade completed! Both users have rated each other." :
-          "Rating submitted! Trade will be removed from your active trades.";
-
-        alert(message);
-
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to submit rating");
-      }
-    } catch (error) {
-      console.error("Error submitting rating:", error);
-      alert("Failed to submit rating. Please try again.");
+    } else {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to submit rating");
     }
-  };
+  } catch (error) {
+    console.error("Error submitting rating:", error);
+    throw error; // Re-throw so success-dialog can catch it
+  }
+};
 
   const handleViewPartnerProof = async (trade) => {
     try {
@@ -415,12 +410,8 @@ export default function ActiveTradesPage() {
         setSelectedTrade({
           ...trade,
           partnerProofData: partnerProofData,
-          proofFile: {
-            name: partnerProofData.proof_file.name,
-            url: partnerProofData.proof_file.url,
-            isImage: partnerProofData.proof_file.is_image
-          }
         });
+
         setShowViewProofDialog(true);
       } else {
         const errorData = await response.json();
