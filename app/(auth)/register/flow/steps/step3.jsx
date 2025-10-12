@@ -1,19 +1,20 @@
-"use client";
-
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "../../../../../components/ui/button";
 import { Input } from "../../../../../components/ui/input";
 import { ChevronLeft, ChevronRight, Upload, X } from "lucide-react";
-import Image from "next/image";
 import { Inter } from "next/font/google";
+import Image from "next/image";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
+  const { data: session } = useSession();
   const [profilePicFile, setProfilePicFile] = useState(
     step3Data.profilePicFile || null
   );
   const [profilePreview, setProfilePreview] = useState("/defaultavatar.png");
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
 
   const [userIDFile, setUserIDFile] = useState(step3Data.userIDFile || null);
   const [userIDFileName, setUserIDFileName] = useState(
@@ -25,20 +26,36 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
   );
   const [links, setLinks] = useState(step3Data.links || [""]); // keep as array
 
+  // Handle Google profile picture preview
+  useEffect(() => {
+    if (session?.user?.isNewUser && session?.user?.googleData?.image) {
+      setIsGoogleUser(true);
+      setProfilePreview(session.user.googleData.image);
+    }
+  }, [session]);
+
   // preview when a profile picture is selected
   useEffect(() => {
-    if (!profilePicFile) return setProfilePreview("/defaultavatar.png");
+    if (!profilePicFile) {
+      // If no file selected, show Google image or default
+      if (session?.user?.isNewUser && session?.user?.googleData?.image) {
+        setProfilePreview(session.user.googleData.image);
+      } else {
+        setProfilePreview("/defaultavatar.png");
+      }
+      return;
+    }
     const url = URL.createObjectURL(profilePicFile);
     setProfilePreview(url);
     return () => URL.revokeObjectURL(url);
-  }, [profilePicFile]);
+  }, [profilePicFile, session]);
 
   useEffect(() => {
     if (step3Data) {
       setProfilePicFile(step3Data.profilePicFile || null);
       setUserIDFile(step3Data.userIDFile || null);
       setIntroduction(step3Data.introduction || "");
-      setLinks(step3Data.links || []);
+      setLinks(step3Data.links || [""]);
     }
   }, [step3Data]);
 
@@ -60,22 +77,30 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
     // Filter out empty links and ensure it's an array
     const filteredLinks = links.filter((link) => link && link.trim() !== "");
 
+    // ✅ Pass the actual File objects, not just references
     onDataSubmit({
-      profilePicFile,
-      userIDFile,
+      profilePicFile, // This is the actual File object
+      userIDFile, // This is the actual File object
       userIDFileName,
       introduction,
-      links: filteredLinks, // Keep as array, don't stringify here
+      links: filteredLinks, // Keep as array
     });
     onNext();
   };
 
   const handlePrev = () => {
-    onPrev({ profilePicFile, userIDFile, userIDFileName, introduction, links });
+    const filteredLinks = links.filter((link) => link && link.trim() !== "");
+    onPrev({ 
+      profilePicFile, 
+      userIDFile, 
+      userIDFileName, 
+      introduction, 
+      links: filteredLinks 
+    });
   };
 
   return (
-    <div
+     <div
       className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
@@ -125,48 +150,40 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                 </div>
               </div>
 
+              {/* Google profile picture note */}
+              {isGoogleUser && !profilePicFile && (
+                <p className="text-[#6DDFFF] text-sm mb-2">
+                  Using your Google profile picture
+                </p>
+              )}
+
               {/* Upload button */}
               <label
                 htmlFor="photo-upload"
                 className="cursor-pointer bg-[#0038FF] hover:bg-[#1a4dff] text-white px-5 py-2 sm:px-6 sm:py-3 rounded-[15px] shadow-[0px_0px_15px_#284CCC] flex items-center gap-2"
               >
                 <Upload className="w-5 h-5 sm:w-6 sm:h-6" />
-                <span>Choose Photo</span>
+                <span>{profilePicFile ? "Change Photo" : "Choose Photo"}</span>
               </label>
               <input
                 id="photo-upload"
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => setProfilePicFile(e.target.files[0] || null)}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    console.log("Profile pic selected:", file.name, file.size);
+                    setProfilePicFile(file);
+                  }
+                }}
               />
             </div>
-
-            {/* <p className="text-white font-[500] text-[18px] sm:text-[20px] mb-[12px] sm:mb-[15px] text-center w-full">
-              Connect your socials
-            </p>
-            <div className="flex gap-[20px] sm:gap-[40px] flex-wrap justify-center">
-              {[
-                { src: "/assets/google.png", alt: "Google" },
-                { src: "/assets/linkedin.png", alt: "LinkedIn" },
-                { src: "/assets/facebook.png", alt: "Facebook" },
-              ].map(({ src, alt }) => (
-                <Image
-                  key={alt}
-                  src={src}
-                  width={40}
-                  height={40}
-                  alt={alt}
-                  className="cursor-pointer rounded-[10px]"
-                  onClick={() => alert(`Signing up with ${alt}`)}
-                />
-              ))} 
-            </div> */}
           </div>
 
           {/* Middle + Right columns */}
           <div className="flex flex-col lg:flex-row gap-[40px] lg:gap-[100px] w-full">
-            {/* ID upload + Links */}
+            {/* ID upload + Introduction */}
             <div className="flex flex-col gap-[20px] sm:gap-[25px] w-full lg:w-[400px]">
               {/* ID upload */}
               <div>
@@ -174,21 +191,29 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                   Get verified by uploading an ID
                 </p>
                 <div className="relative">
-                  <div className="w-full h-[45px] sm:h-[50px] rounded-[12px] sm:rounded-[15px] border border-white/40 bg-[#120A2A] px-4 flex items-center justify-between cursor-pointer">
+                  <label
+                    htmlFor="id-upload"
+                    className="w-full h-[45px] sm:h-[50px] rounded-[12px] sm:rounded-[15px] border border-white/40 bg-[#120A2A] px-4 flex items-center justify-between cursor-pointer"
+                  >
                     <span className="text-white/50 text-[14px] sm:text-[16px]">
                       {userIDFileName || "Upload file or photo"}
                     </span>
                     <Upload className="text-white w-5 h-5 sm:w-6 sm:h-6" />
-                    <Input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                      onChange={(e) => {
-                        setUserIDFile(e.target.files[0] || null); // Set the file
-                        setUserIDFileName(e.target.files[0]?.name || ""); // Update the file name state
-                      }}
-                    />
-                  </div>
+                  </label>
+                  <input
+                    id="id-upload"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        console.log("ID file selected:", file.name, file.size);
+                        setUserIDFile(file);
+                        setUserIDFileName(file.name);
+                      }
+                    }}
+                  />
                 </div>
               </div>
 
@@ -212,6 +237,7 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                 </div>
               </div>
             </div>
+
             {/* Right side: links */}
             <div className="flex-1 min-w-[200px] sm:min-w-[400px] text-left">
               <p className="text-white font-[500] text-[18px] sm:text-[20px] mb-[12px] sm:mb-[15px] text-left">
@@ -256,6 +282,10 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
             Continue
           </Button>
         </div>
+
+        <p className="mt-2 text-sm text-gray-500 text-center">
+          You can skip this step by clicking this button.
+        </p>
 
         {/* Pagination */}
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 flex justify-center items-center gap-2 text-sm text-white opacity-60 z-50">

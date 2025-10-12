@@ -1,10 +1,13 @@
+import cloudinary.uploader
 from rest_framework import serializers
-from .models import TradeDetail, User
+from .models import TradeDetail, User, Conversation, Message
 from .models import GenSkill, UserInterest
 from rest_framework import serializers
 from .models import SpecSkill, UserSkill 
 from .models import VerificationStatus
 from .models import User, UserCredential
+from .models import Report
+
 import os
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
@@ -80,30 +83,53 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             print("[DEBUG] validated_data['links'] =", validated_data["links"])
         
         print("[DEBUG update] validated_data keys:", validated_data.keys())
-        # --- handle profilePic manually ---
+        
+        # --- handle profilePic with Cloudinary ---
         new_pic = validated_data.pop("profilePic", None)
         if new_pic:
-            pic_path = os.path.join("profile_pics", new_pic.name)
-            saved_path = default_storage.save(pic_path, new_pic)
-            instance.profilePic = saved_path
+            try:
+                # Upload to Cloudinary with folder structure
+                upload_result = cloudinary.uploader.upload(
+                    new_pic,
+                    folder="media/profile_pics",
+                    resource_type="image",
+                    overwrite=True,
+                    invalidate=True
+                )
+                # Save the Cloudinary secure URL
+                instance.profilePic = upload_result['secure_url']
+                print(f"[DEBUG] Uploaded profilePic to Cloudinary: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Cloudinary upload failed for profilePic: {e}")
+                raise serializers.ValidationError(f"Failed to upload profile picture: {str(e)}")
 
-        # --- handle userVerifyId like before ---
+        # --- handle userVerifyId with Cloudinary ---
         new_file = validated_data.pop("userVerifyId", None)
         if new_file:
-            old = getattr(instance, "userVerifyId", None)
-            if old:
-                try:
-                    old.delete(save=False)
-                except Exception:
-                    pass
-            instance.userVerifyId = new_file
-            instance.verification_status = VerificationStatus.PENDING
-            instance.is_verified = False
-
+            try:
+                # Determine resource type (image or raw for PDFs)
+                resource_type = "image" if new_file.content_type.startswith("image/") else "raw"
+                
+                # Upload to Cloudinary
+                upload_result = cloudinary.uploader.upload(
+                    new_file,
+                    folder="media/user_verifications",
+                    resource_type=resource_type,
+                    overwrite=True,
+                    invalidate=True
+                )
+                instance.userVerifyId = upload_result['secure_url']
+                instance.verification_status = VerificationStatus.PENDING
+                instance.is_verified = False
+                print(f"[DEBUG] Uploaded userVerifyId to Cloudinary: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Cloudinary upload failed for userVerifyId: {e}")
+                raise serializers.ValidationError(f"Failed to upload verification document: {str(e)}")
+        
         # --- handle links ---
         if "links" in validated_data:
             links = validated_data["links"] or []
-            instance.links = links  # ✅ store as JSON string in DB
+            instance.links = links
 
         # apply the rest of the fields
         for f in ("first_name", "last_name", "bio", "username", "email", "location"):
@@ -451,3 +477,43 @@ class TradeDetailSerializer(serializers.ModelSerializer):
             validated_data['total_xp'] = skill_xp + delivery_xp + request_xp
         
         return super().update(instance, validated_data)
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    requester_username = serializers.CharField(source='requester.username', read_only=True)
+    responder_username = serializers.CharField(source='responder.username', read_only=True)
+
+    class Meta:
+        model = Conversation
+        fields = ['conversation_id', 'trade_request', 'requester', 'responder', 'requester_username', 'responder_username', 'created_at']
+        read_only_fields = ['conversation_id', 'created_at']
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender_username = serializers.CharField(source='sender.username', read_only=True)
+
+    class Meta:
+        model = Message
+        fields = ['message_id', 'conversation', 'sender', 'sender_username', 'content', 'created_at']
+        read_only_fields = ['message_id', 'created_at']
+        
+class ReportSerializer(serializers.ModelSerializer):
+    reporter_username = serializers.CharField(source='reporter.username', read_only=True)
+    reported_username = serializers.CharField(source='reported_user.username', read_only=True)
+
+    class Meta:
+        model = Report
+        fields = [
+            'report_id',
+            'reporter',
+            'reported_user',
+            'tradereq',
+            'category',
+            'issue_detail',
+            'description',
+            'status',
+            'created_at',
+            'reporter_username',
+            'reported_username'
+        ]
+        read_only_fields = ['reporter', 'status', 'created_at']

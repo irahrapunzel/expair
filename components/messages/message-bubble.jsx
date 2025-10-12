@@ -6,7 +6,7 @@ import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
 import { useToast } from "../../components/ui/use-toast";
 
-export function MessageBubble({ message, showAvatar = true, showTime = true, onReply }) {
+export function MessageBubble({ message, bubbleIndex, showAvatar = true, showTime = true, onReply, onDelete, onHeart, userAvatar = "/assets/defaultavatar.png" }) {
   const [showActions, setShowActions] = useState(false);
   const [activeAction, setActiveAction] = useState(null);
   const [actionButtonsHovered, setActionButtonsHovered] = useState(false);
@@ -47,11 +47,15 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
       {!message.isUser && showAvatar && (
         <div className="flex-shrink-0 mt-1">
           <Image
-            src="/assets/defaultavatar.png"
-            alt={message.sender}
+            src={userAvatar || "/assets/defaultavatar.png"}
+            alt={message.sender || "User"}
             width={32}
             height={32}
             className="rounded-full"
+            onError={(e) => {
+              e.currentTarget.src = "/assets/defaultavatar.png";
+            }}
+            unoptimized
           />
         </div>
       )}
@@ -74,6 +78,17 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
                 : "bg-[#120A2A] text-white rounded-bl-none"
             )}
           >
+            {/* Heart reaction bubble at bottom-right like iMessage */}
+            {message.reactions?.heart && (
+              <span
+                className={cn(
+                  "absolute -bottom-3 right-2 text-lg",
+                  message.isUser ? "" : ""
+                )}
+              >
+                ❤️
+              </span>
+            )}
             {message.replyTo && (
               <div className={cn(
                 "mb-2 p-2 rounded border-l-2",
@@ -90,11 +105,20 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
                 {message.replyTo.attachment && message.replyTo.attachment.type.startsWith('image/') ? (
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-10 h-10 rounded overflow-hidden bg-[#0A0519] flex-shrink-0">
-                      <img 
-                        src={message.replyTo.attachment.url} 
-                        alt="Attachment preview" 
-                        className="w-full h-full object-cover"
-                      />
+                      {message.replyTo.attachment.url ? (
+                        <img 
+                          src={message.replyTo.attachment.url} 
+                          alt="Attachment preview" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Icon icon="lucide:image-off" className="w-4 h-4 text-[#413663]" />
+                        </div>
+                      )}
                     </div>
                     <p className={cn(
                       "text-xs",
@@ -137,26 +161,37 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
               )}>
                 {message.attachment.type.startsWith('image/') ? (
                   <div className="relative">
-                    <img 
-                      src={message.attachment.url} 
-                      alt={message.attachment.name}
-                      className="max-w-full rounded-lg max-h-[200px] object-contain bg-[#0A0519]"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white truncate max-w-[150px]">{message.attachment.name}</span>
-                        <a 
-                          href={message.attachment.url} 
-                          download={message.attachment.name}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Icon icon="lucide:download" className="w-3 h-3 text-white" />
-                        </a>
+                    {message.attachment.url ? (
+                      <>
+                        <img 
+                          src={message.attachment.url} 
+                          alt={message.attachment.name || "Attachment"}
+                          className="max-w-full rounded-lg max-h-[200px] object-contain bg-[#0A0519]"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-white truncate max-w-[150px]">{message.attachment.name}</span>
+                            <a 
+                              href={message.attachment.url} 
+                              download={message.attachment.name}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Icon icon="lucide:download" className="w-3 h-3 text-white" />
+                            </a>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-[200px] bg-[#0A0519] rounded-lg flex items-center justify-center">
+                        <Icon icon="lucide:image-off" className="w-8 h-8 text-[#413663]" />
                       </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 p-2 bg-[#0A0519] rounded-lg">
@@ -176,16 +211,18 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
                         {message.attachment.type.split('/')[1].toUpperCase()} • {(message.attachment.size / 1024).toFixed(1)} KB
                       </p>
                     </div>
-                    <a 
-                      href={message.attachment.url} 
-                      download={message.attachment.name}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-8 h-8 bg-[#120A2A] rounded-full flex items-center justify-center"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Icon icon="lucide:download" className="w-4 h-4 text-[#906EFF]" />
-                    </a>
+                    {message.attachment.url && (
+                      <a 
+                        href={message.attachment.url} 
+                        download={message.attachment.name}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 bg-[#120A2A] rounded-full flex items-center justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Icon icon="lucide:download" className="w-4 h-4 text-[#906EFF]" />
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
@@ -205,6 +242,7 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
                 setShowActions(false);
               }}
             >
+              {/* Reply */}
               <button 
                 className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center transition-all",
@@ -213,9 +251,11 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
                 onMouseEnter={() => setActiveAction("reply")}
                 onMouseLeave={() => setActiveAction(null)}
                 onClick={handleReply}
+                title="Reply"
               >
                 <Icon icon="lucide:reply" className="w-4 h-4" />
               </button>
+              {/* Copy text */}
               <button 
                 className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center transition-all",
@@ -226,6 +266,7 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
                 onMouseEnter={() => message.content && setActiveAction("copy")}
                 onMouseLeave={() => setActiveAction(null)}
                 onClick={handleCopy}
+                title="Copy"
               >
                 <Icon icon="lucide:copy" className="w-4 h-4" />
               </button>
@@ -236,19 +277,27 @@ export function MessageBubble({ message, showAvatar = true, showTime = true, onR
                 )}
                 onMouseEnter={() => setActiveAction("heart")}
                 onMouseLeave={() => setActiveAction(null)}
+                onDoubleClick={(e) => e.stopPropagation()}
+                onClick={() => onHeart && onHeart(bubbleIndex)}
+                title="Heart"
               >
                 <Icon icon="lucide:heart" className="w-4 h-4" />
               </button>
-              <button 
-                className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center transition-all",
-                  activeAction === "more" ? "bg-[#906EFF] text-white" : "hover:bg-[#1A0F3E] text-[#8E7EB3]"
-                )}
-                onMouseEnter={() => setActiveAction("more")}
-                onMouseLeave={() => setActiveAction(null)}
-              >
-                <Icon icon="lucide:more-horizontal" className="w-4 h-4" />
-              </button>
+              
+              {message.isUser && (
+                <button 
+                  className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center transition-all",
+                    activeAction === "delete" ? "bg-[#906EFF] text-white" : "hover:bg-[#1A0F3E] text-[#8E7EB3]"
+                  )}
+                  onMouseEnter={() => setActiveAction("delete")}
+                  onMouseLeave={() => setActiveAction(null)}
+                  onClick={() => onDelete && onDelete(bubbleIndex)}
+                  title="Delete for me"
+                >
+                  <Icon icon="lucide:trash-2" className="w-4 h-4" />
+                </button>
+              )}
             </div>
           )}
         </div>

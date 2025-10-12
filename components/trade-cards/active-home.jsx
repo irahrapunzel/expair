@@ -1,59 +1,105 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function ActiveTradeHome({ 
   name, 
   profilePic, 
-  //level, 
-  //rating, 
+  username,
   offering, 
   totalXp, 
   deadline 
 }) {
-  const [openMenuIndex, setOpenMenuIndex] = useState(null);
+  const [imageError, setImageError] = useState(false);
+  const router = useRouter();
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const handleCardClick = () => {
+    router.push('/home/trades/active');
+  };
 
   return (
     <div
-      className="flex flex-col w-[440px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[20px] relative"
+      className="flex flex-col w-[440px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[20px] relative cursor-pointer hover:scale-[1.02] transition-transform"
       style={{
         background: 'radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)'
       }}
+      onClick={handleCardClick}
     >
       {/* Top Row */}
       <div className="flex justify-between items-center w-full">
         <div className="flex items-center gap-[10px]">
-          <Image
-            src={profilePic || "/assets/defaultavatar.png"}
-            alt="Avatar"
-            width={25}
-            height={25}
-            className="rounded-full object-cover"
-          />
+          {/* Clickable Profile Picture */}
+          {username ? (
+            <Link 
+              href={`/home/profile/${username}`} 
+              className="flex-shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="relative w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#0038FF] transition-all">
+                <Image
+                  src={
+                    !imageError && profilePic 
+                      ? profilePic 
+                      : "/assets/defaultavatar.png"
+                  }
+                  alt={`${name}'s avatar`}
+                  width={25}
+                  height={25}
+                  className="rounded-full object-cover"
+                  onError={handleImageError}
+                />
+              </div>
+            </Link>
+          ) : (
+            <Image
+              src={
+                !imageError && profilePic 
+                  ? profilePic 
+                  : "/assets/defaultavatar.png"
+              }
+              alt="Avatar"
+              width={25}
+              height={25}
+              className="rounded-full object-cover"
+              onError={handleImageError}
+            />
+          )}
+          
           <div className="flex items-center gap-[8px]">
-            <p className="text-base">{name}</p>
+            {/* Clickable Name */}
+            {username ? (
+              <Link 
+                href={`/home/profile/${username}`} 
+                className="hover:text-[#0038FF] transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-base cursor-pointer">{name}</p>
+              </Link>
+            ) : (
+              <p className="text-base">{name}</p>
+            )}
             <div className="flex items-center gap-[4px]">
-              {/*} <span className="text-xs text-white/60">LVL {level}</span>
-              <div className="flex items-center gap-[2px]">
-                <Icon icon="mdi:star" className="text-yellow-400 text-xs" />
-                <span className="text-xs text-white/60">{rating.toFixed(1)}</span> 
-              </div>*/}
             </div>
           </div>
         </div>
-        <div className="relative">
-          <button onClick={() => setOpenMenuIndex(openMenuIndex ? null : 1)}>
-            <Icon icon="mdi:dots-horizontal" className="text-white text-xl" />
+        <Link 
+          href="/home/help"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
+            <Icon
+              icon="mdi:alert-circle-outline"
+              className="text-white text-base"
+            />
+            Report
           </button>
-          {openMenuIndex && (
-            <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-20 shadow-lg">
-              <button className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full">
-                <Icon icon="mdi:flag" className="text-white text-base" />
-                Report
-              </button>
-            </div>
-          )}
-        </div>
+        </Link>
       </div>
 
       {/* Content */}

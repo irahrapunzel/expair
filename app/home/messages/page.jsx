@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 import { Inter, Archivo } from "next/font/google";
 import { Icon } from "@iconify/react";
 import MessageList from "../../../components/messages/message-list";
@@ -10,368 +13,322 @@ const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
 
 export default function MessagesPage() {
-  const [selectedConversation, setSelectedConversation] = useState(0);
+  const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [conversations, setConversations] = useState([]);
 
-  // Prevent body scrolling on this page
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
-  const [conversations, setConversations] = useState([
-    {
-      id: 0,
-      name: "Emily Johnson",
-      avatar: "/assets/defaultavatar.png",
-      lastMessage: "Nothing in particular. Just bring the tools you usually use.",
-      time: "11:11 am",
-      unread: false,
-      level: 15,
-      rating: "5.0",
-      ratingLabel: "Rising Star",
-      messages: [
-        {
-          sender: "Emily Johnson",
-          content: "Yep! We can do so. Just send me the calendar invite as well: johndoe25@gmail.com.",
-          time: "10:45 am",
-          isUser: false
-        },
-        {
-          sender: "Emily Johnson",
-          content: "BTW, I'll let you know when my garden needs tending. We can schedule after the logo is done 😊",
-          time: "10:47 am",
-          isUser: false
-        },
-        {
-          sender: "Emily Johnson",
-          content: "Do you need me to bring anything on the day of the garden maintenance? I might need to prepare it or purchase it in advance.",
-          time: "11:05 am",
-          isUser: false
-        },
-        {
-          sender: "Emily Johnson",
-          content: "Here's the cafe logo draft I've been working on. What do you think?",
-          time: "11:07 am",
-          isUser: false,
-          attachment: {
-            name: "cafe_logo_draft.png",
-            type: "image/png",
-            url: "https://placehold.co/600x400/15042C/906EFF/png?text=Cafe+Logo+Draft",
-            size: 256000
-          }
-        },
-        {
-          sender: "You",
-          content: "Nothing in particular. Just bring the tools you usually use.",
-          time: "11:11 am",
-          isUser: true
-        }
-      ],
-      requests: {
-        requested: "Logo Design for New Cafe",
-        exchange: "Gardening Services"
-      }
-    },
-    {
-      id: 1,
-      name: "David Chen",
-      avatar: "/assets/defaultavatar.png",
-      lastMessage: "Hi John, I'm really looking forward to our coding session tomorrow!",
-      time: "10:58 am",
-      unread: true,
-      level: 9,
-      rating: "4.8",
-      ratingLabel: "Stellar",
-      messages: [
-        {
-          sender: "David Chen",
-          content: "Hey John! How's it going?",
-          time: "10:45 am",
-          isUser: false
-        },
-        {
-          sender: "David Chen",
-          content: "I wanted to confirm our coding session for tomorrow. Still on for 3pm?",
-          time: "10:50 am",
-          isUser: false
-        },
-        {
-          sender: "David Chen",
-          content: "Hi John, I'm really looking forward to our coding session tomorrow!",
-          time: "10:58 am",
-          isUser: false
-        }
-      ],
-      requests: {
-        requested: "Coding Mentorship",
-        exchange: "Home-Cooked Meals"
-      }
-    },
-    {
-      id: 2,
-      name: "Sarah Kim",
-      avatar: "/assets/defaultavatar.png",
-      lastMessage: "Appreciate your help during the workshop yesterday. You were amazing!",
-      time: "10:29 am",
-      unread: true,
-      level: 12,
-      rating: "4.9",
-      ratingLabel: "Stellar",
-      messages: [
-        {
-          sender: "Sarah Kim",
-          content: "Hi John! The website looks amazing. Thank you for your hard work.",
-          time: "9:15 am",
-          isUser: false
-        },
-        {
-          sender: "Sarah Kim",
-          content: "The client is very happy with the results.",
-          time: "9:18 am",
-          isUser: false
-        },
-        {
-          sender: "You",
-          content: "That's great to hear! I'm glad they liked it.",
-          time: "10:05 am",
-          isUser: true
-        },
-        {
-          sender: "Sarah Kim",
-          content: "Appreciate your help during the workshop yesterday. You were amazing!",
-          time: "10:29 am",
-          isUser: false
-        }
-      ],
-      requests: {
-        requested: "Website Design",
-        exchange: "Marketing Consultation"
-      }
-    },
-    {
-      id: 3,
-      name: "Michael Lee",
-      avatar: "/assets/defaultavatar.png",
-      lastMessage: "Thanks again for the awesome photography session. The pictures are perfect!",
-      time: "9:43 am",
-      unread: false,
-      level: 14,
-      rating: "5.0",
-      ratingLabel: "Rising Star",
-      messages: [
-        {
-          sender: "Michael Lee",
-          content: "John, I received the photos yesterday.",
-          time: "9:30 am",
-          isUser: false
-        },
-        {
-          sender: "Michael Lee",
-          content: "They turned out even better than I expected!",
-          time: "9:32 am",
-          isUser: false
-        },
-        {
-          sender: "You",
-          content: "I'm really glad you like them. It was a great shoot.",
-          time: "9:40 am",
-          isUser: true
-        },
-        {
-          sender: "You",
-          content: "Here's the photography invoice as requested",
-          time: "9:41 am",
-          isUser: true,
-          attachment: {
-            name: "photography_invoice.pdf",
-            type: "application/pdf",
-            url: "#",
-            size: 128500
-          }
-        },
-        {
-          sender: "Michael Lee",
-          content: "Thanks again for the awesome photography session. The pictures are perfect!",
-          time: "9:43 am",
-          isUser: false
-        }
-      ],
-      requests: {
-        requested: "Professional Photography",
-        exchange: "Guitar Lessons"
-      }
-    },
-    {
-      id: 4,
-      name: "Mark Thompson",
-      avatar: "/assets/defaultavatar.png",
-      lastMessage: "Let me know if you still want help with the move this weekend.",
-      time: "9:10 am",
-      unread: false,
-      level: 8,
-      rating: "4.6",
-      ratingLabel: "Promising",
-      messages: [
-        {
-          sender: "Mark Thompson",
-          content: "Hey, about the furniture assembly next week...",
-          time: "8:50 am",
-          isUser: false
-        },
-        {
-          sender: "Mark Thompson",
-          content: "I was thinking we could start around 10am if that works for you?",
-          time: "8:52 am",
-          isUser: false
-        },
-        {
-          sender: "You",
-          content: "10am sounds great. I'll have everything ready by then.",
-          time: "9:05 am",
-          isUser: true
-        },
-        {
-          sender: "Mark Thompson",
-          content: "Let me know if you still want help with the move this weekend.",
-          time: "9:10 am",
-          isUser: false
-        }
-      ],
-      requests: {
-        requested: "Moving Assistance",
-        exchange: "Computer Repair"
-      }
-    },
-    {
-      id: 5,
-      name: "Priya Patel",
-      avatar: "/assets/defaultavatar.png",
-      lastMessage: "Thanks for the tutoring session yesterday. My son's math grades are already improving!",
-      time: "8:00 am",
-      unread: false,
-      level: 11,
-      rating: "4.7",
-      ratingLabel: "Stellar",
-      messages: [
-        {
-          sender: "Priya Patel",
-          content: "Good morning John!",
-          time: "7:45 am",
-          isUser: false
-        },
-        {
-          sender: "You",
-          content: "Good morning Priya. How's your son doing with the math problems I gave him?",
-          time: "7:50 am",
-          isUser: true
-        },
-        {
-          sender: "Priya Patel",
-          content: "He completed all of them last night and actually enjoyed it!",
-          time: "7:55 am",
-          isUser: false
-        },
-        {
-          sender: "Priya Patel",
-          content: "Thanks for the tutoring session yesterday. My son's math grades are already improving!",
-          time: "8:00 am",
-          isUser: false
-        }
-      ],
-      requests: {
-        requested: "Math Tutoring",
-        exchange: "Home-Cooked Meals"
-      }
-    },
-    {
-      id: 6,
-      name: "Mary Jean",
-      avatar: "/assets/defaultavatar.png",
-      lastMessage: "Couldn't have done it without your design expertise. The logo is perfect!",
-      time: "7:56 am",
-      unread: false,
-      level: 10,
-      rating: "4.9",
-      ratingLabel: "Stellar",
-      messages: [
-        {
-          sender: "You",
-          content: "Hi Mary, I've sent over the final logo designs. Let me know what you think!",
-          time: "Yesterday",
-          isUser: true
-        },
-        {
-          sender: "Mary Jean",
-          content: "Just opened them. They look amazing!",
-          time: "Yesterday",
-          isUser: false
-        },
-        {
-          sender: "Mary Jean",
-          content: "I think the third option is exactly what I was looking for. The client will love it.",
-          time: "7:50 am",
-          isUser: false
-        },
-        {
-          sender: "Mary Jean",
-          content: "Couldn't have done it without your design expertise. The logo is perfect!",
-          time: "7:56 am",
-          isUser: false
-        }
-      ],
-      requests: {
-        requested: "Logo Design",
-        exchange: "Social Media Management"
-      }
+  const loadUnreadCounts = () => {
+    try {
+      return JSON.parse(localStorage.getItem('unread_counts') || '{}');
+    } catch {
+      return {};
     }
-  ]);
-  
+  };
+  const saveUnreadCounts = (obj) => {
+    try { localStorage.setItem('unread_counts', JSON.stringify(obj)); } catch { }
+  };
+
+  const fetchConversationData = async (conversationId) => {
+    console.log('=== FETCHING CONVERSATION DATA ===', conversationId);
+    if (!session?.access) {
+      console.log('No session access token');
+      return;
+    }
+    try {
+      console.log('Making API call to fetch conversation data...');
+      const resp = await fetch(`${BACKEND_URL}/conversations/`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access}`,
+        },
+        credentials: 'include',
+      });
+      console.log('API response status:', resp.status);
+      if (!resp.ok) {
+        console.log('API response not OK:', resp.status);
+        return;
+      }
+      const data = await resp.json();
+      console.log('API response data:', data);
+
+      // Find the specific conversation
+      const conv = data.conversations?.find(c => c.conversation_id === conversationId);
+      console.log('Found conversation:', conv);
+      if (conv) {
+        const userName = conv.other_user_name?.trim() || conv.other_user_username?.trim() || `User #${conv.other_user_id}`;
+        console.log('Final userName:', userName);
+
+        // Update the conversation in the list
+        setConversations(prev => prev.map(c =>
+          c.id === conversationId
+            ? {
+              ...c,
+              name: userName,
+              otherUsername: conv.other_user_username || null,
+              otherUserId: conv.other_user_id,
+              avatar: conv.other_user_profilepic ? `${BACKEND_URL}/media/${conv.other_user_profilepic}` : "/assets/defaultavatar.png",
+            }
+            : c
+        ));
+        console.log('Updated conversation in state');
+      } else {
+        console.log('Conversation not found in API response');
+      }
+    } catch (error) {
+      console.error('Error fetching conversation data:', error);
+    }
+  };
+
+  // Load conversation list from backend so both users see threads
+  useEffect(() => {
+    const loadConversations = async () => {
+      try {
+        const resp = await fetch(`${BACKEND_URL}/conversations/`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access ? { Authorization: `Bearer ${session.access}` } : {}),
+          },
+          credentials: 'include',
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        console.log('Conversations API response:', data); // Debug log
+        const currentId = (session?.user?.user_id ?? session?.user?.id) ? String(session?.user?.user_id ?? session?.user?.id) : null;
+        const storedCounts = loadUnreadCounts();
+        const list = (data.conversations || []).map((c) => {
+          // Better fallback logic for user names
+          console.log('Processing conversation:', c); // Debug log
+          const userName = c.other_user_name?.trim() || c.other_user_username?.trim() || `User #${c.other_user_id || c.conversation_id}`;
+          console.log('Final userName:', userName); // Debug log
+
+          let avatarUrl = "/assets/defaultavatar.png"; // Default fallback
+
+          if (c.other_user_profilepic) {
+            // If it's already a full Cloudinary URL, use it directly
+            if (c.other_user_profilepic.startsWith('http://') || c.other_user_profilepic.startsWith('https://')) {
+              avatarUrl = c.other_user_profilepic;
+            }
+            // Legacy support: if it's a relative path, prepend backend URL
+            else {
+              avatarUrl = `${BACKEND_URL}/media/${c.other_user_profilepic}`;
+            }
+          }
+
+          return {
+            id: c.conversation_id,
+            name: userName,
+            otherUsername: c.other_user_username || null,
+            otherUserId: c.other_user_id,
+            avatar: avatarUrl,
+            lastMessage: (() => {
+              if (!c.last_message) return "";
+              const isUser = currentId && String(c.last_sender_id) === currentId;
+              const speaker = isUser ? 'You' : (c.other_user_name || c.other_user_username || 'Partner');
+              return `${speaker}: ${c.last_message}`;
+            })(),
+            time: c.last_timestamp ? new Date(c.last_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""),
+            unread: (storedCounts && storedCounts[String(c.conversation_id)] > 0) || false,
+            unreadCount: Number(storedCounts[String(c.conversation_id)] || 0),
+            level: 1,
+            rating: "0.0",
+            ratingLabel: "",
+            messages: [],
+            requests: c.reqname || c.exchange ? { requested: c.reqname || '', exchange: c.exchange || '' } : undefined,
+          };
+        });
+        setConversations(list);
+        // If arriving without a selection but there is a list, keep none selected
+      } catch (e) {
+        // silently ignore; UI will show empty
+      }
+    };
+    if (session?.access) loadConversations();
+  }, [session?.access]);
+
+  // If arriving with ?thread=ID, fetch that conversation/messages; else if ?user, create stub
+  useEffect(() => {
+    const threadId = searchParams?.get('thread');
+    const username = searchParams?.get('user');
+    if (!threadId && !username) return;
+
+    if (threadId) {
+      // Try to find the conversation in existing data first
+      const idNum = Number(threadId);
+      setConversations(prev => {
+        const exists = prev.find(c => c.id === idNum);
+        if (exists) {
+          setSelectedConversation(idNum);
+          return prev;
+        }
+
+        // If not found, create a temporary placeholder and fetch the real data
+        const storedCounts = loadUnreadCounts();
+        const tempConv = {
+          id: idNum,
+          username: undefined,
+          name: "Loading...", // Temporary name while fetching
+          avatar: "/assets/defaultavatar.png",
+          lastMessage: "",
+          time: "",
+          unread: (storedCounts && storedCounts[String(idNum)] > 0) || false,
+          unreadCount: Number(storedCounts[String(idNum)] || 0),
+          level: 1,
+          rating: "0.0",
+          ratingLabel: "",
+          messages: [],
+        };
+        setSelectedConversation(idNum);
+
+        // Fetch the real conversation data
+        fetchConversationData(idNum);
+
+        return [tempConv, ...prev];
+      });
+      return;
+    }
+
+    // ?user=USERNAME fallback
+    setConversations(prev => {
+      // If a conversation with this username already exists, select it
+      const existing = prev.find(
+        (c) => c.username?.toLowerCase() === username.toLowerCase()
+      );
+      if (existing) {
+        setSelectedConversation(existing.id);
+        return prev;
+      }
+
+      // Otherwise create a new empty conversation stub and append
+      const storedCounts = loadUnreadCounts();
+      const newConv = {
+        id: Date.now(),
+        username,
+        name: username,
+        avatar: "/assets/defaultavatar.png",
+        lastMessage: "",
+        time: "",
+        unread: false,
+        unreadCount: Number(storedCounts[String(username)] || 0),
+        level: 1,
+        rating: "0.0",
+        ratingLabel: "",
+        messages: [],
+        requests: undefined,
+      };
+      setSelectedConversation(newConv.id);
+      return [newConv, ...prev];
+    });
+  }, [searchParams]);
+
   // Function to update message in a conversation, update the sidebar preview, and move to top
   const updateConversation = (conversationId, newMessage) => {
     setConversations(prevConversations => {
+      const counts = loadUnreadCounts();
       // First, find the conversation and update it
       const updatedConversations = prevConversations.map(conv => {
         if (conv.id === conversationId) {
           // Add message to conversation messages array
           const updatedMessages = [...(conv.messages || []), newMessage];
-          
+
           // Create appropriate lastMessage text
           let lastMessage = newMessage.content;
           if (!lastMessage && newMessage.attachment) {
-            lastMessage = newMessage.attachment.type.startsWith('image/') 
+            lastMessage = newMessage.attachment.type.startsWith('image/')
               ? '📎 Image'
               : '📎 File';
           }
-          
+
           // Update the lastMessage and time for the conversation preview
+          const nextUnread = !newMessage.isUser ? (Number(conv.unreadCount || 0) + 1) : (conv.unreadCount || 0);
+          if (!newMessage.isUser) {
+            counts[String(conversationId)] = nextUnread;
+          }
           return {
             ...conv,
             messages: updatedMessages,
             lastMessage: lastMessage,
             time: newMessage.time,
-            unread: !newMessage.isUser // Mark as unread if not from user
+            unread: !newMessage.isUser, // Mark as unread if not from user
+            unreadCount: nextUnread
           };
         }
         return conv;
       });
-      
+      saveUnreadCounts(counts);
+
       // Now reorder to move the updated conversation to the top
       const conversationToMove = updatedConversations.find(c => c.id === conversationId);
       const otherConversations = updatedConversations.filter(c => c.id !== conversationId);
-      
+
       return [conversationToMove, ...otherConversations];
     });
   };
-  
+
+  const handleDeleteConversation = async (conversationId) => {
+    try {
+      console.log('Deleting conversation:', conversationId);
+      
+      const response = await fetch(
+        `${BACKEND_URL}/conversations/${conversationId}/delete/`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access ? { Authorization: `Bearer ${session.access}` } : {}),
+          },
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete conversation');
+      }
+
+      const result = await response.json();
+      console.log('Conversation deleted successfully:', result);
+
+      // Remove from local state
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+
+      // If the deleted conversation was selected, deselect it
+      if (selectedConversation === conversationId) {
+        setSelectedConversation(null);
+      }
+
+      // Clean up unread counts
+      try {
+        const key = 'unread_counts';
+        const store = JSON.parse(localStorage.getItem(key) || '{}');
+        if (store[String(conversationId)]) {
+          delete store[String(conversationId)];
+          localStorage.setItem(key, JSON.stringify(store));
+        }
+      } catch (e) {
+        console.error('Failed to clean up unread counts:', e);
+      }
+
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      throw error; // Re-throw to let the component handle the error
+    }
+  };
+
   // Function to mark a conversation as read when viewed
   const markConversationAsRead = (conversationId) => {
     setConversations(prevConversations => {
+      const counts = loadUnreadCounts();
+      if (counts[String(conversationId)] !== undefined) {
+        counts[String(conversationId)] = 0;
+        saveUnreadCounts(counts);
+      }
       return prevConversations.map(conv => {
-        if (conv.id === conversationId && conv.unread) {
+        if (conv.id === conversationId && (conv.unread || conv.unreadCount > 0)) {
           return {
             ...conv,
-            unread: false
+            unread: false,
+            unreadCount: 0
           };
         }
         return conv;
@@ -383,17 +340,19 @@ export default function MessagesPage() {
     <div className={`w-full px-[67px] mx-auto text-white ${inter.className} overflow-hidden`} style={{ height: 'calc(100vh - 140px)', paddingBottom: '20px' }}>
       <div className="flex gap-6 h-full overflow-hidden">
         {/* Left side - Message list */}
-        <MessageList 
+        <MessageList
           conversations={conversations}
           selectedId={selectedConversation}
           onSelect={(id) => setSelectedConversation(id)}
+          onDeleteConversation={handleDeleteConversation}
         />
 
         {/* Right side - Current conversation */}
-        <MessageConversation 
-          conversation={conversations.find(c => c.id === selectedConversation)} 
+        <MessageConversation
+          conversation={conversations.find(c => c.id === selectedConversation)}
           onSendMessage={(message) => updateConversation(selectedConversation, message)}
           onConversationViewed={() => markConversationAsRead(selectedConversation)}
+          onDeleteConversation={handleDeleteConversation}
         />
       </div>
     </div>

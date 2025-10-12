@@ -15,10 +15,7 @@ function HelpSubmitDialog({ isOpen, onClose }) {
   return (
     <div className="fixed inset-0 flex items-center justify-center z-[60]">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      ></div>
+      <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
 
       {/* Dialog */}
       <div
@@ -97,10 +94,18 @@ export function HelpForm() {
 
     try {
       // Send the data to the backend API endpoint
-      const response = await fetch("/api/send-help-request", {
-        method: "POST",
-        body: formData,
-      });
+      // Get JWT token (saved during login)
+      const token = localStorage.getItem("access_token");
+
+      // Send the data to the backend API endpoint
+      const response = await fetch(
+        "http://localhost:8000/create-support-ticket/",
+        {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+        }
+      );
 
       if (response.ok) {
         // After successful submission, show the success dialog
@@ -120,7 +125,9 @@ export function HelpForm() {
           setError(errorData.error || "Failed to submit help request.");
         } catch {
           // If it's not JSON, display a generic error and log the response
-          setError("An unexpected server error occurred. Please check the console for details.");
+          setError(
+            "An unexpected server error occurred. Please check the console for details."
+          );
         }
       }
     } catch (err) {
@@ -263,7 +270,10 @@ export function HelpForm() {
         </form>
       </div>
 
-      <HelpSubmitDialog isOpen={showSuccessDialog} onClose={handleCloseDialog} />
+      <HelpSubmitDialog
+        isOpen={showSuccessDialog}
+        onClose={handleCloseDialog}
+      />
     </>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSession, signIn } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -10,12 +10,12 @@ import { useLoginStore } from "../../../stores/loginStore";
 import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
 import { Inter } from "next/font/google";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export default function LoginPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
-
+  const { status } = useSession();
   const [captcha, setCaptcha] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -32,7 +32,7 @@ export default function LoginPage() {
     console.log("Password length:", password?.length);
     console.log("Captcha:", !!captcha);
 
-    // Basic form checks
+    // Basic form checks (Keep these for client-side UX)
     if (!username || !password) {
       setErrorMessage("Please enter both username and password");
       return;
@@ -42,59 +42,60 @@ export default function LoginPage() {
       return;
     }
 
-    try {
-      console.log("Calling NextAuth signIn...");
+    // --- START OF LOGIC CHANGE ---
 
-      const result = await signIn("credentials", {
-        identifier: username, // This goes to your NextAuth credentials provider
-        password: password,
-        redirect: false, // Don't auto-redirect, handle it manually
-        rememberMe: rememberMe,
-      });
+    // Call the NextAuth 'credentials' provider.
+    // NextAuth will use the SupabaseAdapter and the logic you defined in [...nextauth].js.
+    const result = await signIn("credentials", {
+      redirect: false, // Prevents automatic redirect on failure
+      // We send 'identifier' (username or email) and 'password'
+      identifier: username, // Assuming 'username' state holds the user's input (can be email or username)
+      password: password,
+    });
 
-      console.log("NextAuth signIn result:", result);
+    console.log("NextAuth Sign-in Result:", result);
 
-      if (result?.ok) {
-        // Login successful
-        console.log("Login successful, redirecting to /home");
-        router.push("/home");
-      } else {
-        // Login failed - provide more specific error messages
-        console.log("Login failed:", result);
-
-        let errorMsg = "Login failed. Please try again.";
-
-        if (result?.error === "CredentialsSignin") {
-          errorMsg = "Invalid username/email or password";
-        } else if (result?.error) {
-          errorMsg = result.error;
-        }
-
-        setErrorMessage(errorMsg);
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setErrorMessage("Network error. Please try again.");
+    if (result?.error) {
+      // Handle error message from the NextAuth response
+      setErrorMessage(
+        result.error === "CredentialsSignin"
+          ? "Invalid login credentials."
+          : result.error
+      );
+      return;
     }
-  };
 
-  const handleGoogleLogin = async () => {
-    try {
-      const res = await signIn("google", {
-        prompt: "select_account",
-        callbackUrl: "/home",
-      });
-
-      if (res && res.error) {
-        // Log the error message from NextAuth
-        console.log("Google login failed:", res.error);
+    // Handle successful login
+    if (result?.ok) {
+      // If 'rememberMe' is checked, you might want to save the identifier locally (Optional)
+      if (rememberMe) {
+        // Add local storage logic here if needed
       }
 
-      console.log("Sign in result:", res); // This will log the result of the sign-in attempt
-    } catch (error) {
-      console.error("Google login error:", error);
+      // Redirect to the home page or dashboard on success
+      router.push("/home");
     }
+    // --- END OF LOGIC CHANGE ---
   };
+
+const handleGoogleLogin = async () => {
+  try {
+    console.log("Starting Google OAuth...");
+    setErrorMessage(""); 
+
+    // Start Google OAuth - NextAuth will handle the redirect
+    await signIn("google", {
+      callbackUrl: `${window.location.origin}/auth/callback`,
+      redirect: true, // Let NextAuth handle the redirect
+    });
+
+    // This code won't execute because redirect: true
+
+  } catch (error) {
+    console.error("Google login error:", error);
+    setErrorMessage("An error occurred during Google sign-in. Please try again.");
+  }
+};
 
   // Redirect if already authenticated
   useEffect(() => {

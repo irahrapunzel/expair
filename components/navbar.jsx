@@ -31,7 +31,8 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [bellRect, setBellRect] = useState(null);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true); // Always show badge
+  const [notifCount, setNotifCount] = useState(5); // Hardcoded count
   const bellRef = useRef(null);
 
   // Directly derive the avatar URL from the session object.
@@ -42,6 +43,9 @@ export default function Navbar() {
     session?.user?.image ||
     "/assets/defaultavatar.png";
 
+  console.log("🔍 Navbar session:", session);
+  console.log("🖼️ Navbar profileImage:", profileImage);
+
   // Build dynamic profile links
   const profileSlug =
     session?.user?.username ??
@@ -49,8 +53,6 @@ export default function Navbar() {
   const profileHref = `/home/profile/${profileSlug}`;
   const settingsHref = `/home/profile/${profileSlug}/settings`;
 
-  // Your existing useEffect hooks and functions are fine
-  // The old useEffect for setting avatarUrl is now removed
   useEffect(() => {
     function handleClickOutside(event) {
       if (bellRef.current && !bellRef.current.contains(event.target)) {
@@ -77,6 +79,7 @@ export default function Navbar() {
   };
 
   const handleAllNotificationsRead = () => {
+    setNotifCount(0);
     setHasUnreadNotifications(false);
   };
 
@@ -109,7 +112,7 @@ export default function Navbar() {
 
   return (
     <header
-      className={`${inter.className} w-full py-6 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
+      className={`${inter.className} w-full py-6 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300 ${inter.className}`}
     >
       <div className="flex items-center justify-between max-w-[1440px] mx-auto px-6 sm:px-[250px]">
         {/* Logo and Button */}
@@ -149,7 +152,9 @@ export default function Navbar() {
                 Trades <ChevronDown className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-[#15042C] text-white border border-[#2B124C]">
+            <DropdownMenuContent
+              className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C]`}
+            >
               <Link href="/home/trades/pending">
                 <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
                   Pending
@@ -169,14 +174,37 @@ export default function Navbar() {
           <Link href="/home/messages">
             <div className="relative cursor-pointer">
               <MessageSquareText className="text-white w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full" />
+              {/* per-conversation unread count aggregated; read from localStorage key 'unread_counts' */}
+              {(() => {
+                try {
+                  const data = JSON.parse(
+                    typeof window !== "undefined"
+                      ? localStorage.getItem("unread_counts") || "{}"
+                      : "{}"
+                  );
+                  const total = Object.values(data).reduce(
+                    (a, b) => a + Number(b || 0),
+                    0
+                  );
+                  if (total > 0) {
+                    return (
+                      <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
+                        {total}
+                      </span>
+                    );
+                  }
+                } catch {}
+                return null;
+              })()}
             </div>
           </Link>
           <div className="relative" ref={bellRef}>
             <div className="cursor-pointer" onClick={toggleNotification}>
               <Bell className="text-white w-5 h-5" />
               {hasUnreadNotifications && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full" />
+                <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
+                  {notifCount}
+                </span>
               )}
             </div>
           </div>
@@ -190,13 +218,13 @@ export default function Navbar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="rounded-full border border-white focus:outline-none focus:ring-2 focus:ring-[#6DDFFF]">
-                {/* Use the new profileImage variable here */}
                 <ProfileAvatar src={profileImage} size={25} />
               </button>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent
               align="end"
-              className="bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]"
+              className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]`}
             >
               <Link href={profileHref}>
                 <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">

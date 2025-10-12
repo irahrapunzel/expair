@@ -38,6 +38,7 @@ export default function HomePage() {
   const [selectedPartner, setSelectedPartner] = useState(null);
 
   // Explore section state
+  const [exploreLoading, setExploreLoading] = useState(true);
   const [showExploreSortMenu, setShowExploreSortMenu] = useState(false);
   const [showExploreFilterMenu, setShowExploreFilterMenu] = useState(false);
   const [exploreSortBy, setExploreSortBy] = useState("recommended");
@@ -46,6 +47,7 @@ export default function HomePage() {
     skillCategory: "all",
     minLevel: 0,
   });
+  const hiddenKey = 'explore_hidden_trades'; // Changed from usernames to trades
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,36 +75,77 @@ export default function HomePage() {
 
   // Handle confirmation dialog actions
   const handleConfirmInterest = async () => {
-  setShowConfirmDialog(false);
-  
-  try {
-    const headers = { "Content-Type": "application/json" };
-    const token = session?.access || session?.accessToken;
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    
-    const response = await fetch(`${BACKEND_URL}/express-interest/`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        tradereq_id: selectedPartner?.tradereq_id,
-        requester_name: selectedPartner?.name
-      }),
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log("Interest expressed successfully:", data);
-      setShowSuccessDialog(true);
-    } else {
-      const errorData = await response.json();
-      console.error("Failed to express interest:", errorData.error);
-      // Show error message to user
+    setShowConfirmDialog(false);
+
+    try {
+      if (!selectedPartner?.tradereq_id) {
+        alert("Missing trade identifier. Please refresh and try again.");
+        return;
+      }
+      const headers = { "Content-Type": "application/json" };
+      const token = session?.access || session?.accessToken;
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      else {
+        alert("Please sign in to express interest.");
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/express-interest/`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          tradereq_id: selectedPartner?.tradereq_id,
+          requester_name: selectedPartner?.name
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Interest expressed successfully:", data);
+
+        // ✅ REMOVE CARD whether it's new interest OR reactivated interest
+        setExploreItems(prevItems =>
+          prevItems.filter(item => item.tradereq_id !== selectedPartner.tradereq_id)
+        );
+
+        // Show appropriate success message
+        if (data.reactivated) {
+          console.log("Reactivated declined interest - card removed from explore");
+        }
+
+        setShowSuccessDialog(true);
+      } else {
+        let message = "";
+        try {
+          const text = await response.text();
+          try {
+            const json = JSON.parse(text);
+            message = (json?.error || json?.detail || text || "").toString();
+          } catch {
+            message = text || "";
+          }
+        } catch {
+          message = "";
+        }
+
+        // If user already expressed interest, still remove card and show success
+        if (response.status === 400 && /already expressed interest/i.test(message)) {
+          setExploreItems(prevItems =>
+            prevItems.filter(item => item.tradereq_id !== selectedPartner.tradereq_id)
+          );
+          setShowSuccessDialog(true);
+          return;
+        }
+
+        const finalMsg = message || `Failed to express interest (HTTP ${response.status}).`;
+        console.error("Failed to express interest:", finalMsg);
+        alert(finalMsg);
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      alert("Network error while expressing interest. Please try again.");
     }
-  } catch (error) {
-    console.error("Network error:", error);
-    // Show error message to user
-  }
-};
+  };
 
   const handleCancelInterest = () => {
     setShowConfirmDialog(false);
@@ -203,11 +246,11 @@ export default function HomePage() {
     else if (hour >= 18 && hour < 22) { prefix = "Stellar evening"; emoji = "🌙"; }
 
     console.log("Session user object:", session?.user);
-    
+
     // 1) Prefer DB-backed name from session (Google or credentials via NextAuth)
     let first =
-      (session?.user?.first_name || "").trim() ||          
-      (session?.user?.name || "").trim().split(" ")[0];    
+      (session?.user?.first_name || "").trim() ||
+      (session?.user?.name || "").trim().split(" ")[0];
 
     // 2) Only use localStorage if no session data exists
     if (!first && !session?.user && typeof window !== "undefined") {
@@ -216,7 +259,7 @@ export default function HomePage() {
         localStorage.getItem("prefill_name") || "";
       first = fromLS.trim().split(" ")[0];
     }
-        
+
     if (!first) {
       // derive from username/email as a last resort (optional)
       const handle = session?.user?.username || session?.user?.email || "";
@@ -226,51 +269,83 @@ export default function HomePage() {
   }, [session]);
 
   // Load Explore feed from backend
-useEffect(() => {
-  (async () => {
+  useEffect(() => {
+    (async () => {
+      setExploreLoading(true);
+      try {
+        const headers = { "Content-Type": "application/json" };
+        const token = session?.access || session?.accessToken;
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const resp = await fetch(`${BACKEND_URL}/explore/feed/`, { headers });
+        if (!resp.ok) {
+          setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
+          return;
+        }
+        const data = await resp.json();
+
+        // 🔍 DEBUG: Check for duplicates in raw data
+        console.log("Raw API response:", data.items);
+        console.log("Total items:", data.items?.length);
+
+        const tradereqIds = data.items?.map(item => item.tradereq_id) || [];
+        const uniqueIds = [...new Set(tradereqIds)];
+        console.log("Unique tradereq_ids:", uniqueIds.length);
+        console.log("Total tradereq_ids:", tradereqIds.length);
+
+        if (uniqueIds.length !== tradereqIds.length) {
+          console.error("🚨 DUPLICATE tradereq_ids found in API response!");
+          const duplicates = tradereqIds.filter((id, index) => tradereqIds.indexOf(id) !== index);
+          console.error("Duplicate IDs:", duplicates);
+        }
+
+        // Check for duplicate names
+        const names = data.items?.map(item => item.name) || [];
+        const duplicateNames = names.filter((name, index) => names.indexOf(name) !== index);
+        if (duplicateNames.length > 0) {
+          console.log("Users with multiple requests:", [...new Set(duplicateNames)]);
+        }
+
+        const uniqueItems = Array.from(
+          new Map(data.items.map(item => [item.tradereq_id, item])).values()
+        );
+        // Filter out hidden trades from localStorage
+        let hidden = [];
+        try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
+        const hiddenSet = new Set(hidden.map(v => Number(v))); // Convert to numbers for trade IDs
+        const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
+
+        setExploreItems(filtered);
+      } catch (e) {
+        setExploreErr(e?.message || "Network error");
+      } finally {
+        setExploreLoading(false);
+      }
+    })();
+  }, [session]);
+
+  // Listen for hide updates from cards and refetch
+  const refreshExplore = async () => {
     try {
       const headers = { "Content-Type": "application/json" };
       const token = session?.access || session?.accessToken;
       if (token) headers["Authorization"] = `Bearer ${token}`;
       const resp = await fetch(`${BACKEND_URL}/explore/feed/`, { headers });
-      if (!resp.ok) {
-        setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
-        return;
-      }
+      if (!resp.ok) return;
       const data = await resp.json();
-      
-      // 🔍 DEBUG: Check for duplicates in raw data
-      console.log("Raw API response:", data.items);
-      console.log("Total items:", data.items?.length);
-      
-      const tradereqIds = data.items?.map(item => item.tradereq_id) || [];
-      const uniqueIds = [...new Set(tradereqIds)];
-      console.log("Unique tradereq_ids:", uniqueIds.length);
-      console.log("Total tradereq_ids:", tradereqIds.length);
-      
-      if (uniqueIds.length !== tradereqIds.length) {
-        console.error("🚨 DUPLICATE tradereq_ids found in API response!");
-        const duplicates = tradereqIds.filter((id, index) => tradereqIds.indexOf(id) !== index);
-        console.error("Duplicate IDs:", duplicates);
-      }
-      
-      // Check for duplicate names
-      const names = data.items?.map(item => item.name) || [];
-      const duplicateNames = names.filter((name, index) => names.indexOf(name) !== index);
-      if (duplicateNames.length > 0) {
-        console.log("Users with multiple requests:", [...new Set(duplicateNames)]);
-      }
-      
-      const uniqueItems = Array.from(
-        new Map(data.items.map(item => [item.tradereq_id, item])).values()
-      );
+      const uniqueItems = Array.from(new Map(data.items.map(item => [item.tradereq_id, item])).values());
+      let hidden = [];
+      try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
+      const hiddenSet = new Set(hidden.map(v => Number(v))); // Convert to numbers for trade IDs
+      const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
+      setExploreItems(filtered);
+    } catch { }
+  };
 
-      setExploreItems(uniqueItems);
-    } catch (e) {
-      setExploreErr(e?.message || "Network error");
-    }
-  })();
-}, [session]);
+  useEffect(() => {
+    const handler = () => refreshExplore();
+    window.addEventListener('explore:hide-updated', handler);
+    return () => window.removeEventListener('explore:hide-updated', handler);
+  }, [session]);
 
   const fmtUntil = (iso) => {
     if (!iso) return "";
@@ -284,7 +359,7 @@ useEffect(() => {
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
           item.name?.toLowerCase().includes(query) ||
           item.need?.toLowerCase().includes(query) ||
           item.offer?.toLowerCase().includes(query);
@@ -293,13 +368,13 @@ useEffect(() => {
 
       // Rating filter
       if (exploreFilters.minRating > 0 && item.rating < exploreFilters.minRating) return false;
-      
+
       // Level filter
       if (exploreFilters.minLevel > 0 && item.level < exploreFilters.minLevel) return false;
-      
+
       // Skill category filter (you may need to add skillCategory to your backend data)
       // if (exploreFilters.skillCategory !== "all" && item.skillCategory !== exploreFilters.skillCategory) return false;
-      
+
       return true;
     });
 
@@ -325,28 +400,28 @@ useEffect(() => {
   const [homeTradesLoading, setHomeTradesLoading] = useState(true);
 
   useEffect(() => {
-  const fetchHomeActiveTrades = async () => {
-    try {
-      const headers = { "Content-Type": "application/json" };
-      const token = session?.access || session?.accessToken;
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      
-      const response = await fetch(`${BACKEND_URL}/home/active-trades/`, { headers });
-      if (response.ok) {
-        const data = await response.json();
-        setHomeActiveTrades(data.home_active_trades);
-      }
-    } catch (error) {
-      console.error("Error fetching home active trades:", error);
-    } finally {
-      setHomeTradesLoading(false);
-    }
-  };
+    const fetchHomeActiveTrades = async () => {
+      try {
+        const headers = { "Content-Type": "application/json" };
+        const token = session?.access || session?.accessToken;
+        if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  if (session) {
-    fetchHomeActiveTrades();
-  }
-}, [session]);
+        const response = await fetch(`${BACKEND_URL}/home/active-trades/`, { headers });
+        if (response.ok) {
+          const data = await response.json();
+          setHomeActiveTrades(data.home_active_trades);
+        }
+      } catch (error) {
+        console.error("Error fetching home active trades:", error);
+      } finally {
+        setHomeTradesLoading(false);
+      }
+    };
+
+    if (session) {
+      fetchHomeActiveTrades();
+    }
+  }, [session]);
 
   return (
     <div
@@ -407,10 +482,9 @@ useEffect(() => {
             <ActiveTradeCardHome
               key={trade.tradereq_id}
               name={trade.other_user.name}
+              username={trade.other_user.username}
               profilePic={trade.other_user.profilePic}
-              //level={trade.other_user.level}
-              //rating={trade.other_user.rating}
-              offering={trade.offering}
+              offering={trade.exchange}
               totalXp={trade.total_xp}
               deadline={trade.deadline_formatted}
             />
@@ -452,41 +526,37 @@ useEffect(() => {
                 <div className="absolute top-full left-0 mt-2 w-[200px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
                   <div className="p-2">
                     <div
-                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${
-                        exploreSortBy === "recommended"
-                          ? "bg-[#1A0F3E] text-white"
-                          : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
-                      } transition`}
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "recommended"
+                        ? "bg-[#1A0F3E] text-white"
+                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                        } transition`}
                       onClick={() => handleExploreSortChange("recommended")}
                     >
                       Recommended
                     </div>
                     <div
-                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${
-                        exploreSortBy === "date"
-                          ? "bg-[#1A0F3E] text-white"
-                          : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
-                      } transition`}
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "date"
+                        ? "bg-[#1A0F3E] text-white"
+                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                        } transition`}
                       onClick={() => handleExploreSortChange("date")}
                     >
                       By Date
                     </div>
                     <div
-                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${
-                        exploreSortBy === "level"
-                          ? "bg-[#1A0F3E] text-white"
-                          : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
-                      } transition`}
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "level"
+                        ? "bg-[#1A0F3E] text-white"
+                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                        } transition`}
                       onClick={() => handleExploreSortChange("level")}
                     >
                       By Level
                     </div>
                     <div
-                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${
-                        exploreSortBy === "rating"
-                          ? "bg-[#1A0F3E] text-white"
-                          : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
-                      } transition`}
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "rating"
+                        ? "bg-[#1A0F3E] text-white"
+                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                        } transition`}
                       onClick={() => handleExploreSortChange("rating")}
                     >
                       By Rating
@@ -523,11 +593,10 @@ useEffect(() => {
                         {[0, 2, 3, 4, 5].map((rating) => (
                           <div
                             key={rating}
-                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${
-                              exploreFilters.minRating === rating
-                                ? "bg-[#0038FF] text-white"
-                                : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
-                            } transition`}
+                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${exploreFilters.minRating === rating
+                              ? "bg-[#0038FF] text-white"
+                              : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
+                              } transition`}
                             onClick={() =>
                               handleExploreFilterChange("minRating", rating)
                             }
@@ -571,11 +640,10 @@ useEffect(() => {
                         {[0, 5, 10, 15, 20].map((level) => (
                           <div
                             key={level}
-                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${
-                              exploreFilters.minLevel === level
-                                ? "bg-[#0038FF] text-white"
-                                : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
-                            } transition`}
+                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${exploreFilters.minLevel === level
+                              ? "bg-[#0038FF] text-white"
+                              : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
+                              } transition`}
                             onClick={() =>
                               handleExploreFilterChange("minLevel", level)
                             }
@@ -609,8 +677,8 @@ useEffect(() => {
         </div>
 
         {/* Search Input */}
-        <div className="w-full mb-8">
-          <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border-[1px] border border-[rgba(255,255,255,0.40)]">
+        <div className="w-full max-w-[940px] mb-8">
+          <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border border-[rgba(255,255,255,0.40)]">
             <Icon icon="lucide:search" className="text-white mr-2 text-xl" />
             <input
               type="text"
@@ -621,11 +689,22 @@ useEffect(() => {
             />
           </div>
         </div>
-
         {/* Explore Cards Grid */}
         <div className="flex flex-wrap justify-start gap-x-[25px] gap-y-[25px] w-full max-w-[940px]">
           {exploreErr ? (
             <div className="w-full py-4 text-red-400">{exploreErr}</div>
+          ) : exploreLoading ? (
+            <div className="w-full py-10 flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4 animate-pulse">
+                <Icon icon="lucide:loader-2" className="w-8 h-8 text-white/50 animate-spin" />
+              </div>
+              <h3 className="text-xl font-medium text-white mb-2">
+                Hang tight, voyager!
+              </h3>
+              <p className="text-white/60 text-center max-w-md">
+                We're finding the best trades for you...
+              </p>
+            </div>
           ) : filteredAndSortedItems.length === 0 ? (
             <div className="w-full py-10 flex flex-col items-center justify-center">
               <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4">
@@ -635,7 +714,7 @@ useEffect(() => {
                 {exploreItems.length === 0 ? "No matches yet" : "No matches found"}
               </h3>
               <p className="text-white/60 text-center max-w-md">
-                {exploreItems.length === 0 
+                {exploreItems.length === 0
                   ? "New requests will appear here as users post them."
                   : "Try adjusting your filters or search criteria to see more results"
                 }
@@ -644,16 +723,20 @@ useEffect(() => {
           ) : (
             filteredAndSortedItems.map((item, i) => (
               <ExploreCard
-              key={`explore-${item.tradereq_id || i}`}  
-              name={item.name}
-              rating={item.rating}
-              ratingCount={item.ratingCount}
-              level={item.level}
-              need={item.need}
-              offer={item.offer}
-              deadline={item.deadline ? `until ${fmtUntil(item.deadline)}` : ""}
-              onInterestedClick={() => handleInterestedClick(item)}
-            />
+                key={`explore-${item.tradereq_id || i}`}
+                name={item.name}
+                rating={item.rating}
+                ratingCount={item.ratingCount}
+                level={item.level}
+                need={item.need}
+                offer={item.offer}
+                deadline={item.deadline ? `until ${fmtUntil(item.deadline)}` : ""}
+                profilePicUrl={item.profilePicUrl}
+                userId={item.userId}
+                username={item.username}
+                tradereqId={item.tradereq_id}
+                onInterestedClick={() => handleInterestedClick(item)}
+              />
             ))
           )}
         </div>
@@ -668,7 +751,7 @@ useEffect(() => {
             <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
 
             {/* Close button */}
-            <button 
+            <button
               className="absolute top-4 right-4 text-white hover:text-gray-300"
               onClick={handleCancelInterest}
             >
@@ -680,13 +763,13 @@ useEffect(() => {
                 Are you sure you want to add this to your pending trades?
               </h2>
               <div className="flex flex-row gap-4">
-                <button 
+                <button
                   className="flex items-center justify-center w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#0038FF]/10 transition-colors"
                   onClick={handleCancelInterest}
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   className="flex items-center justify-center w-[120px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
                   onClick={handleConfirmInterest}
                 >
@@ -707,7 +790,7 @@ useEffect(() => {
             <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
 
             {/* Close button */}
-            <button 
+            <button
               className="absolute top-4 right-4 text-white hover:text-gray-300"
               onClick={handleSuccessDialogClose}
             >
@@ -718,7 +801,7 @@ useEffect(() => {
               <h2 className="font-bold text-[20px] text-center text-white leading-tight">
                 Trade invitation successfully sent.
               </h2>
-              <button 
+              <button
                 className="flex items-center justify-center w-[180px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
                 onClick={handleGoToPendingTrades}
               >

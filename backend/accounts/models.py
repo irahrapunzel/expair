@@ -75,9 +75,7 @@ class User(AbstractUser):
     username = models.CharField(max_length=50, unique=True, db_column='username')
     email = models.EmailField(max_length=50, unique=True, db_column='email')
     password = models.CharField(max_length=100, db_column='password')
-
-    profilePic = models.ImageField(
-        upload_to='profile_pics/', 
+    profilePic = models.TextField(
         null=True, 
         blank=True, 
         db_column='profilepic'
@@ -89,8 +87,7 @@ class User(AbstractUser):
     tot_XpPts = models.IntegerField(default=0, db_column='tot_xppts')
     level = models.IntegerField(default=1, db_column='level')
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
-    userVerifyId = models.FileField(
-        upload_to='user_verifications/', 
+    userVerifyId = models.TextField(
         null=True, 
         blank=True, 
         db_column='userverifyid'
@@ -132,7 +129,7 @@ class GenSkill(models.Model):
 
     class Meta:
         db_table = 'genskills_tbl'
-        managed = False
+        managed = True
 
 class SpecSkill(models.Model):
     specSkills_id = models.AutoField(primary_key=True, db_column='specskills_id')
@@ -141,7 +138,7 @@ class SpecSkill(models.Model):
 
     class Meta:
         db_table = 'specskills_tbl'
-        managed = False
+        managed = True
 
 class UserInterest(models.Model):
     userinterests_id = models.AutoField(primary_key=True, db_column='userinterests_id')
@@ -190,7 +187,7 @@ class UserCredential(models.Model):
 
 class TradeRequest(models.Model):
     class Status(models.TextChoices):
-        PENDING = "PENDING", "Pending"          # just created, waiting for finalization
+        PENDING = "PENDING", "Pending"          # a user is confirmed as responder
         ACTIVE = "ACTIVE", "Active"             # if both users confirmed trade after seeing evaluation
         COMPLETED = "COMPLETED", "Completed"    # finished successfully
         CANCELLED = "CANCELLED", "Cancelled"    # requester/responder backed out
@@ -210,6 +207,8 @@ class TradeRequest(models.Model):
     exchange = models.CharField(max_length=255, db_column="exchangename", null=True, blank=True)
     classified_category = models.CharField(max_length=100, db_column="classifiedcategory", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, db_column='created_at')
+    requester_rated = models.BooleanField(default=False, db_column='requester_rated')
+    responder_rated = models.BooleanField(default=False, db_column='responder_rated')
 
     class Meta:
         db_table = 'tradereq_tbl'
@@ -241,7 +240,11 @@ class TradeDetail(models.Model):
     skillprof = models.CharField(max_length=13, choices=SkillProficiency.choices, null=True, blank=True, db_column='skillprof')
     modedel = models.CharField(max_length=25, choices=ModeDelivery.choices, null=True, blank=True, db_column='modedel')
     reqtype = models.CharField(max_length=35, choices=RequestType.choices, null=True, blank=True, db_column='reqtype')
-    contextpic = models.ImageField(upload_to='requestcontext_pics/', null=True, blank=True, db_column='contextpic') 
+    contextpic = models.TextField(
+        null=True, 
+        blank=True, 
+        db_column='contextpic'
+    )
     reqbio = models.CharField(max_length=150, null=True, blank=True, db_column='reqbio')
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
     total_xp = models.IntegerField(default=0, db_column='total_xp', null=True, blank=True)
@@ -293,8 +296,6 @@ class Evaluation(models.Model):
     def __str__(self):
         return f"Evaluation for Trade Request {self.trade_request.reqname} - Task Complexity: {self.taskcomplexity}"
     
-    
-    
 class TradeInterest(models.Model):
     class InterestStatus(models.TextChoices):
         PENDING = 'PENDING', 'Pending'          # default status
@@ -322,3 +323,173 @@ class TradeInterest(models.Model):
     def __str__(self):
         return f"Trade Interest for {self.trade_request.reqname} - {self.interested_user.username} - {self.status}"
 
+class TradeHistory(models.Model):
+    class ProofStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    tradehis_id = models.AutoField(primary_key=True, db_column='tradehis_id')
+    trade_request = models.ForeignKey('TradeRequest', on_delete=models.CASCADE, db_column='tradereq_id')
+    completed_at = models.DateTimeField(db_column='completed_at', null=True, blank=True)
+
+    # Store array of proof items (files from Cloudinary + links)
+    requester_proof = models.JSONField(
+        default=list,
+        null=True, 
+        blank=True, 
+        db_column='requester_proof',
+        help_text='Array of proof objects: [{"type": "file", "url": "cloudinary_url"}, {"type": "link", "url": "external_link"}]'
+    )
+
+    responder_proof = models.JSONField(
+        default=list,
+        null=True, 
+        blank=True, 
+        db_column='responder_proof',
+        help_text='Array of proof objects: [{"type": "file", "url": "cloudinary_url"}, {"type": "link", "url": "external_link"}]'
+    )
+    
+    # Proof status for both requester and responder
+    requester_proof_status = models.CharField(
+        max_length=20,
+        choices=ProofStatus.choices,
+        default=ProofStatus.PENDING,
+        db_column='requester_proof_status'
+    )
+    responder_proof_status = models.CharField(
+        max_length=20,
+        choices=ProofStatus.choices,
+        default=ProofStatus.PENDING,
+        db_column='responder_proof_status'
+    )
+
+    class Meta:
+        db_table = 'tradehis_tbl'  
+        managed = True  
+
+    def __str__(self):
+        return f"Trade History for TradeRequest {self.trade_request.id} - Completed: {self.completed_at}"
+    
+class ReputationSystem(models.Model):
+    repsys_id = models.AutoField(primary_key=True, db_column='repsys_id')
+    trade_request = models.ForeignKey('TradeRequest', on_delete=models.CASCADE, db_column='tradereq_id')
+    requester_starcount = models.IntegerField(null=True, blank=True, db_column='requester_starcount')
+    responder_starcount = models.IntegerField(null=True, blank=True, db_column='responder_starcount')
+    requester_rating_desc = models.CharField(max_length=500, null=True, blank=True, db_column='requester_rating_desc')
+    responder_rating_desc = models.CharField(max_length=500, null=True, blank=True, db_column='responder_rating_desc')
+    requester_rated_at = models.DateTimeField(null=True, blank=True, db_column='requester_rated_at')
+    responder_rated_at = models.DateTimeField(null=True, blank=True, db_column='responder_rated_at')
+
+    class Meta:
+        db_table = 'repsys_tbl'
+        managed = True
+
+
+# --- Simple messaging models ---
+class Conversation(models.Model):
+    """A 1:1 conversation anchored to a TradeRequest.
+    We keep explicit requester/responder references for quick filtering.
+    """
+    conversation_id = models.AutoField(primary_key=True)
+    trade_request = models.ForeignKey('TradeRequest', on_delete=models.CASCADE, db_column='tradereq_id', related_name='conversations')
+    requester = models.ForeignKey('User', on_delete=models.CASCADE, db_column='requester_id', related_name='conversations_as_requester')
+    responder = models.ForeignKey('User', on_delete=models.CASCADE, db_column='responder_id', related_name='conversations_as_responder')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'conversations_tbl'
+        managed = True
+        unique_together = ('trade_request',)
+
+    def __str__(self):
+        return f"Conversation #{self.conversation_id} (trade {self.trade_request_id})"
+
+
+class Message(models.Model):
+    message_id = models.AutoField(primary_key=True)
+    conversation = models.ForeignKey('Conversation', on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey('User', on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'messages_tbl'
+        managed = True
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Message #{self.message_id} in convo {self.conversation_id}"
+
+class DeletedConversation(models.Model):
+    """
+    Tracks which users have deleted (hidden) which conversations.
+    Soft delete - conversation still exists but won't appear in that user's list.
+    """
+    deleted_conversation_id = models.AutoField(primary_key=True, db_column='deleted_conversation_id')
+    conversation = models.ForeignKey(
+        'Conversation', 
+        on_delete=models.CASCADE, 
+        db_column='conversation_id',
+        related_name='deleted_by_users'
+    )
+    user = models.ForeignKey(
+        'User', 
+        on_delete=models.CASCADE,
+        db_column='user_id'
+    )
+    deleted_at = models.DateTimeField(auto_now_add=True, db_column='deleted_at')
+    
+    class Meta:
+        db_table = 'deleted_conversations_tbl'
+        managed = True
+        unique_together = ('conversation', 'user')  # Each user can only delete a conversation once
+    
+    def __str__(self):
+        return f"Conversation {self.conversation_id} deleted by user {self.user_id}"
+    
+class Report(models.Model):
+    report_id = models.AutoField(primary_key=True)
+    reporter = models.ForeignKey(
+        'accounts.User',   # ✅ correct model reference
+        on_delete=models.CASCADE,
+        related_name='reports_made'
+    )
+    reported_user = models.ForeignKey(
+        'accounts.User',   # ✅ correct model reference
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports_received'
+    )
+    tradereq = models.ForeignKey(
+        'accounts.TradeRequest',   # ✅ correct model reference
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    category = models.CharField(max_length=100)
+    issue_detail = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=50, default='Pending')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'reports_tbl'
+        managed = True
+
+    def __str__(self):
+        return f"Report #{self.report_id} - {self.category} by {self.reporter.username}"
+    
+class SupportTicket(models.Model):
+    ticket_id = models.AutoField(primary_key=True)
+    ticket_name = models.CharField(max_length=255, null=True, blank=True)
+    ticket_email = models.CharField(max_length=255, null=True, blank=True)
+    ticket_title = models.CharField(max_length=255, null=True, blank=True)
+    ticket_desc = models.TextField(null=True, blank=True)
+    ticket_pic = models.TextField(null=True, blank=True)
+    ticket_datesubmitted = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "supptix_tbl"
+        managed = True

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-
 import Link from "next/link";
 import Image from "next/image";
 import { Inter } from "next/font/google";
@@ -17,6 +16,7 @@ import {
   Star,
   Heart,
   Flag,
+  Link as LinkIcon,
 } from "lucide-react";
 import AnimatedLevelBar from "../../../../components/ui/animated-level-bar";
 import ProfileAvatar from "@/components/avatar";
@@ -31,7 +31,15 @@ const LVL_CAPS = [
   28900, 30100, 31300, 32600, 33900, 35200, 36500, 37900, 39300, 40700, 42100,
   43600, 45100, 46600, 48100, 49600, 51100, 52700, 54300, 55900, 57500, 59200,
   60900, 62600, 64300, 66000, 67700, 69500, 71300, 73100, 74900, 76700, 78500,
-  80300, 82100, 85000,
+  80300, 82100, 85000, 50, 75, 100, 125, 150, 175, 200, 230, 260, 300, 350, 400,
+  460, 520, 600, 700, 800, 900, 1000, 1100, 1250, 1400, 1600, 1800, 2000, 2300,
+  2600, 2900, 3200, 3500, 3800, 4200, 4600, 5000, 5500, 6000, 6500, 7000, 7500,
+  8000, 8500, 9000, 9600, 10200, 10800, 11500, 12200, 12900, 13600, 14300,
+  15000, 15800, 16600, 17500, 18400, 19300, 20300, 21300, 22300, 23300, 24300,
+  25400, 26500, 27700, 28900, 30100, 31300, 32600, 33900, 35200, 36500, 37900,
+  39300, 40700, 42100, 43600, 45100, 46600, 48100, 49600, 51100, 52700, 54300,
+  55900, 57500, 59200, 60900, 62600, 64300, 66000, 67700, 69500, 71300, 73100,
+  74900, 76700, 78500, 80300, 82100, 85000,
 ];
 
 const clampLevel = (lvl) =>
@@ -42,7 +50,6 @@ const getLevelWidth = (lvl) => LVL_CAPS[clampLevel(lvl) - 1] || 1;
 
 // Derive level + in-level progress from lifetime total XP (tot_xppts)
 // Inclusive boundary: exact cap stays on the same level
-// Derive level + in-level progress from lifetime total XP (tot_xppts)
 const deriveFromTotalXp = (totalXp) => {
   const t = Math.max(0, Number(totalXp) || 0);
 
@@ -138,7 +145,82 @@ export default function ProfilePage() {
     level: 1,
     xpPoints: 0,
     tot_xppts: 0,
+    links: "",
   });
+
+  const RAW_ORIGIN = RAW.replace(/\/api\/accounts\/?$/, "");
+
+  const [showDeleteModalForCard, setShowDeleteModalForCard] = useState(null);
+  const [tradeToDelete, setTradeToDelete] = useState(null);
+
+  const [showAllCreds, setShowAllCreds] = useState(false);
+
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+
+  // ----------------------------
+  // Verification state
+  // ----------------------------
+
+  // verification popup state
+  const [showVerificationPopup, setShowVerificationPopup] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState("unverified"); // "unverified" | "pending" | "verified"
+  const [idFile, setIdFile] = useState(null); // File object
+  const [idPreviewUrl, setIdPreviewUrl] = useState(null); // local preview URL for images
+
+  // ----------------------------
+  // Skills Editing
+  // ----------------------------
+
+  const [skillsEditing, setSkillsEditing] = useState(false);
+  const [skillsSaving, setSkillsSaving] = useState(false);
+  const [skillsError, setSkillsError] = useState(null);
+
+  // Track original skills for comparison and cancel functionality
+  const [originalSkillGroups, setOriginalSkillGroups] = useState([]);
+  const [selectedSkillGroups, setSelectedSkillGroups] = useState([]);
+
+  // For adding skills
+  const [showAddSkillForm, setShowAddSkillForm] = useState(false);
+  const [addSkillCategory, setAddSkillCategory] = useState("");
+  const [selectedSpecificSkills, setSelectedSpecificSkills] = useState([]);
+
+  // ----------------------------
+  // Interests Editing
+  // ----------------------------
+
+  // Interests editing state
+  const [interestsEditing, setInterestsEditing] = useState(false);
+  const [interestsSaving, setInterestsSaving] = useState(false);
+  const [interestsError, setInterestsError] = useState(null);
+
+  // Track original interests for comparison and cancel functionality
+  const [originalUserInterests, setOriginalUserInterests] = useState([]);
+  const [userInterests, setUserInterests] = useState([]);
+
+  // For adding interests
+  const [showAddInterestForm, setShowAddInterestForm] = useState(false);
+  const [selectedInterests, setSelectedInterests] = useState([]);
+
+  const [postedTrades, setPostedTrades] = useState([]);
+  const [postedTradesLoading, setPostedTradesLoading] = useState(true);
+  const [postedTradesError, setPostedTradesError] = useState(null);
+
+  // ----------------------------
+  // Credentials Editing
+  // ----------------------------
+
+  const [userCredentials, setUserCredentials] = useState([]);
+
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
+  const [credentialsError, setCredentialsError] = useState(null);
+  const [editingCredentials, setEditingCredentials] = useState(null); // null | "all" | credential object
+
+  // Handle interest in trade for profile public view
+  const [selectedTrade, setSelectedTrade] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -149,15 +231,202 @@ export default function ProfilePage() {
     }
   }, [user, basicInfoEditing]);
 
-  const RAW_ORIGIN = RAW.replace(/\/api\/accounts\/?$/, "");
+  useEffect(() => {
+    if (!user) return;
+    const s = (
+      user.verification_status
+        ? user.verification_status
+        : user.is_verified
+        ? "VERIFIED"
+        : user.userVerifyId
+        ? "PENDING"
+        : "UNVERIFIED"
+    ).toLowerCase();
+    setVerificationStatus(s);
+  }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
 
-  const toAbsolute = (u) => {
-    if (!u) return null;
+  const handleDeleteTrade = async (trade) => {
+    const tradereqId =
+      trade?.tradereq_id || trade?.id || tradeToDelete?.tradereq_id;
+    if (!tradereqId) {
+      console.error("No tradereq_id provided for delete.", {
+        trade,
+        tradeToDelete,
+      });
+      alert("Unable to delete: missing trade identifier.");
+      return;
+    }
+
     try {
-      // If u is already absolute, URL(u) keeps it; if it's relative, it resolves vs RAW_ORIGIN
-      return new URL(u, RAW_ORIGIN).href;
-    } catch {
-      return u;
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradereqId}/delete/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session?.access}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        setPostedTrades((prevTrades) =>
+          prevTrades.filter((t) => t.tradereq_id !== tradereqId)
+        );
+        setShowDeleteModalForCard(null);
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || "Failed to delete trade request");
+      }
+    } catch (error) {
+      console.error("Error deleting trade request:", error);
+      alert("Failed to delete trade request");
+    }
+  };
+
+  const isOwnProfile = useMemo(() => {
+    console.log("=== IS OWN PROFILE CHECK ===");
+    console.log("Current slug:", slug);
+    console.log(
+      "Session user ID:",
+      session?.user?.user_id || session?.user?.id
+    );
+    console.log(
+      "Session user username:",
+      session?.user?.username || session?.username
+    );
+    console.log("Loaded user ID:", user?.id);
+    console.log("Loaded user username:", user?.username);
+
+    // If viewing /me, it's always own profile
+    if (slug === "me") {
+      console.log("Viewing /me - own profile");
+      return true;
+    }
+
+    // If not authenticated, can't be own profile
+    if (!session?.user && !session?.access) {
+      console.log("Not authenticated - not own profile");
+      return false;
+    }
+
+    // Get current user info from session
+    const sessionUserId = session?.user?.user_id || session?.user?.id;
+    const sessionUsername = session?.user?.username || session?.username;
+
+    // Check if slug matches current user ID or username
+    const slugIsUserId =
+      sessionUserId && String(sessionUserId) === String(slug);
+    const slugIsUsername =
+      sessionUsername &&
+      sessionUsername.toLowerCase() === String(slug).toLowerCase();
+
+    // Also check if loaded user data matches session user
+    const loadedUserMatches =
+      user?.id && sessionUserId && user.id === sessionUserId;
+
+    const result = slugIsUserId || slugIsUsername || loadedUserMatches;
+    console.log("Final isOwnProfile result:", result);
+
+    return result;
+  }, [slug, session, user?.id, user?.username]);
+
+  const fetchPostedTrades = async () => {
+    console.log("isOwnProfile:", isOwnProfile);
+    console.log("slug:", slug);
+
+    const url = isOwnProfile
+      ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/`
+      : `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/${slug}/`;
+
+    try {
+      setPostedTradesLoading(true);
+      setPostedTradesError(null);
+
+      // 🧠 Define headers FIRST
+      const headers = new Headers();
+      headers.append("Content-Type", "application/json");
+      if (session?.access) {
+        headers.append("Authorization", `Bearer ${session.access}`);
+      }
+
+      console.log("🔑 Sending headers:", Object.fromEntries(headers.entries()));
+      console.log("Fetching posted trades from:", url);
+
+      const response = await fetch(url, { method: "GET", headers });
+
+      console.log("📩 Response status:", response.status);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(
+          "❌ Failed to fetch posted trades:",
+          response.status,
+          errText
+        );
+        throw new Error(`Failed to fetch posted trades (${response.status})`);
+      }
+
+      const data = await response.json();
+      console.log("✅ Posted trades data received:", data);
+
+      const transformed = data.posted_trades.map((trade) => ({
+        id: trade.tradereq_id,
+        tradereq_id: trade.tradereq_id,
+        name:
+          (isOwnProfile
+            ? `${session?.user?.first_name || ""} ${
+                session?.user?.last_name || ""
+              }`.trim()
+            : `${user?.firstname || ""} ${user?.lastname || ""}`.trim()) ||
+          session?.user?.username ||
+          user?.username ||
+          slug ||
+          "User",
+
+        rating: Number(
+          isOwnProfile ? session?.user?.rating ?? 0 : user?.rating ?? 0
+        ),
+        reviews: Number(
+          isOwnProfile ? session?.user?.reviews ?? 0 : user?.reviews ?? 0
+        ),
+        level: Number(
+          isOwnProfile ? session?.user?.level ?? 1 : user?.level ?? 1
+        ),
+        needs: trade.reqname,
+        interested:
+          trade.interested_users
+            ?.filter((u) => u.status === "PENDING")
+            ?.map((u) => ({
+              id: u.id,
+              interest_id: u.interest_id,
+              name: u.name,
+              username: u.username,
+              avatar: u.profilePic
+                ? u.profilePic.startsWith("http")
+                  ? u.profilePic
+                  : `${process.env.NEXT_PUBLIC_BACKEND_URL}${u.profilePic}`
+                : "/assets/defaultavatar.png",
+              rating: u.rating,
+              reviews: u.rating_count,
+              level: u.level,
+              status: u.status,
+            })) || [],
+        until: trade.deadline
+          ? new Date(trade.deadline).toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+            })
+          : "No deadline",
+      }));
+      console.log("🧩 Transformed trades:", transformed);
+
+      setPostedTrades(transformed);
+    } catch (err) {
+      console.error("❌ Failed to fetch posted trades:", err);
+      setPostedTradesError(err.message);
+    } finally {
+      setPostedTradesLoading(false);
     }
   };
 
@@ -173,6 +442,7 @@ export default function ProfilePage() {
     if (slug === "me" && !session?.access) {
       console.error("[profile] NO ACCESS TOKEN for /me endpoint");
       setError("Authentication required");
+      setLoading(false);
       return;
     }
 
@@ -182,27 +452,29 @@ export default function ProfilePage() {
     console.log("Full session object:", JSON.stringify(session, null, 2));
 
     const slugStr = String(slug).toLowerCase();
-    const myName = String(
-      session?.username ||
-        session?.user?.username || // fallback if NextAuth keeps it under user
-        ""
+    const sessionUsername = String(
+      session?.username || session?.user?.username || ""
     ).toLowerCase();
+    const sessionUserId = session?.user?.user_id || session?.user?.id;
 
     const isNumeric = /^\d+$/.test(String(slug));
     const isUsername = /^[a-zA-Z0-9_.]{3,30}$/.test(String(slug));
 
     if (!(slugStr === "me" || isNumeric || isUsername)) {
       setError("Invalid profile URL.");
+      setLoading(false);
       return;
     }
 
-    // if I'm viewing my own username, rewrite to /me
+    // If authenticated user is viewing their own profile by ID or username, redirect to /me
     if (
       status === "authenticated" &&
-      myName &&
+      sessionUsername &&
       slugStr !== "me" &&
-      slugStr === myName
+      (slugStr === sessionUsername ||
+        (sessionUserId && slugStr === String(sessionUserId)))
     ) {
+      console.log("Redirecting own profile view to /me");
       router.replace("/home/profile/me");
       return;
     }
@@ -212,6 +484,7 @@ export default function ProfilePage() {
     (async () => {
       try {
         setError(null);
+        setLoading(true);
 
         let url;
         if (slug === "me") {
@@ -271,9 +544,9 @@ export default function ProfilePage() {
           profilePic: data.profilePic || null,
           joined: data.created_at
             ? new Date(data.created_at).toLocaleString(undefined, {
-                month: "long",
-                year: "numeric",
-              })
+              month: "long",
+              year: "numeric",
+            })
             : "",
           rating: Number(data.avgStars ?? data.rating) || 0,
           reviews: Number(data.ratingCount ?? data.reviews) || 0,
@@ -281,6 +554,7 @@ export default function ProfilePage() {
           is_verified: Boolean(data.is_verified),
           verification_status: data.verification_status ?? null,
           userVerifyId: data.userVerifyId || null,
+          links: data.links || "",
 
           // XP calculation
           ...(() => {
@@ -362,7 +636,32 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, session?.access, status]);
+  }, [slug, session?.access, status, router]);
+
+  useEffect(() => {
+    console.log("📡 [fetchPostedTrades useEffect] running...");
+    console.log("slug:", slug);
+    console.log("status:", status);
+    console.log("session:", session);
+
+    if (!slug) {
+      console.log("⛔ No slug, skip fetchPostedTrades");
+      return;
+    }
+
+    if (status === "loading") {
+      console.log("⏳ Auth still loading");
+      return;
+    }
+
+    // We’ll only run once the profile data (user state) is ready
+    if (status === "authenticated" && session?.access) {
+      console.log("✅ Running fetchPostedTrades now...");
+      fetchPostedTrades();
+    } else {
+      console.log("⚠️ Not authenticated — skipping fetchPostedTrades");
+    }
+  }, [slug, status, session?.access]);
 
   useEffect(() => {
     if (!user) return;
@@ -429,70 +728,6 @@ export default function ProfilePage() {
     fetchCredentials();
   }, [user?.id, session?.access]);
 
-  const [showAllCreds, setShowAllCreds] = useState(false);
-  const [reviews, setReviews] = useState([
-    {
-      requester: "David Chen",
-      tradePartner: "John Doe",
-      tradeCompletionDate: "May 12",
-      requestTitle: "Corporate Training",
-      offerTitle: "Gardening",
-      rating: 5.0,
-      reviewDescription:
-        "John was patient and clear in his corporate training sessions. He adapted well to my learning pace and made the experience enjoyable. I learned a lot thanks to his help.",
-      likes: 42,
-    },
-    {
-      requester: "Sarah Kim",
-      tradePartner: "John Doe",
-      tradeCompletionDate: "June 10",
-      requestTitle: "Personal Training",
-      offerTitle: "Graphic Design",
-      rating: 4.5,
-      reviewDescription:
-        "John was a dedicated personal trainer who tailored workouts to my needs. He was punctual, encouraging, and professional throughout our sessions. I highly recommend him for anyone looking to improve their fitness.",
-      likes: 34,
-    },
-    {
-      requester: "Michael Lee",
-      tradePartner: "John Doe",
-      tradeCompletionDate: "June 2",
-      requestTitle: "Illustration",
-      offerTitle: "Web Development",
-      rating: 4.0,
-      reviewDescription:
-        "John provided excellent illustration work for my website graphics. He was responsive to feedback and delivered quality designs on time. It was a pleasure collaborating with him.",
-      likes: 21,
-    },
-    {
-      requester: "Priya Patel",
-      tradePartner: "John Doe",
-      tradeCompletionDate: "May 20",
-      requestTitle: "Tutoring",
-      offerTitle: "Language Instruction",
-      rating: 3.5,
-      reviewDescription:
-        "John helped me with tutoring sessions and was very organized. There were a few small misunderstandings initially, but he was quick to address them. Overall, a reliable trade partner.",
-      likes: 15,
-    },
-    {
-      requester: "Mark Thompson",
-      tradePartner: "John Doe",
-      tradeCompletionDate: "April 15",
-      requestTitle: "Event Planning",
-      offerTitle: "Handyman Services",
-      rating: 4.2,
-      reviewDescription:
-        "John was very helpful setting up for my event and offered useful handyman services on site. He was punctual and easy to communicate with. I’d gladly trade with him again.",
-      likes: 18,
-    },
-  ]);
-
-  const handleDeleteReview = (reviewToDelete) => {
-    // Filter out the review to be deleted and update the state
-    setReviews(reviews.filter((review) => review !== reviewToDelete));
-  };
-
   const toggleCategory = (index) => {
     setExpanded((prev) => {
       const newState = [...prev];
@@ -501,18 +736,84 @@ export default function ProfilePage() {
     });
   };
 
-  // Determine if viewing own profile
-  const isOwnProfile = true;
+  const reviewRatings = useMemo(() => {
+    const ratings = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 };
+    reviews.forEach((review) => {
+      const roundedRating = Math.floor(review.rating);
+      if (ratings.hasOwnProperty(roundedRating)) {
+        ratings[roundedRating]++;
+      }
+    });
+    return ratings;
+  }, [reviews]);
 
-  // Mock data for review ratings to match a 4.3 average for 25 reviews
-  const reviewRatings = {
-    5: 12,
-    4: 10,
-    3: 2,
-    2: 1,
-    1: 0,
-    0: 0,
-  };
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchReviews = async () => {
+      setReviewsLoading(true);
+      setReviewsError(null);
+
+      try {
+        const headers = {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        };
+
+        if (session?.access) {
+          headers.Authorization = `Bearer ${session.access}`;
+        }
+
+        const response = await fetch(
+          `${API_BASE}/users/${user.id}/reviews/`, // You'll need to create this endpoint
+          {
+            method: "GET",
+            headers,
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reviews (${response.status})`);
+        }
+
+        const data = await response.json();
+        console.log("[reviews] Data received:", data);
+
+        // Transform the backend data to match your frontend format
+        const transformedReviews = (data.reviews || []).map((review) => ({
+          requester:
+            `${review.reviewer_first_name} ${review.reviewer_last_name}`.trim() ||
+            review.reviewer_username,
+          tradePartner:
+            `${user.firstname} ${user.lastname}`.trim() || user.username,
+          tradeCompletionDate: new Date(review.completed_at).toLocaleDateString(
+            "en-US",
+            {
+              month: "short",
+              day: "numeric",
+            }
+          ),
+          requestTitle: review.request_title,
+          offerTitle: review.offer_title,
+          rating: review.rating,
+          reviewDescription: review.review_description,
+          likes: review.likes_count || 0,
+          trade_id: review.trade_id,
+        }));
+
+        setReviews(transformedReviews);
+      } catch (error) {
+        console.error("[reviews] Fetch error:", error);
+        setReviewsError(error.message || "Failed to load reviews");
+        setReviews([]);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [user?.id, session?.access]);
 
   // Function to render stars based on a rating, now using filled and outlined stars
   const renderStars = (rating) => {
@@ -678,34 +979,16 @@ export default function ProfilePage() {
     ],
   };
 
-  const interestsInitial = [
-    "Digital Art",
-    "Photography",
-    "Travel",
-    "Indie Music",
-    "Film Analysis",
-  ];
-
-  // ----------------------------
-  // Verification state
-  // ----------------------------
-
-  // verification popup state
-  const [showVerificationPopup, setShowVerificationPopup] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState("unverified"); // "unverified" | "pending" | "verified"
-  const [idFile, setIdFile] = useState(null); // File object
-  const [idPreviewUrl, setIdPreviewUrl] = useState(null); // local preview URL for images
-
   useEffect(() => {
     if (!user) return;
     const s = (
       user.verification_status
         ? user.verification_status
         : user.is_verified
-        ? "VERIFIED"
-        : user.userVerifyId
-        ? "PENDING"
-        : "UNVERIFIED"
+          ? "VERIFIED"
+          : user.userVerifyId
+            ? "PENDING"
+            : "UNVERIFIED"
     ).toLowerCase();
     setVerificationStatus(s);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
@@ -775,8 +1058,8 @@ export default function ProfilePage() {
           (updated.is_verified
             ? "VERIFIED"
             : updated.userVerifyId
-            ? "PENDING"
-            : "UNVERIFIED")
+              ? "PENDING"
+              : "UNVERIFIED")
         ).toLowerCase()
       );
 
@@ -788,23 +1071,6 @@ export default function ProfilePage() {
       alert(e.message || "Upload failed.");
     }
   }
-
-  // ----------------------------
-  // Skills Editing
-  // ----------------------------
-
-  const [skillsEditing, setSkillsEditing] = useState(false);
-  const [skillsSaving, setSkillsSaving] = useState(false);
-  const [skillsError, setSkillsError] = useState(null);
-
-  // Track original skills for comparison and cancel functionality
-  const [originalSkillGroups, setOriginalSkillGroups] = useState([]);
-  const [selectedSkillGroups, setSelectedSkillGroups] = useState([]);
-
-  // For adding skills
-  const [showAddSkillForm, setShowAddSkillForm] = useState(false);
-  const [addSkillCategory, setAddSkillCategory] = useState("");
-  const [selectedSpecificSkills, setSelectedSpecificSkills] = useState([]);
 
   // Helper function to find differences between original and current skills
   const getSkillsDifferences = () => {
@@ -937,9 +1203,9 @@ export default function ProfilePage() {
         return prev.map((g) =>
           g.category === addSkillCategory
             ? {
-                ...g,
-                skills: [...new Set([...g.skills, ...selectedSpecificSkills])],
-              }
+              ...g,
+              skills: [...new Set([...g.skills, ...selectedSpecificSkills])],
+            }
             : g
         );
       }
@@ -1097,23 +1363,6 @@ export default function ProfilePage() {
     return skillsToAdd.length > 0 || skillsToRemove.length > 0;
   };
 
-  // ----------------------------
-  // Interests Editing
-  // ----------------------------
-
-  // Interests editing state
-  const [interestsEditing, setInterestsEditing] = useState(false);
-  const [interestsSaving, setInterestsSaving] = useState(false);
-  const [interestsError, setInterestsError] = useState(null);
-
-  // Track original interests for comparison and cancel functionality
-  const [originalUserInterests, setOriginalUserInterests] = useState([]);
-  const [userInterests, setUserInterests] = useState([]);
-
-  // For adding interests
-  const [showAddInterestForm, setShowAddInterestForm] = useState(false);
-  const [selectedInterests, setSelectedInterests] = useState([]);
-
   // Helper function to find differences between original and current interests
   const getInterestsDifferences = () => {
     const currentSet = new Set(userInterests);
@@ -1132,6 +1381,122 @@ export default function ProfilePage() {
     return { interestsToAdd, interestsToRemove };
   };
 
+  useEffect(() => {
+    if (!slug) return;
+
+    const loadPostedTrades = async () => {
+      try {
+        setPostedTradesLoading(true);
+        setPostedTradesError(null);
+
+        const headers = {
+          "Content-Type": "application/json",
+        };
+        if (session?.access) headers.Authorization = `Bearer ${session.access}`;
+
+        // ✅ Determine which endpoint to call based on profile ownership
+        let url;
+        if (isOwnProfile) {
+          url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/`;
+        } else {
+          url = `${process.env.NEXT_PUBLIC_BACKEND_URL
+            }/posted-trades/${encodeURIComponent(slug)}/`;
+        }
+
+        console.log("[Profile] Fetching posted trades from:", url);
+
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || `Failed to fetch (${res.status})`);
+        }
+
+        const data = await res.json();
+        console.log("[Profile] posted trades response:", data);
+
+        // 🧩 Transform data for consistency
+        const mapped = (data.posted_trades || []).map((trade) => ({
+          id: trade.tradereq_id,
+          tradereq_id: trade.tradereq_id,
+          reqname: trade.reqname,
+          deadline: trade.deadline,
+          name: isOwnProfile
+            ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
+              }`.trim() || session?.user?.username
+            : `${user?.firstname || ""} ${user?.lastname || ""}`.trim() ||
+            user?.username,
+          username: isOwnProfile ? session?.user?.username : user?.username,
+          rating: isOwnProfile ? session?.user?.rating || 0 : user?.rating || 0,
+          reviews: isOwnProfile
+            ? session?.user?.reviews || 0
+            : user?.reviews || 0,
+          level: isOwnProfile ? session?.user?.level || 1 : user?.level || 1,
+          offer: trade.offer || "Skills & Services",
+          profilePic: isOwnProfile
+            ? (session?.user?.image || session?.user?.profilePic || user?.profilePic)
+            : (trade.profilePic || user?.profilePic),
+        }));
+
+        setPostedTrades(mapped);
+      } catch (err) {
+        console.error("❌ Failed to fetch posted trades:", err);
+        setPostedTradesError(err.message);
+      } finally {
+        setPostedTradesLoading(false);
+      }
+    };
+
+    loadPostedTrades();
+  }, [slug, isOwnProfile, session, user]);
+
+  const [userInterestStatus, setUserInterestStatus] = useState({});
+
+  useEffect(() => {
+    if (!isOwnProfile && postedTrades.length > 0 && session?.access) {
+      const fetchInterestStatus = async () => {
+        try {
+          const tradeIds = postedTrades.map(t => t.tradereq_id);
+
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/check-interests/`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access}`
+              },
+              body: JSON.stringify({ trade_ids: tradeIds })
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            setUserInterestStatus(data.interests); // { tradereq_id: "PENDING" | "ACCEPTED" | null }
+          }
+        } catch (error) {
+          console.error('Failed to fetch interest status:', error);
+        }
+      };
+
+      fetchInterestStatus();
+    }
+  }, [isOwnProfile, postedTrades, session?.access]);
+
+  const fmtUntil = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return `until ${d.toLocaleDateString(undefined, {
+      month: "long",
+      day: "numeric",
+    })}`;
+  };
+
+  const displayName = isOwnProfile
+    ? "You"
+    : `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
+    user?.username ||
+    "User";
+
   // Function to get general skill ID from category name
   const getGeneralSkillIdForInterest = async (categoryName) => {
     try {
@@ -1149,6 +1514,52 @@ export default function ProfilePage() {
       console.error("[getGeneralSkillIdForInterest] error", e);
       throw e;
     }
+  };
+
+  const InlineConfirmationModal = ({ message, onConfirm, onCancel }) => {
+    return (
+      // Outer container: absolute positioning (for inline use)
+      <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-70 z-20 rounded-[20px]">
+        <div
+          // Window size changed from w-[300px] to w-[420px] to be proportional to SavedPopup
+          className="w-[420px] p-8 flex flex-col gap-6 rounded-[15px] shadow-lg"
+          style={{
+            // Window styles copied exactly from SavedPopup
+            background: "rgba(0, 0, 0, 0.4)",
+            border: "2px solid #0038FF",
+            boxShadow: "0px 4px 15px #D78DE5",
+            backdropFilter: "blur(40px)",
+            borderRadius: "15px",
+          }}
+        >
+          {/* Message Text: Adjusted size and margin for better fit */}
+          <h3 className="text-center text-[18px] font-semibold text-white">
+            {message}
+          </h3>
+
+          {/* Buttons Container */}
+          <div className="flex justify-center gap-4 mt-2">
+            {/* Cancel Button - Secondary Style (Transparent, Blue Border) */}
+            <button
+              onClick={onCancel}
+              // Styled to be the secondary action: transparent background, primary blue border
+              className="w-[150px] h-[38px] py-2 rounded-[10px] text-white border-2 border-[#0038FF] bg-transparent text-[15px] hover:bg-white/10 transition duration-300"
+            >
+              <span className="text-[15px]">Cancel</span>
+            </button>
+
+            {/* Confirm Button - Primary Style (Blue from SavedPopup) */}
+            <button
+              onClick={onConfirm}
+              // Styled to be the primary action: Blue background, blue shadow
+              className="w-[150px] h-[38px] py-2 rounded-[10px] text-white bg-[#0038FF] text-[15px] shadow-[0px_0px_10px_#284CCC] hover:bg-[#1a4dff] transition duration-300"
+            >
+              <span className="text-[15px]">Confirm</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // Interests add/remove
@@ -1304,15 +1715,6 @@ export default function ProfilePage() {
     setSortOption(option);
     setShowSortDropdown(false);
   };
-
-  // ----------------------------
-  // credentials Editing
-  // ----------------------------
-  const [userCredentials, setUserCredentials] = useState([]);
-
-  const [credentialsLoading, setCredentialsLoading] = useState(false);
-  const [credentialsError, setCredentialsError] = useState(null);
-  const [editingCredentials, setEditingCredentials] = useState(null); // null | "all" | credential object
 
   // Inline Button component
   const Button = ({ children, className, onClick, ...props }) => {
@@ -1473,17 +1875,17 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState(() =>
       Array.isArray(credentialsToEdit) && credentialsToEdit
         ? credentialsToEdit.map((cred) => ({
-            // Map backend fields to frontend fields
-            title: cred.credential_title || "",
-            org: cred.issuer || "",
-            issueDate: cred.issue_date || "",
-            expiryDate: cred.expiry_date || "",
-            id: cred.cred_id || "",
-            url: cred.cred_url || "",
-            skills: cred.skills || [],
-            skillCategory: "",
-            usercred_id: cred.usercred_id, // Keep the backend ID for updates
-          }))
+          // Map backend fields to frontend fields
+          title: cred.credential_title || "",
+          org: cred.issuer || "",
+          issueDate: cred.issue_date || "",
+          expiryDate: cred.expiry_date || "",
+          id: cred.cred_id || "",
+          url: cred.cred_url || "",
+          skills: cred.skills || [],
+          skillCategory: "",
+          usercred_id: cred.usercred_id, // Keep the backend ID for updates
+        }))
         : [defaultCredential]
     );
 
@@ -2212,10 +2614,69 @@ export default function ProfilePage() {
     }
   }
 
+  const handleInterestedClick = (trade) => {
+    setSelectedTrade(trade);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmInterest = async () => {
+    if (!selectedTrade || !session?.access) return;
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/express-interest/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access}`,
+          },
+          body: JSON.stringify({
+            tradereq_id: selectedTrade.tradereq_id, // ✅ correct key
+          }),
+        }
+      );
+
+      // 🧠 Parse the response early
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // 🧩 Backend often returns { error: "..." } or { message: "..." }
+        const errorMessage =
+          data?.error ||
+          data?.message ||
+          `Failed to send trade request (Error ${res.status})`;
+
+        console.error("❌ Express interest failed:", errorMessage);
+        alert(errorMessage);
+        return;
+      }
+
+      console.log("✅ Interest created successfully!", data);
+      setShowConfirmDialog(false);
+      setShowSuccessDialog(true);
+    } catch (err) {
+      console.error("❌ Network or unexpected error:", err);
+      alert("Network error — please check your connection and try again.");
+    }
+  };
+
+  const handleCancelInterest = () => {
+    setShowConfirmDialog(false);
+    setSelectedTrade(null);
+  };
+
+  const handleSuccessDialogClose = () => {
+    setShowSuccessDialog(false);
+    setSelectedTrade(null);
+  };
+
+  console.log("Rendered isOwnProfile:", isOwnProfile, postedTrades);
+
   // Original Profile Page content
   return (
     <div
-      className={`px-6 pb-20 pt-10 mx-auto max-w-[940px] text-white ${inter.className}`}
+      className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
     >
       {/* SECTION 0 - PAGE TITLE */}
       <h4 className="text-[22px] font-semibold mb-10">My Profile</h4>
@@ -2265,33 +2726,23 @@ export default function ProfilePage() {
               />
             )}
           </div>
-
           {/* Username + Joined Date */}
           <div className="flex text-white/50 text-[16px] mb-[20px] gap-[25px]">
             <span>@{user.username || "—"}</span>
             <span>Joined {user.joined || "—"}</span>
           </div>
-
-          {/* Buttons: Edit, Settings (only if own profile) */}
+          {/* Buttons: Edit (only if own profile) */}
           {isOwnProfile ? (
             <div className="absolute top-0 right-0 flex gap-4">
               <button
                 className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition"
-                onClick={() => {
-                  setEditableFirstName(user?.firstname || "");
-                  setEditableLastName(user?.lastname || "");
-                  setEditableBio(user?.bio || "");
-                  setBasicInfoEditing(true);
-                }}
+                onClick={() =>
+                  router.push(`/home/profile/${user.username}/settings`)
+                }
               >
-                <Icon icon="mdi:pencil" className="w-5 h-5" />
-                Edit
+                <Icon icon="mdi:cog" className="w-5 h-5" />
+                Settings
               </button>
-              <Link href={`/home/profile/${params.userId}/settings`}>
-                <button className="text-white hover:bg-[#1A0F3E] p-2 rounded-[10px] transition">
-                  <Icon icon="mdi:cog" className="w-5 h-5" />
-                </button>
-              </Link>
             </div>
           ) : (
             <div className="absolute top-0 right-0">
@@ -2303,7 +2754,6 @@ export default function ProfilePage() {
               </Link>
             </div>
           )}
-
           {/* Rating + Level */}
           <div className="flex items-center gap-6 mb-[20px]">
             <div className="flex items-center gap-2">
@@ -2320,7 +2770,7 @@ export default function ProfilePage() {
             {/* Level Bar Section */}
             <div className="flex items-center gap-3">
               {/* LVL label (moved to the left, purple) */}
-              <span className="text-[16px] font-semibold text-purple-400">
+              <span className="text-[16px] font-semibold text-[#906EFF]">
                 LVL {user.level}
               </span>
 
@@ -2349,7 +2799,6 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
-
           {/* Bio */}
           <div className="w-full mb-4">
             {basicInfoEditing ? (
@@ -2363,8 +2812,45 @@ export default function ProfilePage() {
               <p className="w-full leading-[1.6]">{user.bio}</p>
             )}
           </div>
+          {/* Links */}
+          {user.links &&
+            (() => {
+              let parsedLinks = [];
 
-          {/* Save / Cancel when editing */}
+              if (Array.isArray(user.links)) {
+                parsedLinks = user.links;
+              } else if (typeof user.links === "string") {
+                try {
+                  const maybeJson = JSON.parse(user.links);
+                  parsedLinks = Array.isArray(maybeJson)
+                    ? maybeJson
+                    : [user.links];
+                } catch {
+                  parsedLinks = [user.links];
+                }
+              }
+
+              return parsedLinks.length > 0 ? (
+                <div className="mt-3 space-y-2">
+                  {parsedLinks
+                    .filter((url) => url && url.trim() !== "")
+                    .map((url, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <LinkIcon className="w-4 h-4 text-gray-500" />
+                        <a
+                          href={url.startsWith("http") ? url : `https://${url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#4A9EFF] underline hover:opacity-80 break-all"
+                        >
+                          {url}
+                        </a>
+                      </div>
+                    ))}
+                </div>
+              ) : null;
+            })()}
+
           {basicInfoEditing && (
             <div className="flex flex-col gap-2 mb-4">
               <div className="flex gap-3">
@@ -2396,7 +2882,6 @@ export default function ProfilePage() {
               )}
             </div>
           )}
-
           {/* Get Verified Button area */}
           {isOwnProfile && (
             <div className="w-full flex justify-end items-center gap-3">
@@ -2434,7 +2919,7 @@ export default function ProfilePage() {
                     }
                     setShowVerificationPopup(true);
                   }}
-                  className="bg-red-600 hover:bg-[#1a4dff] text-white text-sm rounded-[15px] px-5 py-2 flex items-center gap-2 shadow-[0px_0px_15px_red]"
+                  className="bg-red-600 hover:bg-[#9c050c] text-white text-sm rounded-[15px] px-5 py-2 flex items-center gap-2 shadow-[0px_0px_15px_red]"
                 >
                   <Icon icon="material-symbols:verified" className="w-4 h-4" />
                   <span>Resubmit ID</span>
@@ -2449,7 +2934,7 @@ export default function ProfilePage() {
       <div className="mt-[50px] flex flex-col gap-[25px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[15px]">
-            <h5 className="text-lg font-semibold">Your Skills</h5>
+            <h5 className="text-lg font-semibold">Skills</h5>
 
             {isOwnProfile && (
               <div className="flex items-center gap-3">
@@ -2483,8 +2968,8 @@ export default function ProfilePage() {
                         skillsSaving
                           ? "bg-[#0038FF]/70"
                           : hasUnsavedSkillsChanges()
-                          ? "bg-[#0038FF] hover:bg-[#1a4dff]"
-                          : "bg-white/20 cursor-not-allowed"
+                            ? "bg-[#0038FF] hover:bg-[#1a4dff]"
+                            : "bg-white/20 cursor-not-allowed"
                       )}
                     >
                       {skillsSaving ? "Saving..." : "Save"}
@@ -2679,7 +3164,7 @@ export default function ProfilePage() {
       <div className="mt-[50px] flex flex-col gap-[25px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[15px]">
-            <h5 className="text-lg font-semibold">Your Interests</h5>
+            <h5 className="text-lg font-semibold">Interests</h5>
 
             {isOwnProfile && (
               <div className="flex items-center gap-3">
@@ -2713,8 +3198,8 @@ export default function ProfilePage() {
                         interestsSaving
                           ? "bg-[#0038FF]/70"
                           : hasUnsavedInterestChanges()
-                          ? "bg-[#0038FF] hover:bg-[#1a4dff]"
-                          : "bg-white/20 cursor-not-allowed"
+                            ? "bg-[#0038FF] hover:bg-[#1a4dff]"
+                            : "bg-white/20 cursor-not-allowed"
                       )}
                     >
                       {interestsSaving ? "Saving..." : "Save"}
@@ -2780,10 +3265,12 @@ export default function ProfilePage() {
                   onChange={(e) => {
                     if (e.target.checked) {
                       setSelectedInterests((prev) => [...prev, c]);
+                      setUserInterests((prev) => [...new Set([...prev, c])]); // ✅ Add directly too
                     } else {
                       setSelectedInterests((prev) =>
                         prev.filter((i) => i !== c)
                       );
+                      setUserInterests((prev) => prev.filter((i) => i !== c)); // ✅ Remove directly too
                     }
                   }}
                 />
@@ -2818,7 +3305,7 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-[25px] mt-[25px]">
           <div className="flex items-center justify-between">
             <h5 className="text-white text-lg font-semibold flex items-center gap-[15px]">
-              Your Licenses & Certifications
+              Licenses & Certifications
               {/* Edit all credentials button */}
               {isOwnProfile && (
                 <button onClick={handleEditAllCredentials}>
@@ -2853,7 +3340,7 @@ export default function ProfilePage() {
                     onClick={handleEditAllCredentials}
                     className="block mx-auto mt-2 text-[#0038FF] hover:underline"
                   >
-                    Add your first credential
+                    + Add your first credential
                   </button>
                 )}
               </div>
@@ -2938,231 +3425,720 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
         {/* Divider */}
         <div className="border-t border-white/20 mt-[50px]" />
 
-        {/* SECTION 4 - REVIEWS */}
+        {/* SECTION 4: Trades You Posted */}
+        {(isOwnProfile || !isOwnProfile) && (
+          <div className="mb-10">
+            <h5 className="text-white text-lg font-semibold flex items-center gap-[15px] mb-[20px]">
+              Trades
+            </h5>
+
+            {postedTradesLoading ? (
+              <div className="text-center py-8 text-white/60">
+                Loading trades...
+              </div>
+            ) : postedTradesError ? (
+              <div className="text-center py-8 text-red-400">
+                {postedTradesError}
+              </div>
+            ) : postedTrades.length === 0 ? (
+              <div className="text-white/60 text-center py-8">
+                No trades to be seen here.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-[25px]">
+                {postedTrades.map((trade, index) => {
+                  console.log(
+                    "🪄 Rendering card:",
+                    trade,
+                    "isOwnProfile:",
+                    isOwnProfile
+                  );
+                  return (
+                    <div key={trade.id} className="relative">
+                      {isOwnProfile ? (
+                        // ✅ OWNER VIEW CARD (delete + offers)
+                        <div
+                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+                          style={{
+                            background:
+                              "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
+                            boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
+                          }}
+                        >
+                          {/* 💥 Copy-paste the header, needs, interested section, date & view button */}
+                          {/* Exactly the same structure from PendingTradesPage */}
+
+                          {/* Header */}
+                          <div className="flex justify-between items-start w-full">
+                            <div className="flex items-start gap-[10px]">
+                              <Link
+                                href={`/home/profile/${session.user.username}`}
+                                className="flex-shrink-0"
+                              >
+                                <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#D78DE5] transition-all">
+                                  <Image
+                                    src={
+                                      session?.user?.image ||
+                                      "/assets/defaultavatar.png"
+                                    }
+                                    alt="Your profile picture"
+                                    width={25}
+                                    height={25}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              </Link>
+                              <div className="flex flex-col items-start gap-[5px]">
+                                <Link
+                                  href={`/home/profile/${session.user.username}`}
+                                  className="text-[16px] text-white hover:text-[#D78DE5] transition-colors cursor-pointer"
+                                >
+                                  <span>{trade.name}</span>
+                                </Link>
+                                <div className="flex items-center gap-[15px]">
+                                  <div className="flex items-center gap-[5px]">
+                                    <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
+                                    <span className="text-[13px] font-bold text-white">
+                                      {trade.rating}
+                                    </span>
+                                    <span className="text-[13px] text-white">
+                                      ({trade.reviews})
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-[5px]">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="12"
+                                      height="13"
+                                      viewBox="0 0 12 13"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
+                                        fill="url(#paint0_radial_1202_2090)"
+                                        stroke="url(#paint1_linear_1202_2090)"
+                                        strokeWidth="1.5"
+                                      />
+                                      <defs>
+                                        <radialGradient
+                                          id="paint0_radial_1202_2090"
+                                          cx="0"
+                                          cy="0"
+                                          r="1"
+                                          gradientUnits="userSpaceOnUse"
+                                          gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
+                                        >
+                                          <stop
+                                            offset="0.4"
+                                            stopColor="#933BFF"
+                                          />
+                                          <stop
+                                            offset="1"
+                                            stopColor="#34188D"
+                                          />
+                                        </radialGradient>
+                                        <linearGradient
+                                          id="paint1_linear_1202_2090"
+                                          x1="6.00002"
+                                          y1="0.0778344"
+                                          x2="6.00002"
+                                          y2="13.2525"
+                                          gradientUnits="userSpaceOnUse"
+                                        >
+                                          <stop stopColor="white" />
+                                          <stop
+                                            offset="0.5"
+                                            stopColor="#999999"
+                                          />
+                                          <stop offset="1" stopColor="white" />
+                                        </linearGradient>
+                                      </defs>
+                                    </svg>
+                                    <span className="text-[13px] text-white">
+                                      LVL {trade.level}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Right: 🗑 Delete Icon */}
+                            <button
+                              onClick={() =>
+                                setShowDeleteModalForCard(trade.id)
+                              }
+                              className="p-1 hover:bg-white/10 rounded-full transition"
+                              title="Delete trade"
+                            >
+                              <Icon
+                                icon="lucide:trash-2"
+                                className="w-5 h-5 text-red-500 hover:text-red-600 transition"
+                              />
+                            </button>
+                          </div>
+
+                          {/* Needs + Interested */}
+                          <div className="flex justify-between items-start w-full">
+                            <div className="flex flex-col items-start gap-[10px]">
+                              <span className="text-[13px] text-white">
+                                Needs
+                              </span>
+                              <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
+                                <span className="text-[12px] text-white leading-tight">
+                                  {trade.needs || trade.reqname || "N/A"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-[10px]">
+                              <span className="text-[13px] text-white">
+                                Look who's interested
+                              </span>
+                              <div className="flex -space-x-2">
+                                {trade.interested &&
+                                  trade.interested.length > 0 ? (
+                                  trade.interested.map((person) => (
+                                    <div
+                                      key={person.id}
+                                      className="w-[25px] h-[25px] rounded-full border border-white overflow-hidden"
+                                    >
+                                      <Image
+                                        src={
+                                          person.avatar ||
+                                          "/assets/defaultavatar.png"
+                                        }
+                                        alt={`${person.name}'s profile picture`}
+                                        width={25}
+                                        height={25}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-[12px] text-white/60">
+                                    No requests yet
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Date + View button */}
+                          <div className="flex justify-between items-center w-full">
+                            <span className="text-[13px] text-white/60">
+                              until{" "}
+                              {trade.until || trade.deadline || "No deadline"}
+                            </span>
+                            <button
+                              className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors"
+                              onClick={() => console.log("View trade", trade)}
+                              disabled={
+                                !trade.interested ||
+                                trade.interested.length === 0
+                              }
+                            >
+                              <span className="text-[13px] text-white">
+                                {!trade.interested ||
+                                  trade.interested.length === 0
+                                  ? "No offers"
+                                  : "View"}
+                              </span>
+                            </button>
+                            {showDeleteModalForCard === trade.tradereq_id && (
+                              <InlineConfirmationModal
+                                message="Are you sure you want to delete this trade request? This action cannot be undone."
+                                onConfirm={() => handleDeleteTrade(trade)}
+                                onCancel={() => setShowDeleteModalForCard(null)}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        // 🌐 PUBLIC VIEW CARD (Explore-style)
+                        <div
+                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
+                          style={{
+                            background:
+                              "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
+                            boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
+                          }}
+                        >
+                          {/* Top Row */}
+                          <div className="flex justify-between items-start w-full">
+                            <div className="flex gap-[10px]">
+                              <Link
+                                href={`/home/profile/${trade.username}`}
+                                className="flex-shrink-0"
+                              >
+                                <div className="relative w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#0038FF] transition-all">
+                                  <Image
+                                    src={
+                                      trade.profilePic ||
+                                      "/assets/defaultavatar.png"
+                                    }
+                                    alt={`${trade.name}'s avatar`}
+                                    width={25}
+                                    height={25}
+                                    className="rounded-full object-cover"
+                                  />
+                                </div>
+                              </Link>
+                              <div className="flex flex-col gap-[5px]">
+                                <Link
+                                  href={`/home/profile/${trade.username}`}
+                                  className="hover:text-[#0038FF] transition-colors"
+                                >
+                                  <span className="text-base font-medium cursor-pointer">
+                                    {trade.name}
+                                  </span>
+                                </Link>
+                                <div className="flex gap-[15px] items-center text-sm text-white/90">
+                                  <div className="flex gap-1 items-center">
+                                    <Icon
+                                      icon="mdi:star"
+                                      className="text-[#B18AFF]"
+                                      width={14}
+                                      height={14}
+                                    />
+                                    <span className="font-bold">
+                                      {trade.rating.toFixed(1)}
+                                    </span>
+                                    <span className="text-white/70">
+                                      ({trade.reviews})
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1 items-center">
+                                    <Image
+                                      src="/assets/lvlrank_icon.png"
+                                      alt="Level"
+                                      width={12}
+                                      height={12}
+                                    />
+                                    <span className="text-white/80">
+                                      LVL {trade.level}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Needs + Offer */}
+                          <div className="flex justify-between items-start gap-4 flex-wrap mb-3">
+                            <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
+                              <span className="text-sm text-white/80 font-medium">
+                                Needs
+                              </span>
+                              <div className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 w-fit">
+                                {trade.reqname}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
+                              <span className="text-sm text-white/80 font-medium">
+                                Can offer
+                              </span>
+                              <div className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 w-fit text-right">
+                                {trade.offer || trade.matching_skill}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Deadline */}
+                          <div className="mt-[0px] flex justify-end mb-3">
+                            <p className="text-[13px] text-white/70">
+                              {fmtUntil(trade.deadline)}
+                            </p>
+                          </div>
+
+                          {/* CTA */}
+                          <div className="mt-[0px] flex justify-center">
+                            {(() => {
+                              const hasInterest = userInterestStatus[trade.tradereq_id];
+                              const isPending = hasInterest === 'PENDING';
+                              const isAccepted = hasInterest === 'ACCEPTED';
+
+                              if (isPending) {
+                                return (
+                                  <div className="relative group inline-block">
+                                    <button
+                                      disabled
+                                      className="px-[30px] py-[10px] text-white/60 bg-gray-600/50 rounded-[15px] text-sm font-medium cursor-not-allowed border-2 border-gray-500/50"
+                                    >
+                                      Request Pending
+                                    </button>
+                                    {/* Tooltip */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#120A2A]/95 text-white text-xs rounded-lg border border-[#906EFF]/30 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap">
+                                      You already sent an interest request to this trade
+                                      {/* Arrow */}
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px]">
+                                        <div className="border-4 border-transparent border-t-[#120A2A]/95"></div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (isAccepted) {
+                                return (
+                                  <button
+                                    disabled
+                                    className="px-[30px] py-[10px] text-white/60 bg-green-600 rounded-[15px] text-sm font-medium cursor-not-allowed"
+                                  >
+                                    Already Accepted
+                                  </button>
+                                );
+                              }
+
+                              return (
+                                <button
+                                  onClick={() => handleInterestedClick(trade)}
+                                  className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
+                                >
+                                  I'm interested
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Confirmation Dialog */}
+        {showConfirmDialog && selectedTrade && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+              {/* Background gradients */}
+              <div className="absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
+              <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
+
+              {/* Close button */}
+              <button
+                className="absolute top-4 right-4 text-white hover:text-gray-300"
+                onClick={handleCancelInterest}
+              >
+                <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+              </button>
+
+              <div className="flex flex-col items-center gap-6 w-full px-8 relative z-10">
+                <h2 className="font-bold text-[20px] text-center text-white leading-tight">
+                  Are you sure you want to add this to your pending trades?
+                </h2>
+                <div className="flex flex-row gap-4">
+                  <button
+                    className="flex items-center justify-center w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#0038FF]/10 transition-colors"
+                    onClick={handleCancelInterest}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="flex items-center justify-center w-[120px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                    onClick={handleConfirmInterest}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ Success Dialog */}
+        {showSuccessDialog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+              {/* Close button (X) */}
+              <button
+                className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+                onClick={handleSuccessDialogClose}
+              >
+                <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+              </button>
+
+              {/* Message */}
+              <h2 className="font-bold text-[20px] text-center text-white mb-6">
+                Trade invitation successfully sent.
+              </h2>
+
+              {/* Go to Pending Trades button */}
+              <button
+                className="w-[200px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                onClick={() => {
+                  handleSuccessDialogClose(); // close the dialog
+                  router.push("/home/trades/pending");
+                }}
+              >
+                Go to Pending Trades
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="border-t border-white/20 mt-[50px]" />
+
+        {/* SECTION 5 - REVIEWS */}
         <div className="flex flex-col gap-[25px] mt-[25px]">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h5 className="text-white text-lg font-semibold">
-                What others say
-              </h5>
+              <h5 className="text-white text-lg font-semibold">Reviews</h5>
               <span className="text-[16px] text-white/50 mt-[5px]">
-                25 trades & reviews
+                {user.reviews} trades & reviews
               </span>
             </div>
-            <div className="relative">
-              <button
-                onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3"
-              >
-                {sortOption}{" "}
-                <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
-              </button>
-              {showSortDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
-                  {["Latest", "Highest Rating", "Lowest Rating"].map(
-                    (option) => (
-                      <button
-                        key={option}
-                        onClick={() => handleSortChange(option)}
-                        className={clsx(
-                          "block w-full text-left px-4 py-2 text-sm transition-colors",
-                          option === sortOption
-                            ? "text-[#906EFF] bg-white/10"
-                            : "text-white hover:bg-white/10"
-                        )}
-                      >
-                        {option}
-                      </button>
-                    )
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Rating Analytics */}
-          <div className="flex items-start gap-[50px]">
-            {/* Overall Rating Group - now at the top left */}
-            <div className="flex flex-col">
-              <div className="flex items-end gap-[10px]">
-                <span className="text-[40px] font-bold leading-none">
-                  {safeFixed(user.rating, 1)}
-                </span>
-                <span className="text-[16px] text-white/50 pb-2">
-                  ({Number(user.reviews) || 0})
-                </span>
-              </div>
-              <div className="flex items-center mt-[20px]">
-                {renderStars(user.rating)}
-              </div>
-            </div>
-
-            {/* Rating Bars */}
-            <div className="flex flex-col gap-[10px]">
-              {Object.keys(reviewRatings)
-                .reverse()
-                .map((rating) => (
-                  <div key={rating} className="flex items-center gap-[15px]">
-                    <span className="text-[16px] w-[15px]">{rating}</span>
-                    <div className="w-[270px] h-[15px] bg-white/20 rounded-full">
-                      <div
-                        style={{
-                          width: `${
-                            (reviewRatings[rating] / user.reviews) * 100
-                          }%`,
-                        }}
-                        className="h-full bg-[#906EFF] rounded-full"
-                      />
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Reviews section using the new ReviewCard component */}
-          <div className="mt-8 flex flex-col gap-6">
-            {sortedReviews.map((review, index) => (
-              <ReviewCard
-                key={index}
-                review={review}
-                onDelete={handleDeleteReview}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* === Verification Popup (improved UI) === */}
-      {showVerificationPopup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#120A2A] p-6 rounded-[15px] w-[420px] shadow-lg border border-white/20">
-            <div className="flex items-start justify-between">
-              <h3 className="text-white text-lg font-semibold">
-                Upload your ID
-              </h3>
-              <button
-                onClick={() => {
-                  // close & clear selection
-                  setShowVerificationPopup(false);
-                  setIdFile(null);
-                  if (idPreviewUrl) {
-                    URL.revokeObjectURL(idPreviewUrl);
-                    setIdPreviewUrl(null);
-                  }
-                }}
-                className="p-1 rounded hover:bg-white/10"
-                aria-label="Close verification popup"
-              >
-                <Icon icon="mdi:close" className="w-5 h-5 text-white/70" />
-              </button>
-            </div>
-
-            <p className="text-white/70 text-sm mt-2 mb-4">
-              Please upload a clear image or PDF of your government-issued ID.
-              Accepted: PDF, PNG, or JPEG. Max 15&nbsp;MB.
-            </p>
-
-            {/* Upload control */}
-            <div className="flex items-center gap-3 mb-5">
-              <input
-                id="id-upload"
-                type="file"
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={(e) =>
-                  handleIdFileChange(e.target.files?.[0] ?? null)
-                }
-              />
-
-              {/* Visible button (label) */}
-              <label
-                htmlFor="id-upload"
-                className="cursor-pointer inline-flex items-center gap-2 rounded-[12px] px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm border border-white/20"
-              >
-                <Icon icon="mdi:upload" className="w-4 h-4" />
-                Upload file
-              </label>
-
-              {/* Filename or preview */}
-              <div className="flex-1 min-w-0">
-                {idFile ? (
-                  <div className="flex items-center gap-3">
-                    {idPreviewUrl ? (
-                      <img
-                        src={idPreviewUrl}
-                        alt="ID preview"
-                        className="w-12 h-8 object-cover rounded-sm border border-white/10"
-                      />
-                    ) : (
-                      <span className="inline-block w-12 h-8 rounded-sm bg-white/5 border border-white/10 flex items-center justify-center text-xs text-white/70">
-                        PDF
-                      </span>
+            {reviews.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowSortDropdown(!showSortDropdown)}
+                  className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3"
+                >
+                  {sortOption}{" "}
+                  <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
+                </button>
+                {showSortDropdown && (
+                  <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
+                    {["Latest", "Highest Rating", "Lowest Rating"].map(
+                      (option) => (
+                        <button
+                          key={option}
+                          onClick={() => handleSortChange(option)}
+                          className={clsx(
+                            "block w-full text-left px-4 py-2 text-sm transition-colors",
+                            option === sortOption
+                              ? "text-[#906EFF] bg-white/10"
+                              : "text-white hover:bg-white/10"
+                          )}
+                        >
+                          {option}
+                        </button>
+                      )
                     )}
-                    <span className="text-white/80 text-sm truncate">
-                      {idFile.name}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setIdFile(null);
-                        if (idPreviewUrl) {
-                          URL.revokeObjectURL(idPreviewUrl);
-                          setIdPreviewUrl(null);
-                        }
-                        // clear the native input too
-                        const el = document.getElementById("id-upload");
-                        if (el) el.value = "";
-                      }}
-                      className="ml-2 text-white/60 hover:text-white/90"
-                      aria-label="Remove selected file"
-                      type="button"
-                    >
-                      ✕
-                    </button>
                   </div>
-                ) : (
-                  <span className="text-white/60 text-sm">
-                    No file selected
-                  </span>
                 )}
               </div>
+            )}
+          </div>
+
+          {/* Loading state */}
+          {reviewsLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-white/60">Loading reviews...</div>
             </div>
+          )}
 
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  // cancel
-                  setShowVerificationPopup(false);
-                  setIdFile(null);
-                  if (idPreviewUrl) {
-                    URL.revokeObjectURL(idPreviewUrl);
-                    setIdPreviewUrl(null);
+          {/* Error state */}
+          {reviewsError && !reviewsLoading && (
+            <div className="text-red-400 text-sm bg-red-900/20 border border-red-500/30 rounded-[10px] p-3">
+              {reviewsError}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!reviewsLoading && !reviewsError && reviews.length === 0 && (
+            <div className="text-white/60 text-center py-8">
+              No reviews yet.
+            </div>
+          )}
+
+          {/* Rating Analytics - only show if there are reviews */}
+          {reviews.length > 0 && (
+            <div className="flex items-start gap-[50px]">
+              {/* Overall Rating Group */}
+              <div className="flex flex-col">
+                <div className="flex items-end gap-[10px]">
+                  <span className="text-[40px] font-bold leading-none">
+                    {safeFixed(user.rating, 1)}
+                  </span>
+                  <span className="text-[16px] text-white/50 pb-2">
+                    ({Number(user.reviews) || 0})
+                  </span>
+                </div>
+                <div className="flex items-center mt-[20px]">
+                  {renderStars(user.rating)}
+                </div>
+              </div>
+
+              {/* Rating Bars */}
+              <div className="flex flex-col gap-[10px]">
+                {Object.keys(reviewRatings)
+                  .reverse()
+                  .map((rating) => (
+                    <div key={rating} className="flex items-center gap-[15px]">
+                      <span className="text-[16px] w-[15px]">{rating}</span>
+                      <div className="w-[270px] h-[15px] bg-white/20 rounded-full">
+                        <div
+                          style={{
+                            width:
+                              user.reviews > 0
+                                ? `${(reviewRatings[rating] / user.reviews) * 100
+                                }%`
+                                : "0%",
+                          }}
+                          className="h-full bg-[#906EFF] rounded-full"
+                        />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Reviews section */}
+          {reviews.length > 0 && (
+            <div className="mt-8 flex flex-col gap-6">
+              {sortedReviews.map((review, index) => (
+                <ReviewCard key={index} review={review} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* === Verification Popup (improved UI) === */}
+        {showVerificationPopup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-[#120A2A] p-6 rounded-[15px] w-[420px] shadow-lg border border-white/20">
+              <div className="flex items-start justify-between">
+                <h3 className="text-white text-lg font-semibold">
+                  Upload your ID
+                </h3>
+                <button
+                  onClick={() => {
+                    // close & clear selection
+                    setShowVerificationPopup(false);
+                    setIdFile(null);
+                    if (idPreviewUrl) {
+                      URL.revokeObjectURL(idPreviewUrl);
+                      setIdPreviewUrl(null);
+                    }
+                  }}
+                  className="p-1 rounded hover:bg-white/10"
+                  aria-label="Close verification popup"
+                >
+                  <Icon icon="mdi:close" className="w-5 h-5 text-white/70" />
+                </button>
+              </div>
+
+              <p className="text-white/70 text-sm mt-2 mb-4">
+                Please upload a clear image or PDF of your government-issued ID.
+                Accepted: PDF, PNG, or JPEG. Max 15&nbsp;MB.
+              </p>
+
+              {/* Upload control */}
+              <div className="flex items-center gap-3 mb-5">
+                <input
+                  id="id-upload"
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={(e) =>
+                    handleIdFileChange(e.target.files?.[0] ?? null)
                   }
-                  const el = document.getElementById("id-upload");
-                  if (el) el.value = "";
-                }}
-                className="bg-white/10 text-white rounded-[15px] px-4 py-2 hover:bg-white/20"
-              >
-                Cancel
-              </button>
+                />
 
-              <button
-                onClick={handleSubmitVerification}
-                disabled={!idFile}
-                className={`rounded-[15px] px-4 py-2 shadow ${
-                  idFile
+                {/* Visible button (label) */}
+                <label
+                  htmlFor="id-upload"
+                  className="cursor-pointer inline-flex items-center gap-2 rounded-[12px] px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm border border-white/20"
+                >
+                  <Icon icon="mdi:upload" className="w-4 h-4" />
+                  Upload file
+                </label>
+
+                {/* Filename or preview */}
+                <div className="flex-1 min-w-0">
+                  {idFile ? (
+                    <div className="flex items-center gap-3">
+                      {idPreviewUrl ? (
+                        <img
+                          src={idPreviewUrl}
+                          alt="ID preview"
+                          className="w-12 h-8 object-cover rounded-sm border border-white/10"
+                        />
+                      ) : (
+                        <span className="inline-block w-12 h-8 rounded-sm bg-white/5 border border-white/10 flex items-center justify-center text-xs text-white/70">
+                          PDF
+                        </span>
+                      )}
+                      <span className="text-white/80 text-sm truncate">
+                        {idFile.name}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setIdFile(null);
+                          if (idPreviewUrl) {
+                            URL.revokeObjectURL(idPreviewUrl);
+                            setIdPreviewUrl(null);
+                          }
+                          // clear the native input too
+                          const el = document.getElementById("id-upload");
+                          if (el) el.value = "";
+                        }}
+                        className="ml-2 text-white/60 hover:text-white/90"
+                        aria-label="Remove selected file"
+                        type="button"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-white/60 text-sm">
+                      No file selected
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    // cancel
+                    setShowVerificationPopup(false);
+                    setIdFile(null);
+                    if (idPreviewUrl) {
+                      URL.revokeObjectURL(idPreviewUrl);
+                      setIdPreviewUrl(null);
+                    }
+                    const el = document.getElementById("id-upload");
+                    if (el) el.value = "";
+                  }}
+                  className="bg-white/10 text-white rounded-[15px] px-4 py-2 hover:bg-white/20"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleSubmitVerification}
+                  disabled={!idFile}
+                  className={`rounded-[15px] px-4 py-2 shadow ${idFile
                     ? "bg-[#0038FF] hover:bg-[#1a4dff] text-white"
                     : "bg-white/10 text-white/40 cursor-not-allowed"
-                }`}
-              >
-                Confirm
-              </button>
+                    }`}
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+        {editingCredentials && (
+          <EditCredentialsPage
+            credentialsToEdit={
+              editingCredentials === "all"
+                ? userCredentials
+                : [editingCredentials]
+            }
+            onCancel={() => setEditingCredentials(null)}
+            onSave={handleSaveCredentials}
+          />
+        )}
+      </div>
     </div>
   );
 }
