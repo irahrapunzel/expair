@@ -4,7 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
-from .views import add_user_interests, user_interests
+from .views import add_user_interests, user_interests, create_report
 from django.contrib import admin
 
 urlpatterns = [
@@ -90,6 +90,12 @@ urlpatterns = [
     path('trades/<int:tradereq_id>/conversation/', views.get_or_create_conversation, name='get_or_create_conversation'),
     path('conversations/', views.list_conversations, name='list_conversations'),
     path('conversations/<int:conversation_id>/messages/', views.messages_handler, name='messages_handler'),
+    path('conversations/<int:conversation_id>/delete/', views.delete_conversation, name='delete_conversation'),
+
+
+    # Ticketing endpoints
+    path('reports/', create_report, name='create-report'),
+    path('create-support-ticket/', views.create_support_ticket, name='create_support_ticket'),
 ]
 
 

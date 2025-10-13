@@ -38,7 +38,9 @@ load_dotenv(dotenv_path=BASE_DIR / '.env')
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-s4+ko75@k=9i#4@c9wyl&(b(9d=j9zslcqbhhwlzdc-lhq0^i8")
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 INSTALLED_APPS = [
@@ -258,7 +260,7 @@ from datetime import timedelta
 
 # JWT Configuration
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=120),  # 2 hours
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # 24 hours
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # 7 days
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,

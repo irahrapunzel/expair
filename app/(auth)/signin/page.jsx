@@ -32,7 +32,7 @@ export default function LoginPage() {
     console.log("Password length:", password?.length);
     console.log("Captcha:", !!captcha);
 
-    // Basic form checks (Keep these for client-side UX)
+    // Basic form checks
     if (!username || !password) {
       setErrorMessage("Please enter both username and password");
       return;
@@ -42,21 +42,22 @@ export default function LoginPage() {
       return;
     }
 
-    // --- START OF LOGIC CHANGE ---
+    // --- ADMIN HARDCODED LOGIN ---
+    if (username === "expairAdmin" && password === "Admin123!") {
+      router.push("/admin");
+      return;
+    }
 
-    // Call the NextAuth 'credentials' provider.
-    // NextAuth will use the SupabaseAdapter and the logic you defined in [...nextauth].js.
+    // --- EXISTING NEXTAUTH LOGIN LOGIC ---
     const result = await signIn("credentials", {
-      redirect: false, // Prevents automatic redirect on failure
-      // We send 'identifier' (username or email) and 'password'
-      identifier: username, // Assuming 'username' state holds the user's input (can be email or username)
+      redirect: false,
+      identifier: username,
       password: password,
     });
 
     console.log("NextAuth Sign-in Result:", result);
 
     if (result?.error) {
-      // Handle error message from the NextAuth response
       setErrorMessage(
         result.error === "CredentialsSignin"
           ? "Invalid login credentials."
@@ -65,17 +66,12 @@ export default function LoginPage() {
       return;
     }
 
-    // Handle successful login
     if (result?.ok) {
-      // If 'rememberMe' is checked, you might want to save the identifier locally (Optional)
       if (rememberMe) {
-        // Add local storage logic here if needed
+        // Optional: store something in localStorage
       }
-
-      // Redirect to the home page or dashboard on success
       router.push("/home");
     }
-    // --- END OF LOGIC CHANGE ---
   };
 
 const handleGoogleLogin = async () => {

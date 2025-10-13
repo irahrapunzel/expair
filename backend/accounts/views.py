@@ -1,7 +1,7 @@
 import json
 import datetime
 import os
-from datetime import date
+from datetime import date, timezone
 
 import cloudinary
 from rest_framework import status
@@ -29,13 +29,18 @@ CustomUser = get_user_model()
 from .models import (
     Evaluation, GenSkill, ReputationSystem, TradeDetail, TradeHistory, UserInterest, User, VerificationStatus, UserCredential,
     SpecSkill, UserSkill, TradeRequest, TradeInterest, PasswordResetToken,
-    Conversation, Message
+    Conversation, Message, DeletedConversation, Report, SupportTicket
 )
 from .serializers import (
     ProfileUpdateSerializer, UserCredentialSerializer,
     SpecSkillSerializer, UserSkillBulkSerializer,
-    UserSerializer, GenSkillSerializer, UserInterestBulkSerializer
+    UserSerializer, GenSkillSerializer, UserInterestBulkSerializer, ReportSerializer
 )
+
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from .emails import send_support_emails
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_or_create_conversation(request, tradereq_id):
@@ -59,17 +64,26 @@ def get_or_create_conversation(request, tradereq_id):
         'responder_id': trade.responder_id,
     })
 
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_conversations(request):
     try:
-        # Don't use select_related for orphaned data - it can cause issues
-        qs = Conversation.objects.filter(Q(requester=request.user) | Q(responder=request.user)).order_by('-created_at')
+        # Get conversations where user is participant
+        qs = Conversation.objects.filter(
+            Q(requester=request.user) | Q(responder=request.user)
+        ).order_by('-created_at')
+        
+        # ✅ EXCLUDE conversations that current user has deleted
+        deleted_conversation_ids = DeletedConversation.objects.filter(
+            user=request.user
+        ).values_list('conversation_id', flat=True)
+        
+        if deleted_conversation_ids:
+            qs = qs.exclude(conversation_id__in=deleted_conversation_ids)
         
         print(f"=== LIST CONVERSATIONS DEBUG ===")
         print(f"User: {request.user.id} ({request.user.username})")
-        print(f"Found {qs.count()} conversations")
+        print(f"Found {qs.count()} conversations (after excluding deleted)")
         
         data = []
         for c in qs:
@@ -81,9 +95,8 @@ def list_conversations(request):
                 # Safely handle profile picture field
                 try:
                     other_user_profilepic = other_user.profilePic
-                    # profilePic is already a Cloudinary URL or None
                     if not other_user_profilepic:
-                        other_user_profilepic = None  # Let frontend handle fallback
+                        other_user_profilepic = None
                 except Exception as pic_error:
                     print(f"Error handling profile picture for user {other_user.id}: {pic_error}")
                     other_user_profilepic = None
@@ -91,36 +104,17 @@ def list_conversations(request):
                 other_user_id = other_user.id
                 other_user_username = other_user.username
             except (User.DoesNotExist, AttributeError):
-                # Handle case where user was deleted but conversation still exists
                 other_user_id = c.responder_id if c.requester_id == request.user.id else c.requester_id
                 other_user_name = "UNKNOWN USER"
                 other_user_profilepic = None
                 other_user_username = f"deleted_user_{other_user_id}"
                 print(f"WARNING: Conversation {c.conversation_id} references non-existent user ID {other_user_id}")
             
-            print(f"Conversation {c.conversation_id}:")
-            try:
-                requester_name = c.requester.username
-            except User.DoesNotExist:
-                requester_name = "UNKNOWN USER"
-            
-            try:
-                responder_name = c.responder.username
-            except User.DoesNotExist:
-                responder_name = "UNKNOWN USER"
-            
-            print(f"  Requester: {requester_name} (ID: {c.requester_id})")
-            print(f"  Responder: {responder_name} (ID: {c.responder_id})")
-            print(f"  Other user: {other_user_username} (ID: {other_user_id})")
-            print(f"  Other user name: '{other_user_name}'")
-            print(f"  Other user profilepic: '{other_user_profilepic}'")
-            
             # Get last message safely with encoding handling
             last_msg = Message.objects.filter(conversation=c).order_by('-created_at').first()
             last_message_content = None
             if last_msg and last_msg.content:
                 try:
-                    # Ensure the content is properly encoded as UTF-8
                     if isinstance(last_msg.content, bytes):
                         last_message_content = last_msg.content.decode('utf-8', errors='replace')
                     else:
@@ -133,12 +127,14 @@ def list_conversations(request):
                 'trade_request_id': c.trade_request_id,
                 'reqname': getattr(c.trade_request, 'reqname', None),
                 'exchange': getattr(c.trade_request, 'exchange', None),
+                # ✅ ADD requester_id and responder_id for frontend perspective logic
+                'requester_id': getattr(c.trade_request, 'requester_id', None),
+                'responder_id': getattr(c.trade_request, 'responder_id', None),
                 'other_user_id': other_user_id,
                 'other_user_username': other_user_username,
                 'other_user_name': other_user_name,
                 'other_user_profilepic': other_user_profilepic,
                 'created_at': c.created_at,
-                # Last message summary with safe encoding
                 'last_message': last_message_content,
                 'last_sender_id': last_msg.sender_id if last_msg else None,
                 'last_timestamp': last_msg.created_at.isoformat() if last_msg else None,
@@ -152,7 +148,6 @@ def list_conversations(request):
             'error': 'Failed to load conversations',
             'conversations': []
         }, status=500)
-
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -198,6 +193,77 @@ def messages_handler(request, conversation_id):
         'content': msg.content,
         'created_at': msg.created_at,
     }, status=201)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_conversation(request, conversation_id):
+    """
+    Soft delete - hide conversation from current user's list only.
+    Other user can still see it. Conversation and messages remain in database.
+    
+    Rules:
+    - ❌ Cannot delete conversations with PENDING or ACTIVE trades
+    - ✅ Can delete conversations with COMPLETED or CANCELLED trades
+    - ✅ Can delete conversations with no trade (NULL status)
+    """
+    try:
+        from .models import DeletedConversation
+        
+        conversation = Conversation.objects.select_related(
+            'requester', 
+            'responder',
+            'trade_request'
+        ).get(conversation_id=conversation_id)
+        
+        # Verify user is part of this conversation
+        if request.user.id not in [conversation.requester_id, conversation.responder_id]:
+            return Response({
+                "error": "You are not authorized to delete this conversation"
+            }, status=403)
+        
+        # ✅ CHECK TRADE STATUS - Prevent deletion if trade is active
+        trade_request = conversation.trade_request
+        if trade_request:
+            if trade_request.status in [TradeRequest.Status.PENDING, TradeRequest.Status.ACTIVE]:
+                return Response({
+                    "error": "Cannot delete conversations with pending or active trades. Complete or cancel the trade first.",
+                    "trade_status": trade_request.status
+                }, status=400)
+        
+        # Create deleted conversation record for this user (soft delete)
+        deleted_conv, created = DeletedConversation.objects.get_or_create(
+            conversation=conversation,
+            user=request.user
+        )
+        
+        if not created:
+            return Response({
+                "message": "Conversation already deleted",
+                "conversation_id": conversation_id,
+                "already_deleted": True
+            }, status=200)
+        
+        print(f"Conversation {conversation_id} soft deleted for user {request.user.id}")
+        print(f"Trade status: {trade_request.status if trade_request else 'No trade'}")
+        
+        return Response({
+            "message": "Conversation deleted successfully",
+            "conversation_id": conversation_id,
+            "deleted_for_current_user_only": True,
+            "other_user_can_still_see": True
+        }, status=200)
+        
+    except Conversation.DoesNotExist:
+        return Response({
+            "error": "Conversation not found"
+        }, status=404)
+    except Exception as e:
+        print(f"Delete conversation error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "error": f"Failed to delete conversation: {str(e)}"
+        }, status=500)
 
 @csrf_exempt
 @api_view(['POST', 'GET']) 
@@ -380,7 +446,7 @@ def get_user_posted_trades(request, username):
         "posted_trades": trades_data,
         "count": len(trades_data)
     }, status=200)
-
+    
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -1282,6 +1348,8 @@ def get_home_active_trades(request):
     Get ACTIVE and COMPLETED trades where both users have submitted trade details - for home page display.
     ✅ FILTERS OUT trades where current user has already rated (using requester_rated/responder_rated flags).
     Shows the OTHER user's information and what they're offering.
+    ✅ USES database fields directly (reqname and exchange)
+    ✅ FIXED: Now swaps needs/offers based on perspective
     """
     user = request.user
     
@@ -1290,7 +1358,6 @@ def get_home_active_trades(request):
     
     try:
         # Get ACTIVE and COMPLETED trades where user is either requester or responder
-        # ✅ NEW FILTERING LOGIC: Exclude trades where current user has already rated
         active_trades_query = TradeRequest.objects.filter(
             Q(status=TradeRequest.Status.ACTIVE) | Q(status=TradeRequest.Status.COMPLETED)
         ).filter(
@@ -1328,7 +1395,7 @@ def get_home_active_trades(request):
                 trade_details_map[trade_id] = []
             trade_details_map[trade_id].append(detail)
         
-        # Filter trades where BOTH users have submitted details (regardless of proof status)
+        # Filter trades where BOTH users have submitted details
         trades_with_both_details = []
         for trade in filtered_trades:
             details_for_trade = trade_details_map.get(trade.tradereq_id, [])
@@ -1341,48 +1408,18 @@ def get_home_active_trades(request):
         
         print(f"Found {len(trades_with_both_details)} trades with both details submitted")
         
-        # Pre-fetch user skills and interests to avoid queries in loop
-        all_user_ids = set()
-        for trade in trades_with_both_details:
-            all_user_ids.add(trade.requester_id)
-            all_user_ids.add(trade.responder_id)
-        
-        # Get all user skills at once
-        user_skills_map = {}
-        all_user_skills = UserSkill.objects.filter(
-            user_id__in=all_user_ids
-        ).select_related('specSkills__genSkills_id')
-        
-        for skill in all_user_skills:
-            if skill.user_id not in user_skills_map:
-                user_skills_map[skill.user_id] = []
-            user_skills_map[skill.user_id].append(skill.specSkills.genSkills_id.genCateg)
-        
-        # Get all user interests at once
-        user_interests_map = {}
-        all_user_interests = UserInterest.objects.filter(
-            user_id__in=all_user_ids
-        ).select_related('genSkills_id')
-        
-        for interest in all_user_interests:
-            if interest.user_id not in user_interests_map:
-                user_interests_map[interest.user_id] = []
-            user_interests_map[interest.user_id].append(interest.genSkills_id.genCateg)
-        
-        # Get fallback skill once
-        fallback_skill = GenSkill.objects.first()
-        fallback_skill_name = fallback_skill.genCateg if fallback_skill else "Skills & Services"
-        
         home_trades_data = []
         
         for trade in trades_with_both_details:
             print(f"Processing trade {trade.tradereq_id}")
+            print(f"  Reqname from DB: {trade.reqname}")
+            print(f"  Exchange from DB: {trade.exchange}")
             
             # Determine which user is the "other" user
             is_requester = (trade.requester.id == user.id)
             other_user = trade.responder if is_requester else trade.requester
             
-            # Get the other user's trade detail from our pre-fetched data
+            # Get the other user's trade detail
             other_user_detail = None
             details_for_trade = trade_details_map.get(trade.tradereq_id, [])
             for detail in details_for_trade:
@@ -1390,33 +1427,26 @@ def get_home_active_trades(request):
                     other_user_detail = detail
                     break
             
-            # Determine what the other user is offering to current user
-            if is_requester:
-                # Current user is requester, other user (responder) is offering their exchange skill
-                offering = trade.exchange if trade.exchange else fallback_skill_name
-            else:
-                # Current user is responder, other user (requester) can offer their skills
-                # Use pre-fetched data instead of making queries
-                requester_skills = user_skills_map.get(trade.requester.id, [])
-                responder_interests = user_interests_map.get(user.id, [])
-                
-                # Find matching skill between requester's skills and responder's interests
-                offering = ""
-                if responder_interests and requester_skills:
-                    matching_skills = set(requester_skills) & set(responder_interests)
-                    if matching_skills:
-                        offering = list(matching_skills)[0]
-                
-                # If no match, show any skill the requester has
-                if not offering and requester_skills:
-                    offering = requester_skills[0]
-                
-                # If requester has no skills, use fallback
-                if not offering:
-                    offering = fallback_skill_name
-            
             # Get profile picture URL
             profile_pic_url = other_user.profilePic if other_user.profilePic else None
+
+             # REQUESTER perspective: I posted reqname (my need), I offer exchange (my skill)
+            # RESPONDER perspective: I need to deliver reqname (what they asked for), I get exchange (their skill)
+            if is_requester:
+                needs = trade.reqname      # What YOU (requester) posted/need
+                offers = trade.exchange    # What YOU (requester) offer in return
+            else:
+                # Responder sees it from their work perspective
+                needs = trade.exchange     # What YOU (responder) need/want (what you'll get)
+                offers = trade.reqname     # What YOU (responder) are offering (what you'll deliver)
+            
+            print(f"  Current user ID: {user.id}")
+            print(f"  Trade requester ID: {trade.requester.id}")
+            print(f"  Trade responder ID: {trade.responder.id}")
+            print(f"  is_requester: {is_requester}")
+            print(f"  needs (what current user needs): {needs}")
+            print(f"  offers (what current user offers): {offers}")
+            print(f"  ---")
 
             home_trades_data.append({
                 "tradereq_id": trade.tradereq_id,
@@ -1428,8 +1458,8 @@ def get_home_active_trades(request):
                     "level": other_user.level,
                     "rating": float(other_user.avgStars or 0)
                 },
-                "offering": offering,  # What the other user is offering to current user
-                "reqname": trade.reqname,  # The original request name
+                "reqname": needs,       # ✅ Now perspective-aware
+                "exchange": offers,     # ✅ Now perspective-aware
                 "total_xp": other_user_detail.total_xp if other_user_detail else 0,
                 "deadline": trade.reqdeadline.isoformat() if trade.reqdeadline else None,
                 "deadline_formatted": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
@@ -1453,6 +1483,7 @@ def get_home_active_trades(request):
             "home_active_trades": [],
             "count": 0
         }, status=500)
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -1510,12 +1541,12 @@ def explore_feed(request):
 
         # Get all skills that the REQUESTER has (what they can offer in exchange)
         requester_skills_query = (
-            UserSkill.objects.filter(user_id=requester.id)
+            UserSkill.objects.filter(user_id=tr.requester.id)
             .select_related("specSkills__genSkills_id")
             .values_list("specSkills__genSkills_id_id", "specSkills__genSkills_id__genCateg")
         )
         requester_gen_skills = dict(requester_skills_query)
-        
+                
         # Determine what the requester "can offer"
         can_offer = ""
         has_match = False
@@ -1965,7 +1996,7 @@ def accept_trade_interest(request, interest_id):
     print(f"User: {request.user.id}")
     
     try:
-        with transaction.atomic():  # Use transaction to ensure consistency
+        with transaction.atomic():
             # Get the trade interest with related objects
             trade_interest = TradeInterest.objects.select_related(
                 'trade_request__requester',
@@ -2003,33 +2034,40 @@ def accept_trade_interest(request, interest_id):
             print(f"Requester ID: {trade_request.requester.id}")
             print(f"Trade status set to: {trade_request.status}")
             
-            # Calculate and save the exchange field using CONSISTENT logic with explore_feed
+            # ✅ FIXED: Calculate exchange field using CONSISTENT logic with explore_feed
+            # In explore_feed, the logic is: requester's skills × viewer's interests
+            # Here, the responder IS the "viewer" who expressed interest
+            # So we need: requester's skills × responder's interests
+            
+            requester = trade_request.requester
             responder = trade_interest.interested_user
             
-            # Get responder's skills (what they can offer) - same logic as explore_feed
-            responder_skills_query = (
-                UserSkill.objects.filter(user_id=responder.id)
+            # Get REQUESTER's skills (what THEY can offer to the responder)
+            # This matches explore_feed where we show requester's skills
+            requester_skills_query = (
+                UserSkill.objects.filter(user_id=requester.id)
                 .select_related("specSkills__genSkills_id")
                 .values_list("specSkills__genSkills_id_id", "specSkills__genSkills_id__genCateg")
             )
-            responder_gen_skills = dict(responder_skills_query)
+            requester_gen_skills = dict(requester_skills_query)
             
-            # Get requester's interests (what they want to learn)
-            requester_interests = UserInterest.objects.filter(
-                user=trade_request.requester
+            # Get RESPONDER's interests (what they want to learn)
+            # This matches explore_feed where we check viewer's interests
+            responder_interests = UserInterest.objects.filter(
+                user=responder
             ).select_related('genSkills_id').values_list('genSkills_id__genCateg', flat=True)
             
-            print(f"Responder skills: {list(responder_gen_skills.values())}")
-            print(f"Requester interests: {list(requester_interests)}")
+            print(f"Requester skills: {list(requester_gen_skills.values())}")
+            print(f"Responder interests: {list(responder_interests)}")
             
-            # Find matching skill between responder's skills and requester's interests
+            # Find matching skill between requester's skills and responder's interests
             # SAME LOGIC as explore_feed for consistency
             exchange_skill = ""
             has_match = False
             
-            if requester_interests and responder_gen_skills:
-                # Find intersection of responder's skills and requester's interests
-                matching_skills = set(responder_gen_skills.values()) & set(requester_interests)
+            if responder_interests and requester_gen_skills:
+                # Find intersection of requester's skills and responder's interests
+                matching_skills = set(requester_gen_skills.values()) & set(responder_interests)
                 
                 if matching_skills:
                     # Use the first matching skill
@@ -2037,16 +2075,16 @@ def accept_trade_interest(request, interest_id):
                     has_match = True
                     print(f"Found matching skill: {exchange_skill}")
             
-            # If no match, show any skill the responder has
-            if not exchange_skill and responder_gen_skills:
-                exchange_skill = list(responder_gen_skills.values())[0]
-                print(f"No match found, using first responder skill: {exchange_skill}")
+            # If no match, show any skill the requester has
+            if not exchange_skill and requester_gen_skills:
+                exchange_skill = list(requester_gen_skills.values())[0]
+                print(f"No match found, using first requester skill: {exchange_skill}")
             
-            # If responder has no skills, use fallback
+            # If requester has no skills, use fallback
             if not exchange_skill:
                 any_skill = GenSkill.objects.first()
                 exchange_skill = any_skill.genCateg if any_skill else "Skills & Services"
-                print(f"No responder skills found, using fallback: {exchange_skill}")
+                print(f"No requester skills found, using fallback: {exchange_skill}")
             
             # Save the exchange field
             trade_request.exchange = exchange_skill
@@ -2083,7 +2121,7 @@ def accept_trade_interest(request, interest_id):
                 "trade_request": {
                     "tradereq_id": trade_request.tradereq_id,
                     "reqname": trade_request.reqname,
-                    "status": trade_request.status,  # Will be PENDING, not ACTIVE
+                    "status": trade_request.status,
                     "exchange": trade_request.exchange,
                     "requester_id": trade_request.requester.id,
                     "responder_id": trade_request.responder.id if trade_request.responder else None,
@@ -2091,7 +2129,7 @@ def accept_trade_interest(request, interest_id):
                         "id": trade_request.responder.id,
                         "name": f"{trade_request.responder.first_name} {trade_request.responder.last_name}".strip() or trade_request.responder.username
                     },
-                    "requires_evaluation": True  # Indicate that evaluation is needed
+                    "requires_evaluation": True
                 },
                 "conversation_id": getattr(convo, 'conversation_id', None),
             }, status=200)
@@ -2237,72 +2275,88 @@ def get_user_interested_trades(request):
 def get_active_trades(request):
     """
     Get all PENDING trades where the authenticated user is either requester or responder.
-
+    ✅ USES database fields directly (reqname and exchange)
     """
     user = request.user
     
-    active_trades = TradeRequest.objects.filter(
-        status=TradeRequest.Status.PENDING
-    ).filter(
-        Q(requester=user) | Q(responder=user)
-    ).select_related('requester', 'responder').order_by('-tradereq_id')
+    print(f"=== GET_ACTIVE_TRADES DEBUG ===")
+    print(f"User ID: {user.id}")
     
-    trades_data = []
-    
-    for trade in active_trades:
-        if not trade.responder:
-            continue
+    try:
+        active_trades = TradeRequest.objects.filter(
+            status=TradeRequest.Status.PENDING
+        ).filter(
+            Q(requester=user) | Q(responder=user)
+        ).select_related('requester', 'responder').order_by('-tradereq_id')
         
-        is_requester = (trade.requester.id == user.id)
-        other_user = trade.responder if is_requester else trade.requester
+        print(f"Found {active_trades.count()} PENDING trades")
         
-        fallback_skill = GenSkill.objects.first()
-        fallback_skill_name = fallback_skill.genCateg if fallback_skill else "Skills & Services"
+        trades_data = []
         
-        if is_requester:
-            needs = trade.exchange if trade.exchange else fallback_skill_name
-            can_offer = trade.reqname
-        else:
-            needs = trade.reqname
-            can_offer = trade.exchange if trade.exchange else fallback_skill_name
+        for trade in active_trades:
+            if not trade.responder:
+                print(f"Skipping trade {trade.tradereq_id} - no responder")
+                continue
+            
+            # Determine which user is the "other" user
+            is_requester = (trade.requester.id == user.id)
+            other_user = trade.responder if is_requester else trade.requester
+            
+            print(f"Trade {trade.tradereq_id}:")
+            print(f"  Reqname from DB: {trade.reqname}")
+            print(f"  Exchange from DB: {trade.exchange}")
+            print(f"  Current user is requester: {is_requester}")
+            
+            # Get profile picture URL
+            profile_pic_url = other_user.profilePic if other_user.profilePic else None
+            
+            trades_data.append({
+                "id": trade.tradereq_id,
+                "trade_request_id": trade.tradereq_id,
+                "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username,
+                "rating": float(other_user.avgStars or 0),
+                "reviews": str(other_user.ratingCount or 0),
+                "level": str(other_user.level or 1),
+                "needs": trade.reqname,  # ✅ Direct from database - what requester needs
+                "offers": trade.exchange,  # ✅ Direct from database - what's offered in exchange
+                "until": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
+                "status": "PENDING",
+                "other_user_profile_pic": profile_pic_url,  
+                "is_requester": is_requester,
+                "created_at": None,
+                "requester": {
+                    "id": trade.requester.id,
+                    "username": trade.requester.username,
+                    "name": f"{trade.requester.first_name} {trade.requester.last_name}".strip() or trade.requester.username
+                },
+                "responder": {
+                    "id": trade.responder.id,
+                    "username": trade.responder.username,
+                    "name": f"{trade.responder.first_name} {trade.responder.last_name}".strip() or trade.responder.username
+                },
+                "other_user": {
+                    "id": other_user.id,
+                    "username": other_user.username,
+                    "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username
+                }
+            })
         
-        profile_pic_url = other_user.profilePic if other_user.profilePic else None
+        print(f"Returning {len(trades_data)} active trades")
         
-        trades_data.append({
-            "id": trade.tradereq_id,
-            "trade_request_id": trade.tradereq_id,
-            "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username,
-            "rating": float(other_user.avgStars or 0),
-            "reviews": str(other_user.ratingCount or 0),
-            "level": str(other_user.level or 1),
-            "needs": needs,
-            "offers": can_offer,
-            "until": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
-            "status": "PENDING",
-            "other_user_profile_pic": profile_pic_url,  
-            "is_requester": is_requester,
-            "created_at": None,
-            "requester": {
-                "id": trade.requester.id,
-                "username": trade.requester.username,
-                "name": f"{trade.requester.first_name} {trade.requester.last_name}".strip() or trade.requester.username
-            },
-            "responder": {
-                "id": trade.responder.id,
-                "username": trade.responder.username,
-                "name": f"{trade.responder.first_name} {trade.responder.last_name}".strip() or trade.responder.username
-            },
-            "other_user": {
-                "id": other_user.id,
-                "username": other_user.username,
-                "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username
-            }
-        })
-    
-    return Response({
-        "active_trades": trades_data,
-        "count": len(trades_data)
-    }, status=200)
+        return Response({
+            "active_trades": trades_data,
+            "count": len(trades_data)
+        }, status=200)
+        
+    except Exception as e:
+        print(f"ERROR in get_active_trades: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "error": f"Failed to get active trades: {str(e)}",
+            "active_trades": [],
+            "count": 0
+        }, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -2600,12 +2654,14 @@ def cancel_active_trade(request, tradereq_id):
     - Reverts TradeRequest status to NULL (available for new offers)
     - Clears responder_id (resets to NULL)
     - Clears exchange field (resets to NULL)
+    - ✅ NEW: Optionally soft-deletes the conversation for both users
     """
     print(f"=== CANCEL ACTIVE TRADE DEBUG ===")
     print(f"Trade ID: {tradereq_id}")
     print(f"User: {request.user.id}")
     
     try:
+      
         trade_request = TradeRequest.objects.get(tradereq_id=tradereq_id)
         
         # Verify user is authorized (either requester or responder)
@@ -2615,6 +2671,9 @@ def cancel_active_trade(request, tradereq_id):
             }, status=403)
         
         with transaction.atomic():
+            # Store responder before clearing it (for conversation cleanup)
+            old_responder = trade_request.responder
+            
             # Set TradeInterest to CANCELLED if it exists
             trade_interest = TradeInterest.objects.filter(
                 trade_request=trade_request,
@@ -2628,27 +2687,30 @@ def cancel_active_trade(request, tradereq_id):
             
             # ✅ REVERT TRADE STATUS TO NULL (available for new offers)
             trade_request.status = None
-            
-            # ✅ CLEAR RESPONDER_ID (reset to NULL)
             trade_request.responder = None
-            
-            # ✅ CLEAR EXCHANGE FIELD (reset to NULL)
             trade_request.exchange = None
-            
             trade_request.save()
             
-            print(f"Trade {tradereq_id} reverted:")
-            print(f"  - Status: NULL (available for new offers)")
-            print(f"  - Responder: NULL")
-            print(f"  - Exchange: NULL")
+            print(f"Trade {tradereq_id} reverted to NULL status")
+            
+            # Soft-delete the conversation for both users
+            conversation = Conversation.objects.filter(trade_request=trade_request).first()
+            if conversation:
+                # Delete for the user who cancelled
+                DeletedConversation.objects.get_or_create(
+                    conversation=conversation,
+                    user=request.user
+                )
+                
         
         return Response({
             "message": "Trade cancelled successfully. Trade is now available for new offers.",
             "tradereq_id": trade_request.tradereq_id,
-            "status": None,  # NULL status
-            "responder_id": None,  # NULL responder
-            "exchange": None,  # NULL exchange
-            "reverted_to_explore": True  # Indicates trade is back in explore feed
+            "status": None,
+            "responder_id": None,
+            "exchange": None,
+            "reverted_to_explore": True,
+            "conversation_deleted": True  # Conversation removed from both users' lists
         }, status=200)
         
     except TradeRequest.DoesNotExist:
@@ -2687,9 +2749,7 @@ def get_trade_details(request, tradereq_id):
         
         details_data = []
         for detail in trade_details:
-            context_pic_url = None
-            if detail.contextpic:
-                context_pic_url = request.build_absolute_uri(f"/media/{detail.contextpic}")
+            context_pic_url = detail.contextpic if detail.contextpic else None
             
             details_data.append({
                 "user_id": detail.user.id,
@@ -2926,9 +2986,9 @@ def add_trade_details(request, tradereq_id):
                 trade_detail.total_xp = total_xp
                 
                 # Only update contextpic if new file was uploaded
-                if context_pic_url:
-                    trade_detail.contextpic = context_pic_url
-                    
+                context_pic_url = detail.contextpic if detail.contextpic else None
+
+                
                 trade_detail.save()
             
             # Check if both users have submitted details
@@ -3056,134 +3116,112 @@ def check_trade_details_status(request, tradereq_id):
             "error": "Trade request not found"
         }, status=404)
 
-@api_view(['POST'])
-@parser_classes([MultiPartParser, FormParser])
+# In your views.py
+
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
 def upload_trade_proof(request):
     """
-    Upload proof files for a trade request to Cloudinary
-    Handles both initial submission and resubmission after rejection
+    Handles proof submissions (both uploaded files and entered links).
+    Saves them in TradeHistory.requester_proof or responder_proof as JSON objects.
+    ✅ UPDATED: Now handles multiple files and links, and appends to existing proof.
     """
     print("=== UPLOAD TRADE PROOF DEBUG ===")
-    print(f"Request data: {request.data}")
-    print(f"Files: {list(request.FILES.keys())}")
     print(f"User: {request.user.id}")
+    print(f"Request data keys: {list(request.data.keys())}")
+    print(f"Request FILES keys: {list(request.FILES.keys())}")
     
-    trade_request_id = request.data.get('trade_request_id')
+    user = request.user
+    trade_request_id = request.data.get("trade_request_id")
+
     if not trade_request_id:
-        return Response({"error": "trade_request_id is required"}, status=400)
-    
+        return Response({"error": "Missing trade_request_id"}, status=400)
+
     try:
-        trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
-            tradereq_id=trade_request_id,
-            status=TradeRequest.Status.ACTIVE
-        )
-        
-        if request.user not in [trade_request.requester, trade_request.responder]:
-            return Response({"error": "You are not authorized to upload proof for this trade"}, status=403)
-        
-        # Get or create trade history record
-        trade_history, created = TradeHistory.objects.get_or_create(
-            trade_request=trade_request
-        )
-        
-        # Handle multiple file uploads
-        proof_files = request.FILES.getlist('proof_files')
-        if not proof_files:
-            return Response({"error": "At least one proof file is required"}, status=400)
-        
-        # For now, we'll just save the first file as the main proof
-        main_proof_file = proof_files[0]
-        
-        # Validate file size
-        if main_proof_file.size > 10 * 1024 * 1024:  # 10MB limit
-            return Response({"error": "File too large (max 10MB)"}, status=400)
-        
-        # Determine if user is requester or responder
-        current_user_is_requester = (request.user == trade_request.requester)
-        
-        # Check if this is a resubmission (previous proof exists or was rejected)
-        is_resubmission = False
-        old_cloudinary_url = None
-        
-        if current_user_is_requester:
-            if trade_history.requester_proof:
-                is_resubmission = True
-                old_cloudinary_url = trade_history.requester_proof
-                print(f"Resubmission detected - old requester proof: {old_cloudinary_url}")
-        else:
-            if trade_history.responder_proof:
-                is_resubmission = True
-                old_cloudinary_url = trade_history.responder_proof
-                print(f"Resubmission detected - old responder proof: {old_cloudinary_url}")
-        
-        # Upload to Cloudinary
+        trade_request = TradeRequest.objects.get(tradereq_id=trade_request_id)
+    except TradeRequest.DoesNotExist:
+        return Response({"error": "Trade request not found"}, status=404)
+
+    # Determine if user is requester or responder
+    is_requester = trade_request.requester_id == user.id
+    is_responder = trade_request.responder_id == user.id
+
+    if not (is_requester or is_responder):
+        return Response({"error": "You are not part of this trade"}, status=403)
+
+    trade_history, _ = TradeHistory.objects.get_or_create(trade_request=trade_request)
+
+    proof_items = []
+
+    # ✅ Handle multiple uploaded files
+    uploaded_files = request.FILES.getlist("proof_files")
+    print(f"Processing {len(uploaded_files)} files")
+    
+    for f in uploaded_files:
         try:
-            folder_path = f"media/trade_proofs/{'requester' if current_user_is_requester else 'responder'}"
-            
-            # Generate a unique public_id for this trade and user
-            public_id = f"trade_{trade_request_id}_{'req' if current_user_is_requester else 'resp'}_{request.user.id}"
+            resource_type = "image" if f.content_type.startswith("image/") else "raw"
             
             upload_result = cloudinary.uploader.upload(
-                main_proof_file,
-                folder=folder_path,
-                public_id=public_id,
-                resource_type="image",
-                overwrite=True,  # This will overwrite the old file with same public_id
-                invalidate=True  # Invalidate CDN cache
+                f,
+                folder="media/trade_proofs",
+                resource_type=resource_type,
+                use_filename=True,
+                unique_filename=True
             )
-            proof_url = upload_result['secure_url']
-            print(f"[DEBUG] Uploaded proof to Cloudinary: {proof_url}")
             
-            # Optional: Explicitly delete old file if URL is different (shouldn't be needed with overwrite=True)
-            if is_resubmission and old_cloudinary_url:
-                try:
-                    # Extract public_id from old URL if you want to ensure cleanup
-                    # cloudinary.uploader.destroy(old_public_id) 
-                    print(f"Old file will be replaced by overwrite flag")
-                except Exception as e:
-                    print(f"Warning: Could not explicitly delete old Cloudinary file: {e}")
-                    
+            proof_items.append({
+                "type": "file",
+                "url": upload_result["secure_url"],
+                "filename": f.name,
+                "file_type": f.content_type,
+                "uploaded_at": django_timezone.now().isoformat()
+            })
+            print(f"✅ Uploaded file: {f.name} -> {upload_result['secure_url']}")
         except Exception as e:
-            print(f"[ERROR] Cloudinary upload failed: {e}")
-            import traceback
-            traceback.print_exc()
-            return Response({"error": f"Failed to upload proof: {str(e)}"}, status=500)
-        
-        # Save new proof URL to database
-        with transaction.atomic():
-            if current_user_is_requester:
-                trade_history.requester_proof = proof_url
-                trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
-                user_type = "requester"
-            else:
-                trade_history.responder_proof = proof_url
-                trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
-                user_type = "responder"
-            
-            trade_history.save()
-        
-        message = "Proof resubmitted successfully" if is_resubmission else "Proof uploaded successfully"
-        print(f"Proof {'resubmitted' if is_resubmission else 'uploaded'} successfully for {user_type}")
-        
-        return Response({
-            "message": message,
-            "trade_request_id": trade_request.tradereq_id,
-            "user_type": user_type,
-            "proof_status": "PENDING",
-            "proof_url": proof_url,
-            "files_uploaded": len(proof_files),
-            "is_resubmission": is_resubmission
-        }, status=201)
-        
-    except TradeRequest.DoesNotExist:
-        return Response({"error": "Active trade request not found"}, status=404)
-    except Exception as e:
-        print(f"Upload proof error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return Response({"error": f"Failed to upload proof: {str(e)}"}, status=500)
+            print(f"❌ Error uploading file {f.name}: {e}")
+            return Response({"error": f"Failed to upload file {f.name}: {str(e)}"}, status=500)
 
+    # ✅ Handle multiple external links (sent as 'proof_links[]')
+    links = request.data.getlist("proof_links[]")
+    links = list(dict.fromkeys([link.strip() for link in links if link and link.strip()]))
+    
+    print(f"Processing {len(links)} unique links: {links}")
+    
+    for link in links:
+        proof_items.append({
+            "type": "link",
+            "url": link,
+            "filename": link,  # Use URL for consistency
+            "added_at": django_timezone.now().isoformat()
+        })
+        print(f"✅ Added link: {link}")
+
+    if not proof_items:
+        return Response({"error": "No new proof files or links were provided."}, status=400)
+
+    # ✅ Append new proof items to the existing list, don't overwrite
+    try:
+        with transaction.atomic():
+            if is_requester:
+                existing_proof = trade_history.requester_proof or []
+                trade_history.requester_proof = existing_proof + proof_items
+                trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
+            elif is_responder:
+                existing_proof = trade_history.responder_proof or []
+                trade_history.responder_proof = existing_proof + proof_items
+                trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
+
+            trade_history.save()
+
+        return Response({
+            "message": "Proof uploaded successfully.",
+            "files_uploaded": len(uploaded_files),
+            "links_added": len(links)
+        }, status=200)
+    except Exception as e:
+        print(f"❌ Database error: {e}")
+        return Response({"error": f"Failed to save proof: {str(e)}"}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -3273,11 +3311,11 @@ def get_trade_proof_status(request, tradereq_id):
 def get_partner_proof(request, tradereq_id):
     """
     Get partner's proof files for viewing/approval
+    Returns array of all proof items (files and links)
     """
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
-            Q(tradereq_id=tradereq_id) &
-            Q(status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED])
+            tradereq_id=tradereq_id
         )
         
         if request.user not in [trade_request.requester, trade_request.responder]:
@@ -3292,29 +3330,23 @@ def get_partner_proof(request, tradereq_id):
         
         if current_user_is_requester:
             # Current user is requester, get responder's proof
-            partner_proof = trade_history.responder_proof
+            partner_proof_list = trade_history.responder_proof or []
             partner_proof_status = trade_history.responder_proof_status
             partner_name = f"{trade_request.responder.first_name} {trade_request.responder.last_name}".strip() or trade_request.responder.username
         else:
             # Current user is responder, get requester's proof
-            partner_proof = trade_history.requester_proof
+            partner_proof_list = trade_history.requester_proof or []
             partner_proof_status = trade_history.requester_proof_status
             partner_name = f"{trade_request.requester.first_name} {trade_request.requester.last_name}".strip() or trade_request.requester.username
         
-        if not partner_proof:
+        if not partner_proof_list:
             return Response({"error": "Partner has not submitted proof yet"}, status=404)
         
-        # Build proof file URL
-        proof_url = request.build_absolute_uri(partner_proof.url) if partner_proof else None
-        
+        # ✅ Return the full array of proof items (files and links)
         return Response({
             "trade_request_id": trade_request.tradereq_id,
             "partner_name": partner_name,
-            "proof_file": {
-                "url": proof_url,
-                "name": partner_proof.name.split('/')[-1] if partner_proof else None,
-                "is_image": partner_proof.name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')) if partner_proof else False
-            },
+            "proof_file": partner_proof_list,  # This key now contains an array
             "proof_status": partner_proof_status
         }, status=200)
         
@@ -3322,13 +3354,17 @@ def get_partner_proof(request, tradereq_id):
         return Response({"error": "Active trade request not found"}, status=404)
     except Exception as e:
         print(f"Get partner proof error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return Response({"error": f"Failed to get partner proof: {str(e)}"}, status=500)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_my_proof(request, tradereq_id):
     """
     Get current user's own proof submission for a trade
+    Returns array of all proof items (files and links)
     """
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
@@ -3347,44 +3383,34 @@ def get_my_proof(request, tradereq_id):
         current_user_is_requester = (request.user == trade_request.requester)
         
         if current_user_is_requester:
-            user_proof = trade_history.requester_proof
+            user_proof_list = trade_history.requester_proof or []
             user_proof_status = trade_history.requester_proof_status
         else:
-            user_proof = trade_history.responder_proof
+            user_proof_list = trade_history.responder_proof or []
             user_proof_status = trade_history.responder_proof_status
         
-        if not user_proof:
+        if not user_proof_list:
             return Response({
                 "message": "You have not submitted proof yet",
                 "has_proof": False
             }, status=200)
-        
-        # Build proof file URL and info
-        proof_url = request.build_absolute_uri(user_proof.url) if user_proof else None
-        file_name = user_proof.name.split('/')[-1] if user_proof else None
-        is_image = user_proof.name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) if user_proof else False
-        
+
+        # ✅ Return the full array of proof items (files and links)
         return Response({
             "trade_request_id": trade_request.tradereq_id,
-            "has_proof": True,
-            "proof_file": {
-                "url": proof_url,
-                "name": file_name,
-                "is_image": is_image
-            },
-            "proof_status": user_proof_status,
-            "submitted_by": {
-                "id": request.user.id,
-                "name": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-            }
+            "has_proof": bool(user_proof_list),
+            "proof_file": user_proof_list,  # This key now contains an array
+            "proof_status": user_proof_status
         }, status=200)
         
     except TradeRequest.DoesNotExist:
         return Response({"error": "Active trade request not found"}, status=404)
     except Exception as e:
         print(f"Get my proof error: {str(e)}")
-        return Response({"error": f"Failed to get proof: {str(e)}"}, status=500)
-    
+        import traceback
+        traceback.print_exc()
+        return Response({"error": f"Failed to get proof: {str(e)}"}, status=500)  
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def approve_partner_proof(request, tradereq_id):
@@ -3447,15 +3473,14 @@ def approve_partner_proof(request, tradereq_id):
 @permission_classes([IsAuthenticated])
 def reject_partner_proof(request, tradereq_id):
     """
-    Reject partner's proof submission - resets their proof status so they can resubmit
+    Reject partner's proof submission.
+    ✅ UPDATED: Sets partner's proof status to REJECTED, clears their proof array,
+    and deletes their submitted files from Cloudinary.
     """
-    import os
-    from django.conf import settings
-    
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
             tradereq_id=tradereq_id,
-            status=TradeRequest.Status.ACTIVE
+            status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED] # Allow rejection in completed state too
         )
         
         if request.user not in [trade_request.requester, trade_request.responder]:
@@ -3468,43 +3493,49 @@ def reject_partner_proof(request, tradereq_id):
         current_user_is_requester = (request.user == trade_request.requester)
         
         with transaction.atomic():
+            proof_to_clear = []
             if current_user_is_requester:
                 # Requester rejecting responder's proof
-                old_proof = trade_history.responder_proof
-                if old_proof:
-                    # Delete the old file from filesystem
-                    try:
-                        old_file_path = os.path.join(settings.MEDIA_ROOT, str(old_proof))
-                        if os.path.exists(old_file_path):
-                            os.remove(old_file_path)
-                            print(f"Deleted rejected proof file: {old_file_path}")
-                    except Exception as e:
-                        print(f"Warning: Could not delete old proof file: {e}")
-                    
-                trade_history.responder_proof = None
-                trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
+                if not trade_history.responder_proof:
+                     return Response({"error": "Partner has not submitted proof to reject."}, status=400)
+                proof_to_clear = trade_history.responder_proof
+                trade_history.responder_proof = [] # Clear the proof array
+                trade_history.responder_proof_status = TradeHistory.ProofStatus.REJECTED # ✅ Set status to REJECTED
             else:
                 # Responder rejecting requester's proof
-                old_proof = trade_history.requester_proof
-                if old_proof:
-                    # Delete the old file from filesystem
-                    try:
-                        old_file_path = os.path.join(settings.MEDIA_ROOT, str(old_proof))
-                        if os.path.exists(old_file_path):
-                            os.remove(old_file_path)
-                            print(f"Deleted rejected proof file: {old_file_path}")
-                    except Exception as e:
-                        print(f"Warning: Could not delete old proof file: {e}")
-                
-                trade_history.requester_proof = None
-                trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
+                if not trade_history.requester_proof:
+                    return Response({"error": "Partner has not submitted proof to reject."}, status=400)
+                proof_to_clear = trade_history.requester_proof
+                trade_history.requester_proof = [] # Clear the proof array
+                trade_history.requester_proof_status = TradeHistory.ProofStatus.REJECTED # ✅ Set status to REJECTED
             
             trade_history.save()
-        
+
+            # ✅ Delete rejected files from Cloudinary
+            public_ids_to_delete = []
+            for item in proof_to_clear:
+                if item.get("type") == "file":
+                    # Extract public_id from URL (e.g., .../media/trade_proofs/file.jpg)
+                    try:
+                        parts = item["url"].split('/')
+                        folder_index = parts.index("media")
+                        public_id_with_ext = "/".join(parts[folder_index:])
+                        public_id = os.path.splitext(public_id_with_ext)[0]
+                        public_ids_to_delete.append(public_id)
+                    except (ValueError, KeyError, IndexError):
+                        print(f"Could not parse public_id from URL: {item.get('url')}")
+            
+            if public_ids_to_delete:
+                try:
+                    cloudinary.api.delete_resources(public_ids_to_delete, resource_type="raw")
+                    cloudinary.api.delete_resources(public_ids_to_delete, resource_type="image")
+                    print(f"Deleted {len(public_ids_to_delete)} rejected files from Cloudinary: {public_ids_to_delete}")
+                except Exception as e:
+                    print(f"Warning: Cloudinary deletion failed for some resources: {e}")
+
         return Response({
-            "message": "Proof rejected successfully. Partner can now resubmit.",
+            "message": "Proof rejected successfully. Partner has been notified to resubmit.",
             "trade_request_id": trade_request.tradereq_id,
-            "file_cleanup_completed": True
         }, status=200)
         
     except TradeRequest.DoesNotExist:
@@ -3520,7 +3551,8 @@ def reject_partner_proof(request, tradereq_id):
 def submit_trade_rating(request):
     """
     Submit rating and review for a completed trade.
-    Awards XP IMMEDIATELY upon rating and updates user's rated flag.
+    Awards XP IMMEDIATELY upon rating (from PARTNER's trade detail complexity).
+    Updates PARTNER's rating stats with the stars YOU give them.
     Trade disappears from that user's Active Trades list immediately.
     Trade becomes COMPLETED only after both users rate.
     """
@@ -3588,29 +3620,38 @@ def submit_trade_rating(request):
             )
             
             # Save rating and description with timestamp
+            # The rating YOU give goes to YOUR PARTNER
+            # Your review description is stored under YOUR field (describing your experience)
             current_time = django_timezone.now()
             if current_user_is_requester:
-                reputation_record.requester_starcount = rating
-                reputation_record.requester_rating_desc = review_description
+                # Requester's rating goes to responder
+                reputation_record.requester_starcount = rating  # This will update responder's avgStars
+                reputation_record.requester_rating_desc = review_description  # Requester's review about responder
                 reputation_record.requester_rated_at = current_time
             else:
-                reputation_record.responder_starcount = rating
-                reputation_record.responder_rating_desc = review_description
+                # Responder's rating goes to requester
+                reputation_record.responder_starcount = rating  # This will update requester's avgStars
+                reputation_record.responder_rating_desc = review_description  # Responder's review about requester
                 reputation_record.responder_rated_at = current_time
             
             reputation_record.save()
             
-            # ✅ IMMEDIATE XP AWARD - Award XP to current user immediately upon their rating
-            trade_detail = TradeDetail.objects.filter(trade_request=trade_request, user=request.user).first()
+            # ✅ CORRECTED XP AWARD - Award XP from PARTNER's trade detail
+            # Partner's complexity (what they're offering you) = Your XP reward
+            partner_trade_detail = TradeDetail.objects.filter(
+                trade_request=trade_request, 
+                user=partner_user
+            ).first()
+            
             xp_awarded = 0
-            if trade_detail:
-                xp_awarded = trade_detail.total_xp or 0
+            if partner_trade_detail:
+                xp_awarded = partner_trade_detail.total_xp or 0
                 request.user.tot_XpPts += xp_awarded
                 request.user.level = max(1, (request.user.tot_XpPts // 1000) + 1)
                 request.user.save()
-                print(f"Awarded {xp_awarded} XP to user {request.user.id} immediately upon rating")
+                print(f"Awarded {xp_awarded} XP to user {request.user.id} from partner's trade detail (partner: {partner_user.id})")
             
-            # ✅ UPDATE PARTNER'S RATING - Update partner's rating stats immediately
+            # ✅ UPDATE PARTNER'S RATING - The stars YOU gave update PARTNER's profile
             partner_new_rating_count = partner_user.ratingCount + 1
             partner_total_stars = (float(partner_user.avgStars or 0) * partner_user.ratingCount) + rating
             partner_new_avg = partner_total_stars / partner_new_rating_count
@@ -3620,6 +3661,7 @@ def submit_trade_rating(request):
             partner_user.save()
             
             print(f"Updated partner {partner_user.id} rating: {partner_user.avgStars} stars ({partner_user.ratingCount} reviews)")
+            print(f"Rating {rating} stars from {request.user.id} added to partner {partner_user.id}")
             
             # Check if both users have now rated
             both_rated = trade_request.requester_rated and trade_request.responder_rated
@@ -3645,11 +3687,16 @@ def submit_trade_rating(request):
             "both_users_rated": both_rated,
             "trade_completed": both_rated,
             "trade_status": "COMPLETED" if both_rated else "ACTIVE",
-            "xp_awarded": xp_awarded,  # XP awarded immediately
+            "xp_awarded": xp_awarded,  # XP awarded immediately from partner's complexity
             "new_total_xp": request.user.tot_XpPts,
             "new_level": request.user.level,
             "trade_disappears_for_user": True,  # Trade will disappear from this user's active trades
-            "partner_still_needs_to_rate": not both_rated
+            "partner_still_needs_to_rate": not both_rated,
+            "partner_rating_updated": {
+                "partner_id": partner_user.id,
+                "new_avg_stars": float(partner_user.avgStars),
+                "new_rating_count": partner_user.ratingCount
+            }
         }, status=200)
         
     except TradeRequest.DoesNotExist:
@@ -3723,11 +3770,14 @@ def get_trade_rating_status(request, tradereq_id):
 @permission_classes([IsAuthenticated])
 def award_trade_xp(request, tradereq_id: int):
     """
-    Awards XP to the current user for this trade once THEY have submitted their rating.
-    Idempotent: will not award twice for the same user+trade.
+    Awards XP to the current user for this trade.
+    XP comes from the PARTNER's trade detail (their complexity = your reward).
+    This endpoint is now redundant since XP is awarded during rating submission,
+    but kept for potential manual admin use or edge cases.
     """
     try:
         trade_request = TradeRequest.objects.select_related('requester','responder').get(tradereq_id=tradereq_id)
+        
         if request.user not in [trade_request.requester, trade_request.responder]:
             return Response({"error":"Not authorized for this trade"}, status=403)
 
@@ -3738,42 +3788,44 @@ def award_trade_xp(request, tradereq_id: int):
 
         current_user_is_requester = (request.user == trade_request.requester)
         has_rated = (rep.requester_starcount is not None) if current_user_is_requester else (rep.responder_starcount is not None)
+        
         if not has_rated:
             return Response({"error":"You must submit a rating first"}, status=400)
 
-        # Idempotency: prevent double-award (flag per user in TradeDetail, or a separate table)
-        detail = TradeDetail.objects.filter(trade_request=trade_request, user=request.user).first()
-        if not detail:
-            return Response({"error":"Trade detail not found for user"}, status=404)
-        if getattr(detail, "xp_awarded", False):
-            return Response({
-                "message":"XP already awarded",
-                "updated_users":[{"user_id": request.user.id, "xp_gained": 0,
-                                  "new_total_xp": request.user.tot_XpPts,
-                                  "new_level": request.user.level}]
-            }, status=200)
-
-        # Award this user's XP from total_xp
-        gained = int(detail.total_xp or 0)
+        # Determine partner
+        partner_user = trade_request.responder if current_user_is_requester else trade_request.requester
+        
+        # Get PARTNER's trade detail (their complexity = your XP)
+        partner_detail = TradeDetail.objects.filter(
+            trade_request=trade_request, 
+            user=partner_user
+        ).first()
+        
+        if not partner_detail:
+            return Response({"error":"Partner's trade detail not found"}, status=404)
+        
+        # Award XP from partner's complexity
+        gained = int(partner_detail.total_xp or 0)
         request.user.tot_XpPts = int(request.user.tot_XpPts or 0) + gained
-
-        # (Simple level; replace with your cumulative thresholds if you want it server-side)
         request.user.level = max(1, (request.user.tot_XpPts // 1000) + 1)
         request.user.save()
 
-        # mark as awarded
-        detail.xp_awarded = True
-        detail.save(update_fields=["xp_awarded"])
-
         return Response({
-            "message": "XP awarded",
-            "updated_users":[{"user_id": request.user.id, "xp_gained": gained,
-                              "new_total_xp": request.user.tot_XpPts,
-                              "new_level": request.user.level}]
+            "message": "XP awarded from partner's trade complexity",
+            "updated_users": [{
+                "user_id": request.user.id, 
+                "xp_gained": gained,
+                "new_total_xp": request.user.tot_XpPts,
+                "new_level": request.user.level
+            }]
         }, status=200)
+        
     except TradeRequest.DoesNotExist:
         return Response({"error":"Trade not found"}, status=404)
     except Exception as e:
+        print(f"Award XP error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return Response({"error": f"Failed to award XP: {e}"}, status=500)
 
 @api_view(['GET'])
@@ -3828,13 +3880,13 @@ def user_reviews(request, user_id: int):
                 "reviewer_first_name": reviewer.first_name,
                 "reviewer_last_name": reviewer.last_name,
                 "reviewer_username": reviewer.username,
+                "reviewer_profilepic": reviewer.profilePic if reviewer.profilePic else None,
                 "request_title": trade_request.reqname,
                 "offer_title": trade_request.exchange or "Service Exchange",
                 "rating": rating,
                 "review_description": review_description,
                 "completed_at": completed_at.isoformat() if completed_at else None,
                 "rated_at": rated_at.isoformat() if rated_at else None,
-                "likes_count": 0,  # You can implement likes later if needed
             })
         
         return Response({
@@ -3851,3 +3903,88 @@ def user_reviews(request, user_id: int):
             "reviews": [],
             "total_count": 0
         }, status=500) 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_report(request):
+    """
+    Create a new user/trade report.
+    """
+    try:
+        data = request.data
+
+        reporter = request.user
+        reported_user_id = data.get('reported_user')
+        tradereq_id = data.get('tradereq')
+        category = data.get('category')
+        issue_detail = data.get('issue_detail')
+        description = data.get('description', '')
+
+        report = Report.objects.create(
+            reporter=reporter,
+            reported_user_id=reported_user_id,
+            tradereq_id=tradereq_id,
+            category=category,
+            issue_detail=issue_detail,
+            description=description,
+            status="Pending",
+            created_at=django_timezone.now()
+        )
+        
+        print(Report.objects.last().__dict__)
+
+        serializer = ReportSerializer(report)
+        return Response(serializer.data, status=201)
+
+    except Exception as e:
+        print(f"Report creation error: {str(e)}")
+        return Response({"error": str(e)}, status=400)
+
+def send_support_email(ticket):
+    context = {
+        "name": ticket.ticket_name,
+        "ticket_ref": f"SUP-{ticket.ticket_id:05d}",
+        "title": ticket.ticket_title,
+        "desc": ticket.ticket_desc,
+    }
+
+    subject = f"[Expair Support] Ticket #{ticket.ticket_id}: {ticket.ticket_title}"
+    from_email = "expaircs@gmail.com"
+    to = [ticket.ticket_email]  # main recipient (user)
+    cc = ["expaircs@gmail.com"]  # add your CS inbox here
+
+    text_content = render_to_string("emails/support_confirmation.txt", context)
+    html_content = render_to_string("emails/support_confirmation.html", context)
+
+    email = EmailMultiAlternatives(
+        subject, text_content, from_email, to, cc=cc
+    )
+    email.attach_alternative(html_content, "text/html")
+    email.send(fail_silently=False)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_support_ticket(request):
+    ticket_name = request.data.get("name")
+    ticket_email = request.data.get("email")
+    ticket_title = request.data.get("subject")
+    ticket_desc = request.data.get("message")
+    ticket_pic = request.FILES.get("photo").name if request.FILES.get("photo") else None
+
+    ticket = SupportTicket.objects.create(
+        ticket_name=ticket_name,
+        ticket_email=ticket_email,
+        ticket_title=ticket_title,
+        ticket_desc=ticket_desc,
+        ticket_pic=ticket_pic,
+        ticket_datesubmitted=django_timezone.now()
+    )
+
+    # send emails (wrap in try/except so ticket creation won't fail on email error)
+    try:
+        send_support_email(ticket)
+    except Exception as e:
+        # log, but don't crash
+        print("send_support_emails error:", e)
+
+    return Response({"success": True, "ticket_id": ticket.ticket_id}, status=201)

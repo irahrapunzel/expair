@@ -6,6 +6,8 @@ from rest_framework import serializers
 from .models import SpecSkill, UserSkill 
 from .models import VerificationStatus
 from .models import User, UserCredential
+from .models import Report
+
 import os
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
@@ -494,3 +496,24 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = ['message_id', 'conversation', 'sender', 'sender_username', 'content', 'created_at']
         read_only_fields = ['message_id', 'created_at']
+        
+class ReportSerializer(serializers.ModelSerializer):
+    reporter_username = serializers.CharField(source='reporter.username', read_only=True)
+    reported_username = serializers.CharField(source='reported_user.username', read_only=True)
+
+    class Meta:
+        model = Report
+        fields = [
+            'report_id',
+            'reporter',
+            'reported_user',
+            'tradereq',
+            'category',
+            'issue_detail',
+            'description',
+            'status',
+            'created_at',
+            'reporter_username',
+            'reported_username'
+        ]
+        read_only_fields = ['reporter', 'status', 'created_at']

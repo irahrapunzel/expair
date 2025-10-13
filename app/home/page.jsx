@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Star } from "lucide-react"
+import { Star } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
@@ -14,7 +14,8 @@ import ActiveTradeCardHome from "../../components/trade-cards/active-home";
 import SortDropdown from "../../components/shared/sortdropdown";
 import ExploreCard from "../../components/trade-cards/explore-card";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
 
@@ -39,6 +40,7 @@ export default function HomePage() {
 
   // Explore section state
   const [exploreLoading, setExploreLoading] = useState(true);
+  const [exploreLoading, setExploreLoading] = useState(true);
   const [showExploreSortMenu, setShowExploreSortMenu] = useState(false);
   const [showExploreFilterMenu, setShowExploreFilterMenu] = useState(false);
   const [exploreSortBy, setExploreSortBy] = useState("recommended");
@@ -47,7 +49,7 @@ export default function HomePage() {
     skillCategory: "all",
     minLevel: 0,
   });
-  const hiddenKey = 'explore_hidden_trades'; // Changed from usernames to trades
+  const hiddenKey = "explore_hidden_trades"; // Changed from usernames to trades
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,7 +162,7 @@ export default function HomePage() {
   const handleGoToPendingTrades = () => {
     setShowSuccessDialog(false);
     setSelectedPartner(null);
-    router.push('/home/trades/pending');
+    router.push("/home/trades/pending");
   };
 
   // Explore sort and filter handlers
@@ -240,15 +242,26 @@ export default function HomePage() {
   // Set greeting based on time of day
   useEffect(() => {
     const hour = new Date().getHours();
-    let prefix = "Starry night", emoji = "⭐";
-    if (hour >= 5 && hour < 12) { prefix = "Bright morning"; emoji = "☀️"; }
-    else if (hour >= 12 && hour < 18) { prefix = "Good afternoon"; emoji = "☁️"; }
-    else if (hour >= 18 && hour < 22) { prefix = "Stellar evening"; emoji = "🌙"; }
+    let prefix = "Starry night",
+      emoji = "⭐";
+    if (hour >= 5 && hour < 12) {
+      prefix = "Bright morning";
+      emoji = "☀️";
+    } else if (hour >= 12 && hour < 18) {
+      prefix = "Good afternoon";
+      emoji = "☁️";
+    } else if (hour >= 18 && hour < 22) {
+      prefix = "Stellar evening";
+      emoji = "🌙";
+    }
 
     console.log("Session user object:", session?.user);
 
+
     // 1) Prefer DB-backed name from session (Google or credentials via NextAuth)
     let first =
+      (session?.user?.first_name || "").trim() ||
+      (session?.user?.name || "").trim().split(" ")[0];
       (session?.user?.first_name || "").trim() ||
       (session?.user?.name || "").trim().split(" ")[0];
 
@@ -256,14 +269,17 @@ export default function HomePage() {
     if (!first && !session?.user && typeof window !== "undefined") {
       const fromLS =
         localStorage.getItem("first_name") ||
-        localStorage.getItem("prefill_name") || "";
+        localStorage.getItem("prefill_name") ||
+        "";
       first = fromLS.trim().split(" ")[0];
     }
+
 
     if (!first) {
       // derive from username/email as a last resort (optional)
       const handle = session?.user?.username || session?.user?.email || "";
-      first = handle.split(/[._\-\s@]+/)[0]?.replace(/\d+/g, "") || "voyager";
+      first =
+        handle.split(/[._\-\s@]+/)[0]?.replace(/\d+/g, "") || "voyager";
     }
     setGreeting(`${prefix}, ${first} ${emoji}`);
   }, [session]);
@@ -364,7 +380,7 @@ useEffect(() => {
     };
 }, [session?.access, session?.accessToken]);
 
-  // Listen for hide updates from cards and refetch
+  // Listen for hide updates from cards and refetch (keeps team fix)
   const refreshExplore = async () => {
   try {
     const headers = { "Content-Type": "application/json" };
@@ -430,6 +446,7 @@ useEffect(() => {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesSearch =
+        const matchesSearch =
           item.name?.toLowerCase().includes(query) ||
           item.need?.toLowerCase().includes(query) ||
           item.offer?.toLowerCase().includes(query);
@@ -492,11 +509,13 @@ useEffect(() => {
       fetchHomeActiveTrades();
     }
   }, [session]);
+    if (session) {
+      fetchHomeActiveTrades();
+    }
+  }, [session]);
 
   return (
-    <div
-      className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
-    >
+    <div className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}>
       {/* Greeting Header */}
       <h1
         className={`text-[40px] font-bold mb-10 ${archivo.className}`}
@@ -513,20 +532,14 @@ useEffect(() => {
 
         <div className="flex items-center gap-4">
           {/* Sort Dropdown */}
-          <SortDropdown
-            selected={selectedActiveSort}
-            onChange={setSelectedActiveSort}
-          />
+          <SortDropdown selected={selectedActiveSort} onChange={setSelectedActiveSort} />
 
           {/* Asc/Desc Toggle */}
           <button
             onClick={() => setSortAsc((prev) => !prev)}
             className="w-9 h-9 bg-[#120A2A] rounded-full flex items-center justify-center hover:bg-[#1A0F3E] transition"
           >
-            <Icon
-              icon={sortAsc ? "mdi:arrow-up" : "mdi:arrow-down"}
-              className="text-lg"
-            />
+            <Icon icon={sortAsc ? "mdi:arrow-up" : "mdi:arrow-down"} className="text-lg" />
           </button>
         </div>
       </div>
@@ -540,9 +553,7 @@ useEffect(() => {
             <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4 mx-auto">
               <Icon icon="lucide:handshake" className="w-8 h-8 text-white/50" />
             </div>
-            <h3 className="text-xl font-medium text-white mb-2">
-              No active trades ready yet
-            </h3>
+            <h3 className="text-xl font-medium text-white mb-2">No active trades ready yet</h3>
             <p className="text-white/60 text-center max-w-md mx-auto">
               Complete trade details with your partners to see active trades here.
             </p>
@@ -553,7 +564,9 @@ useEffect(() => {
               key={trade.tradereq_id}
               name={trade.other_user.name}
               username={trade.other_user.username}
+              username={trade.other_user.username}
               profilePic={trade.other_user.profilePic}
+              offering={trade.exchange}
               offering={trade.exchange}
               totalXp={trade.total_xp}
               deadline={trade.deadline_formatted}
@@ -567,13 +580,7 @@ useEffect(() => {
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-[15px]">
             <h4 className="text-[25px] font-[600]">Explore</h4>
-            <Image
-              src="/assets/logos/Colored=Logo XS.png"
-              alt="Colored Logo XS"
-              width={38}
-              height={38}
-              className="w-[38px] h-[38px]"
-            />
+            <Image src="/assets/logos/Colored=Logo XS.png" alt="Colored Logo XS" width={38} height={38} className="w-[38px] h-[38px]" />
           </div>
 
           <div className="flex items-center gap-4">
@@ -584,9 +591,7 @@ useEffect(() => {
                 onClick={() => setShowExploreSortMenu(!showExploreSortMenu)}
               >
                 <span>
-                  Sort:{" "}
-                  {exploreSortBy.charAt(0).toUpperCase() +
-                    exploreSortBy.slice(1)}
+                  Sort: {exploreSortBy.charAt(0).toUpperCase() + exploreSortBy.slice(1)}
                 </span>
                 <Icon icon="lucide:arrow-up-down" className="text-lg" />
               </div>
@@ -650,15 +655,11 @@ useEffect(() => {
               {showExploreFilterMenu && (
                 <div className="absolute top-full right-0 mt-2 w-[280px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
                   <div className="p-4">
-                    <h3 className="text-white font-medium mb-3">
-                      Filter Options
-                    </h3>
+                    <h3 className="text-white font-medium mb-3">Filter Options</h3>
 
                     {/* Rating Filter */}
                     <div className="mb-4">
-                      <h4 className="text-white/70 text-sm mb-2">
-                        Minimum Rating
-                      </h4>
+                      <h4 className="text-white/70 text-sm mb-2">Minimum Rating</h4>
                       <div className="flex flex-wrap gap-2">
                         {[0, 2, 3, 4, 5].map((rating) => (
                           <div
@@ -679,33 +680,18 @@ useEffect(() => {
 
                     {/* Skill Category Filter */}
                     <div className="mb-4">
-                      <h4 className="text-white/70 text-sm mb-2">
-                        Skill Category
-                      </h4>
-                      <select
-                        className="w-full px-3 py-2 bg-[#1A0F3E] border border-[#284CCC]/30 rounded-[10px] text-white"
-                        value={exploreFilters.skillCategory}
-                        onChange={(e) =>
-                          handleExploreFilterChange(
-                            "skillCategory",
-                            e.target.value
-                          )
-                        }
-                      >
+                      <h4 className="text-white/70 text-sm mb-2">Skill Category</h4>
+                      <select className="w-full px-3 py-2 bg-[#1A0F3E] border border-[#284CCC]/30 rounded-[10px] text-white" value={exploreFilters.skillCategory} onChange={(e) => handleExploreFilterChange("skillCategory", e.target.value)}>
                         <option value="all">All Categories</option>
                         {skillCategories.slice(1).map((category, index) => (
-                          <option key={index} value={category}>
-                            {category}
-                          </option>
+                          <option key={index} value={category}>{category}</option>
                         ))}
                       </select>
                     </div>
 
                     {/* Level Filter */}
                     <div className="mb-4">
-                      <h4 className="text-white/70 text-sm mb-2">
-                        Minimum Level
-                      </h4>
+                      <h4 className="text-white/70 text-sm mb-2">Minimum Level</h4>
                       <div className="flex flex-wrap gap-2">
                         {[0, 5, 10, 15, 20].map((level) => (
                           <div
@@ -726,18 +712,8 @@ useEffect(() => {
 
                     {/* Filter Actions */}
                     <div className="flex justify-between mt-4">
-                      <button
-                        className="px-4 py-1 text-sm text-white/70 hover:text-white transition"
-                        onClick={handleResetExploreFilters}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        className="px-4 py-1 bg-[#0038FF] text-white text-sm rounded-[10px] hover:bg-[#1a4dff] transition"
-                        onClick={handleApplyExploreFilters}
-                      >
-                        Apply
-                      </button>
+                      <button className="px-4 py-1 text-sm text-white/70 hover:text-white transition" onClick={handleResetExploreFilters}>Reset</button>
+                      <button className="px-4 py-1 bg-[#0038FF] text-white text-sm rounded-[10px] hover:bg-[#1a4dff] transition" onClick={handleApplyExploreFilters}>Apply</button>
                     </div>
                   </div>
                 </div>
@@ -749,14 +725,10 @@ useEffect(() => {
         {/* Search Input */}
         <div className="w-full max-w-[940px] mb-8">
           <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border border-[rgba(255,255,255,0.40)]">
+        <div className="w-full max-w-[940px] mb-8">
+          <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border border-[rgba(255,255,255,0.40)]">
             <Icon icon="lucide:search" className="text-white mr-2 text-xl" />
-            <input
-              type="text"
-              placeholder="Search"
-              className="w-full h-full bg-transparent text-[16px] text-white outline-none placeholder:text-[#413663]"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <input type="text" placeholder="Search" className="w-full h-full bg-transparent text-[16px] text-white outline-none placeholder:text-[#413663]" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
         </div>
         {/* Explore Cards Grid */}
@@ -807,6 +779,20 @@ useEffect(() => {
                 tradereqId={item.tradereq_id}
                 onInterestedClick={() => handleInterestedClick(item)}
               />
+                key={`explore-${item.tradereq_id || i}`}
+                name={item.name}
+                rating={item.rating}
+                ratingCount={item.ratingCount}
+                level={item.level}
+                need={item.need}
+                offer={item.offer}
+                deadline={item.deadline ? `until ${fmtUntil(item.deadline)}` : ""}
+                profilePicUrl={item.profilePicUrl}
+                userId={item.userId}
+                username={item.username}
+                tradereqId={item.tradereq_id}
+                onInterestedClick={() => handleInterestedClick(item)}
+              />
             ))
           )}
         </div>
@@ -829,9 +815,7 @@ useEffect(() => {
             </button>
 
             <div className="flex flex-col items-center gap-6 w-full px-8 relative z-10">
-              <h2 className="font-bold text-[20px] text-center text-white leading-tight">
-                Are you sure you want to add this to your pending trades?
-              </h2>
+              <h2 className="font-bold text-[20px] text-center text-white leading-tight">Are you sure you want to add this to your pending trades?</h2>
               <div className="flex flex-row gap-4">
                 <button
                   className="flex items-center justify-center w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#0038FF]/10 transition-colors"

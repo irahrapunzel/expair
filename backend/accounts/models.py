@@ -375,17 +375,21 @@ class TradeHistory(models.Model):
     trade_request = models.ForeignKey('TradeRequest', on_delete=models.CASCADE, db_column='tradereq_id')
     completed_at = models.DateTimeField(db_column='completed_at', null=True, blank=True)
 
-    # Proof of completion fields
-    requester_proof = models.TextField(
+    # Store array of proof items (files from Cloudinary + links)
+    requester_proof = models.JSONField(
+        default=list,
         null=True, 
         blank=True, 
-        db_column='requester_proof'
+        db_column='requester_proof',
+        help_text='Array of proof objects: [{"type": "file", "url": "cloudinary_url"}, {"type": "link", "url": "external_link"}]'
     )
 
-    responder_proof = models.TextField(
+    responder_proof = models.JSONField(
+        default=list,
         null=True, 
         blank=True, 
-        db_column='responder_proof'
+        db_column='responder_proof',
+        help_text='Array of proof objects: [{"type": "file", "url": "cloudinary_url"}, {"type": "link", "url": "external_link"}]'
     )
     
     # Proof status for both requester and responder
@@ -458,3 +462,76 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message #{self.message_id} in convo {self.conversation_id}"
+
+class DeletedConversation(models.Model):
+    """
+    Tracks which users have deleted (hidden) which conversations.
+    Soft delete - conversation still exists but won't appear in that user's list.
+    """
+    deleted_conversation_id = models.AutoField(primary_key=True, db_column='deleted_conversation_id')
+    conversation = models.ForeignKey(
+        'Conversation', 
+        on_delete=models.CASCADE, 
+        db_column='conversation_id',
+        related_name='deleted_by_users'
+    )
+    user = models.ForeignKey(
+        'User', 
+        on_delete=models.CASCADE,
+        db_column='user_id'
+    )
+    deleted_at = models.DateTimeField(auto_now_add=True, db_column='deleted_at')
+    
+    class Meta:
+        db_table = 'deleted_conversations_tbl'
+        managed = True
+        unique_together = ('conversation', 'user')  # Each user can only delete a conversation once
+    
+    def __str__(self):
+        return f"Conversation {self.conversation_id} deleted by user {self.user_id}"
+    
+class Report(models.Model):
+    report_id = models.AutoField(primary_key=True)
+    reporter = models.ForeignKey(
+        'accounts.User',   # ✅ correct model reference
+        on_delete=models.CASCADE,
+        related_name='reports_made'
+    )
+    reported_user = models.ForeignKey(
+        'accounts.User',   # ✅ correct model reference
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports_received'
+    )
+    tradereq = models.ForeignKey(
+        'accounts.TradeRequest',   # ✅ correct model reference
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    category = models.CharField(max_length=100)
+    issue_detail = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=50, default='Pending')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'reports_tbl'
+        managed = True
+
+    def __str__(self):
+        return f"Report #{self.report_id} - {self.category} by {self.reporter.username}"
+    
+class SupportTicket(models.Model):
+    ticket_id = models.AutoField(primary_key=True)
+    ticket_name = models.CharField(max_length=255, null=True, blank=True)
+    ticket_email = models.CharField(max_length=255, null=True, blank=True)
+    ticket_title = models.CharField(max_length=255, null=True, blank=True)
+    ticket_desc = models.TextField(null=True, blank=True)
+    ticket_pic = models.TextField(null=True, blank=True)
+    ticket_datesubmitted = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "supptix_tbl"
+        managed = True

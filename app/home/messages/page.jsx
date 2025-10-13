@@ -265,6 +265,56 @@ export default function MessagesPage() {
     });
   };
 
+  const handleDeleteConversation = async (conversationId) => {
+    try {
+      console.log('Deleting conversation:', conversationId);
+      
+      const response = await fetch(
+        `${BACKEND_URL}/conversations/${conversationId}/delete/`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access ? { Authorization: `Bearer ${session.access}` } : {}),
+          },
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete conversation');
+      }
+
+      const result = await response.json();
+      console.log('Conversation deleted successfully:', result);
+
+      // Remove from local state
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+
+      // If the deleted conversation was selected, deselect it
+      if (selectedConversation === conversationId) {
+        setSelectedConversation(null);
+      }
+
+      // Clean up unread counts
+      try {
+        const key = 'unread_counts';
+        const store = JSON.parse(localStorage.getItem(key) || '{}');
+        if (store[String(conversationId)]) {
+          delete store[String(conversationId)];
+          localStorage.setItem(key, JSON.stringify(store));
+        }
+      } catch (e) {
+        console.error('Failed to clean up unread counts:', e);
+      }
+
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      throw error; // Re-throw to let the component handle the error
+    }
+  };
+
   // Function to mark a conversation as read when viewed
   const markConversationAsRead = (conversationId) => {
     setConversations(prevConversations => {
@@ -294,6 +344,7 @@ export default function MessagesPage() {
           conversations={conversations}
           selectedId={selectedConversation}
           onSelect={(id) => setSelectedConversation(id)}
+          onDeleteConversation={handleDeleteConversation}
         />
 
         {/* Right side - Current conversation */}
@@ -301,6 +352,7 @@ export default function MessagesPage() {
           conversation={conversations.find(c => c.id === selectedConversation)}
           onSendMessage={(message) => updateConversation(selectedConversation, message)}
           onConversationViewed={() => markConversationAsRead(selectedConversation)}
+          onDeleteConversation={handleDeleteConversation}
         />
       </div>
     </div>

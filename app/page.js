@@ -180,19 +180,20 @@ export default function LandingPage() {
           id="how-it-works"
           className="scroll-mt-[60px] w-full relative py-16 sm:py-20 px-4 sm:px-6 md:px-10 lg:px-20 bg-[#050015] text-white"
         >
+          {/* Decorative stars */}
           <Image
             src="/assets/stars1.png"
             alt="Stars Left"
-            width={300}
-            height={300}
-            className="absolute left-5 sm:left-[100px] bottom-10 opacity-50 sm:opacity-100"
+            width={400}
+            height={400}
+            className="absolute left-5 sm:left-[120px] bottom-10 opacity-50 sm:opacity-100"
           />
           <Image
             src="/assets/stars2.png"
             alt="Stars Right"
-            width={300}
-            height={300}
-            className="absolute right-5 sm:right-[100px] top-10 opacity-50 sm:opacity-100"
+            width={400}
+            height={400}
+            className="absolute right-5 sm:right-[120px] top-10 opacity-50 sm:opacity-100"
           />
 
           <h2
@@ -201,25 +202,55 @@ export default function LandingPage() {
             How it works
           </h2>
 
-          <div className="flex flex-col gap-6 sm:gap-10 items-center">
-            <div className="flex flex-col gap-6 sm:gap-8 w-full max-w-[700px]">
-              {[
-                "Build your profile — list your skills and make your first request.",
-                "Time to match! Look for your best picks from our recommendations.",
-                "The exchange begins. We’ll help you evaluate if you’re getting the work you deserve.",
-                "Done! Don’t forget to rate your partner and gain XP from each pair.",
-              ].map((text, index) => (
-                <div key={index} className="flex items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-16 md:gap-x-14 md:gap-y-20 max-w-5xl mx-auto place-items-center">
+            {[
+              {
+                img: "/assets/step1.png",
+                label: "STEP 1",
+                text: "Build your profile — list your skills and make your first request.",
+              },
+              {
+                img: "/assets/step2.png",
+                label: "STEP 2",
+                text: "Time to match! Look for your best picks from our recommendations.",
+              },
+              {
+                img: "/assets/step3.png",
+                label: "STEP 3",
+                text: "The exchange begins. We’ll help you evaluate if you’re getting the work you deserve.",
+              },
+              {
+                img: "/assets/step4.png",
+                label: "STEP 4",
+                text: "Done! Don’t forget to rate your partner and gain XP from each pair.",
+              },
+            ].map((step, index) => (
+              <div
+                key={index}
+                className="flex flex-col items-center text-center w-full max-w-[300px]"
+              >
+                {/* Fixed-height image container so everything aligns */}
+                <div className="w-full h-[220px] flex justify-center items-center mb-[15px]">
                   <Image
-                    src={`/assets/icon_${index + 1}.png`}
-                    alt={`Step ${index + 1}`}
-                    width={30}
-                    height={30}
+                    src={step.img}
+                    alt={step.label}
+                    width={260}
+                    height={220}
+                    className="w-auto max-h-[220px] object-contain"
                   />
-                  <p className="text-sm sm:text-base leading-[120%]">{text}</p>
                 </div>
-              ))}
-            </div>
+
+                {/* Step label and description */}
+                <div className="flex flex-col items-center text-center min-h-[90px]">
+                  <span className="text-white tracking-[0.25em] text-lg font-semibold mb-2">
+                    {step.label}
+                  </span>
+                  <p className="text-sm sm:text-base leading-[130%] text-white max-w-[260px]">
+                    {step.text}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

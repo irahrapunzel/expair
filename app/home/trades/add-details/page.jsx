@@ -170,11 +170,11 @@ export default function AddTradeDetailsPage() {
           />
         )}
 
-        <div className="w-full flex flex-col md:flex-row justify-between gap-8 md:gap-[30px]">
+        <div className="w-full flex flex-col md:flex-row justify-between gap-6 md:gap-[25px]">
           {/* Left column */}
-          <div className="w-full md:w-[400px] flex flex-col gap-[20px]">
+          <div className="w-full md:w-[400px] flex flex-col gap-[15px]">
             {/* Delivery mode */}
-            <div className="flex flex-col gap-[15px]">
+            <div className="flex flex-col gap-[10px]">
               <label className="text-[16px]">Select the mode of delivery *</label>
               <div className="relative">
                 <select
@@ -191,13 +191,13 @@ export default function AddTradeDetailsPage() {
                 </select>
                 <Icon
                   icon="mingcute:down-fill"
-                  className="absolute right-[16px] top-1/2 transform -translate-y-1/2 text-white w-[24px] h-[24px]"
+                  className="absolute right-[16px] top-1/2 transform -translate-y-1/2 text-white w-[24px] h-[24px] pointer-events-none"
                 />
               </div>
             </div>
 
             {/* Skill proficiency */}
-            <div className="flex flex-col gap-[15px]">
+            <div className="flex flex-col gap-[10px]">
               <div className="flex items-center gap-2">
                 <label className="text-[16px]">Select the skill proficiency required *</label>
                 <div className="relative">
@@ -238,13 +238,13 @@ export default function AddTradeDetailsPage() {
                 </select>
                 <Icon
                   icon="mingcute:down-fill"
-                  className="absolute right-[16px] top-1/2 transform -translate-y-1/2 text-white w-[24px] h-[24px]"
+                  className="absolute right-[16px] top-1/2 transform -translate-y-1/2 text-white w-[24px] h-[24px] pointer-events-none"
                 />
               </div>
             </div>
 
             {/* Request type */}
-            <div className="flex flex-col gap-[15px]">
+            <div className="flex flex-col gap-[10px]">
               <div className="flex items-center gap-2">
                 <label className="text-[16px]">Select the type of request *</label>
                 <div className="relative">
@@ -283,7 +283,7 @@ export default function AddTradeDetailsPage() {
                 </select>
                 <Icon
                   icon="mingcute:down-fill"
-                  className="absolute right-[16px] top-1/2 transform -translate-y-1/2 text-white w-[24px] h-[24px]"
+                  className="absolute right-[16px] top-1/2 transform -translate-y-1/2 text-white w-[24px] h-[24px] pointer-events-none"
                 />
               </div>
             </div>

@@ -21,22 +21,24 @@ export default function ProfileAvatar({ src, size = 40, className = "" }) {
     if (!imagePath) {
       return DEFAULT_AVATAR;
     }
-    
-    // If it's already a full URL (Cloudinary or other CDN), use as-is
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      console.log("✅ Using full URL:", imagePath);
+
+    // prevent Cloudinary from trying to load the local default
+    if (imagePath.includes("defaultavatar.png")) {
+      return DEFAULT_AVATAR;
+    }
+
+    if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
       return imagePath;
     }
-    
-    // If it looks like a Cloudinary public_id (no http but has path structure)
-    if (imagePath.includes('/')) {
-      const cloudinaryUrl = `https://res.cloudinary.com/dyj3ojsip/image/upload/${imagePath}`;
-      return cloudinaryUrl;
+
+    if (imagePath.includes("/")) {
+      return `https://res.cloudinary.com/dyj3ojsip/image/upload/${imagePath.replace(
+        /^\/+/,
+        ""
+      )}`;
     }
-    
-    // Otherwise, it's a local path - prepend /media/
-    const localUrl = `/media/${imagePath}`;
-    return localUrl;
+
+    return `/media/${imagePath}`;
   };
 
   const finalSrc = isError ? DEFAULT_AVATAR : getImageSrc(imgSrc);
@@ -47,7 +49,7 @@ export default function ProfileAvatar({ src, size = 40, className = "" }) {
       style={{
         width: size,
         height: size,
-        border: '2px solid #ccc', // 🔍 DEBUG: Visual indicator
+        border: "2px solid #ccc", // 🔍 DEBUG: Visual indicator
       }}
     >
       <Image
@@ -63,7 +65,7 @@ export default function ProfileAvatar({ src, size = 40, className = "" }) {
         onLoad={() => {
           console.log("✅ Image loaded successfully:", finalSrc);
         }}
-        unoptimized={finalSrc.startsWith('http')}
+        unoptimized={finalSrc.startsWith("http")}
       />
     </div>
   );

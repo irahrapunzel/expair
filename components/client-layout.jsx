@@ -26,6 +26,8 @@ export default function ClientLayout({ children }) {
     pathname.startsWith('/reset-password') ||
     pathname.startsWith('/register');
 
+  const isAdminPage = pathname.startsWith('/admin');
+
   const isLanding =
     pathname === '/' ||
     pathname === '/landing' ||
@@ -42,12 +44,12 @@ export default function ClientLayout({ children }) {
   return (
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
-        {!isAuthPage && !isHome && (isLanding ? <LandingNav /> : <Navbar />)}
+        {!isAuthPage && !isHome && !isAdminPage && (isLanding ? <LandingNav /> : <Navbar />)}
 
         <main className="flex-grow">{children}</main>
 
-        {/* Hide footer on request page */}
-        {!isAuthPage && !isMessagesPage && !isAddDetailsPage && !isRequestPage && (
+        {/* Hide footer on request page and admin pages */}
+        {!isAuthPage && !isMessagesPage && !isAddDetailsPage && !isRequestPage && !isAdminPage && (
           <div className="bg-[#050015]">
             <Footer />
           </div>
