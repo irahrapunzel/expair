@@ -3634,7 +3634,6 @@ export default function ProfilePage() {
                               onCancel={() => setShowDeleteModalForCard(null)}
                             />
                           )}
-                          </div>
                         </div>
                       ) : (
                         // 🌐 PUBLIC VIEW CARD (Explore-style)
