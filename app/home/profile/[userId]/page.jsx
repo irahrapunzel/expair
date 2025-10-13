@@ -3636,8 +3636,7 @@ export default function ProfilePage() {
                           )}
                         </div>
                       ) : (
-                        // 🌐 PUBLIC VIEW CARD (Explore-style)
-                        {/* Wrapper */}
+                        {/* 🌐 PUBLIC VIEW CARD (Explore-style) */}
                         <div
                           className="transition-all duration-300 hover:scale-[1.01] w-full max-w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
                           style={{
@@ -3655,10 +3654,7 @@ export default function ProfilePage() {
                               >
                                 <div className="relative w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#0038FF] transition-all">
                                   <Image
-                                    src={
-                                      trade.profilePic ||
-                                      "/assets/defaultavatar.png"
-                                    }
+                                    src={trade.profilePic || "/assets/defaultavatar.png"}
                                     alt={`${trade.name}'s avatar`}
                                     width={25}
                                     height={25}
@@ -3666,6 +3662,7 @@ export default function ProfilePage() {
                                   />
                                 </div>
                               </Link>
+
                               <div className="flex flex-col gap-[5px]">
                                 <Link
                                   href={`/home/profile/${trade.username}`}
@@ -3675,6 +3672,7 @@ export default function ProfilePage() {
                                     {trade.name}
                                   </span>
                                 </Link>
+
                                 <div className="flex gap-[15px] items-center text-sm text-white/90">
                                   <div className="flex gap-1 items-center">
                                     <Icon
@@ -3683,13 +3681,10 @@ export default function ProfilePage() {
                                       width={14}
                                       height={14}
                                     />
-                                    <span className="font-bold">
-                                      {trade.rating.toFixed(1)}
-                                    </span>
-                                    <span className="text-white/70">
-                                      ({trade.reviews})
-                                    </span>
+                                    <span className="font-bold">{trade.rating.toFixed(1)}</span>
+                                    <span className="text-white/70">({trade.reviews})</span>
                                   </div>
+
                                   <div className="flex gap-1 items-center">
                                     <Image
                                       src="/assets/lvlrank_icon.png"
@@ -3697,9 +3692,7 @@ export default function ProfilePage() {
                                       width={12}
                                       height={12}
                                     />
-                                    <span className="text-white/80">
-                                      LVL {trade.level}
-                                    </span>
+                                    <span className="text-white/80">LVL {trade.level}</span>
                                   </div>
                                 </div>
                               </div>
@@ -3708,25 +3701,22 @@ export default function ProfilePage() {
 
                           {/* Needs + Offer */}
                           <div className="flex justify-between items-start gap-4 flex-wrap mb-3">
+                            {/* Needs */}
                             <div className="flex flex-col gap-2 flex-1 items-start">
                               <span className="text-sm text-white/80 font-medium">Needs</span>
                               <div
-                                className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px]
-                                border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90
-                                max-w-[160px] sm:max-w-[180px] md:max-w-[200px]
-                                overflow-hidden text-ellipsis whitespace-nowrap"
+                                className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[160px] sm:max-w-[180px] md:max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap"
                                 title={trade.reqname}
                               >
                                 {trade.reqname}
                               </div>
                             </div>
+
+                            {/* Can offer */}
                             <div className="flex flex-col gap-2 flex-1 items-end">
                               <span className="text-sm text-white/80 font-medium">Can offer</span>
                               <div
-                                className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px]
-                                border-[#906EFF] bg-[#906EFF33] text-sm text-white/90
-                                max-w-[160px] sm:max-w-[180px] md:max-w-[200px]
-                                overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                                className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[160px] sm:max-w-[180px] md:max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
                                 title={trade.offer || trade.matching_skill}
                               >
                                 {trade.offer || trade.matching_skill}
@@ -3736,17 +3726,15 @@ export default function ProfilePage() {
 
                           {/* Deadline */}
                           <div className="mt-[0px] flex justify-end mb-3">
-                            <p className="text-[13px] text-white/70">
-                              {fmtUntil(trade.deadline)}
-                            </p>
+                            <p className="text-[13px] text-white/70">{fmtUntil(trade.deadline)}</p>
                           </div>
 
                           {/* CTA */}
                           <div className="mt-[0px] flex justify-center">
                             {(() => {
                               const hasInterest = userInterestStatus[trade.tradereq_id];
-                              const isPending = hasInterest === 'PENDING';
-                              const isAccepted = hasInterest === 'ACCEPTED';
+                              const isPending = hasInterest === "PENDING";
+                              const isAccepted = hasInterest === "ACCEPTED";
 
                               if (isPending) {
                                 return (
