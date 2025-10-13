@@ -15,6 +15,8 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   const [replyingTo, setReplyingTo] = useState(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [tradeRequest, setTradeRequest] = useState(null);
+  const [detailsSubmitted, setDetailsSubmitted] = useState(false);
+  const [checkingDetailsStatus, setCheckingDetailsStatus] = useState(true);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -55,7 +57,53 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
     fetchTradeRequest();
   }, [conversation?.id, session?.access]);
 
+  // Check if user has submitted trade details
+  useEffect(() => {
+    const checkDetailsStatus = async () => {
+      if (!tradeRequest?.tradereq_id || !session?.access) {
+        setCheckingDetailsStatus(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/trade-requests/${tradeRequest.tradereq_id}/details/status/`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access}`,
+            },
+            credentials: 'include',
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setDetailsSubmitted(data.current_user?.has_submitted || false);
+        }
+      } catch (error) {
+        console.error('Failed to check details status:', error);
+      } finally {
+        setCheckingDetailsStatus(false);
+      }
+    };
+
+    checkDetailsStatus();
+
+    // Listen for details updates
+    const handleStorageChange = (e) => {
+      if (e.key === 'trade_details_updated') {
+        checkDetailsStatus();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [tradeRequest?.tradereq_id, session?.access]);
+
   // Determine perspective-based labels
+  // Note: Backend already handles perspective in list_conversations
+  // So reqname and exchange are already from the current user's viewpoint
   const getPerspectiveLabels = () => {
     if (!tradeRequest || !session?.user) {
       // Fallback to original static labels
@@ -65,26 +113,13 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       };
     }
 
-    const currentUserId = session.user.user_id || session.user.id;
-    const isRequester = tradeRequest.requester_id === currentUserId;
-
-    if (isRequester) {
-      // Requester's perspective: 
-      // "Requested" = what I need (reqname)
-      // "In exchange for" = what I'm offering (exchange)
-      return {
-        requested: tradeRequest.reqname,
-        exchange: tradeRequest.exchange,
-      };
-    } else {
-      // Responder's perspective:
-      // "Requested" = what I need (exchange - the requester's offer)
-      // "In exchange for" = what I'm offering (reqname - what requester asked for)
-      return {
-        requested: tradeRequest.exchange,
-        exchange: tradeRequest.reqname,
-      };
-    }
+    // ✅ NO SWAPPING - Backend already adjusted perspective
+    // reqname = what current user needs
+    // exchange = what current user offers
+    return {
+      requested: tradeRequest.reqname,
+      exchange: tradeRequest.exchange,
+    };
   };
 
   const perspectiveLabels = getPerspectiveLabels();
@@ -242,14 +277,29 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         </div>
       )}
       
-      {/* Header */}
+      {/* Header with name and avatar */}
       <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Image src={conversation.avatar} alt={conversation.name} width={45} height={45} className="rounded-full" unoptimized />
+          <Link href={`/home/profile/${conversation.username || conversation.userId}`}>
+            <Image 
+              src={conversation.avatar} 
+              alt={conversation.name} 
+              width={45} 
+              height={45} 
+              className="rounded-full cursor-pointer hover:opacity-80 transition-opacity" 
+              unoptimized 
+            />
+          </Link>
           <div>
-            <h3 className="text-[16px] text-white">{conversation.name}</h3>
+            <Link href={`/home/profile/${conversation.username || conversation.userId}`}>
+              <h3 className="text-[16px] text-white hover:text-[#906EFF] transition-colors cursor-pointer">
+                {conversation.name}
+              </h3>
+            </Link>
             <div className="flex items-center gap-5 mt-1">
-              <span className="text-[13px] text-[rgba(255,255,255,0.60)]">LVL {conversation.level}</span>
+              <span className="text-[13px] text-[rgba(255,255,255,0.60)]">
+                LVL {conversation.level}
+              </span>
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
                 <span className="text-[13px] text-[rgba(255,255,255,0.60)]">{conversation.rating}</span>
@@ -258,12 +308,12 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleDeleteConversation} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg">
+          <button onClick={handleDeleteConversation} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
             <Icon icon="lucide:trash-2" className="text-base" />
             Delete
           </button>
           <Link href="/home/help">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
               <Icon icon="lucide:flag" className="text-base" />
               Report
             </button>
@@ -271,7 +321,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         </div>
       </div>
 
-      {/* ✅ FIXED: Dynamic Request/Exchange based on user perspective */}
+      {/* Request/Exchange Section */}
       {perspectiveLabels.requested && perspectiveLabels.exchange && (
         <div className="px-5 py-3 bg-[#0A0519]">
           <div className="flex justify-between">
@@ -291,16 +341,32 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             </div>
 
             <div className="flex items-end gap-3 pb-1">
-              <Link href={`/home/trades/add-details?tradereq_id=${tradeRequest?.tradereq_id || ''}&requested=${encodeURIComponent(perspectiveLabels.requested)}&exchange=${encodeURIComponent(perspectiveLabels.exchange)}`}>
-                <button className="w-[120px] h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff]">
-                  <span className="text-[13px] text-white">Add details</span>
+              {checkingDetailsStatus ? (
+                <button 
+                  disabled 
+                  className="w-[120px] h-[30px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
+                >
+                  <span className="text-[13px] text-white">Loading...</span>
                 </button>
-              </Link>
-              <button className="w-[120px] h-[30px] rounded-[15px] p-[2px]" style={{background: "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"}}>
-                <div className="w-full h-full rounded-[13px] bg-[#120A2A] hover:bg-[#1A0F3E] flex items-center justify-center">
-                  <span className="text-[13px] text-white">Evaluate</span>
-                </div>
-              </button>
+              ) : detailsSubmitted ? (
+                <button 
+                  disabled 
+                  className="w-[140px] h-[30px] bg-[#6DDFFF] rounded-[10px] cursor-default"
+                >
+                  <span className="text-[13px] text-black font-bold">Details Submitted</span>
+                </button>
+              ) : (
+                <Link 
+                  href={`/home/trades/add-details?tradereq_id=${tradeRequest?.tradereq_id || ''}&requested=${encodeURIComponent(tradeRequest?.reqname || '')}&exchange=${encodeURIComponent(tradeRequest?.exchange || '')}`}
+                  onClick={() => {
+                    sessionStorage.setItem('trade_details_updated', Date.now().toString());
+                  }}
+                >
+                  <button className="w-[120px] h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
+                    <span className="text-[13px] text-white">Add details</span>
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -330,7 +396,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             placeholder="Message..."
             className="flex-1 h-[50px] bg-[#120A2A] rounded-[15px] px-4 text-white placeholder:text-[#413663] focus:outline-none"
           />
-          <button type="submit" disabled={!newMessage.trim()} className="w-[50px] h-[50px] bg-[#0038FF] rounded-[15px] flex items-center justify-center disabled:opacity-50">
+          <button type="submit" disabled={!newMessage.trim()} className="w-[50px] h-[50px] bg-[#0038FF] rounded-[15px] flex items-center justify-center disabled:opacity-50 hover:bg-[#1a4dff] transition-colors">
             <Icon icon="lucide:send" className="w-5 h-5 text-white" />
           </button>
         </div>
