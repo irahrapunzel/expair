@@ -99,7 +99,7 @@ export default function RequestPage() {
 
   return (
     <div
-      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
+      className={`pt-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register1.png')" }}
     >
       {/* Background glows */}
