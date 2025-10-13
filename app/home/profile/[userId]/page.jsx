@@ -3636,7 +3636,6 @@ export default function ProfilePage() {
                           )}
                         </div>
                       ) : (
-                        {/* 🌐 PUBLIC VIEW CARD (Explore-style) */}
                         <div
                           className="transition-all duration-300 hover:scale-[1.01] w-full max-w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
                           style={{
