@@ -118,7 +118,7 @@ export default function RequestPage() {
         {/* Main content */}
         <div className="flex flex-col items-center justify-center w-full max-w-[941px] mx-auto">
           {/* Title and subtitle */}
-          <div className="flex flex-col items-center gap-[15px] mb-[25px] w-full">
+          <div className="flex flex-col items-center gap-[15px] mb-[25px] w-full mt-[80px]">
             <h1 className="font-bold text-[31px] text-center text-white">
               What are you looking for?
             </h1>
