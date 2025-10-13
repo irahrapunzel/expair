@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Star } from "lucide-react";
 import Image from "next/image";
-import clsx from "clsx";
+import Link from "next/link";
 
 /**
  * Renders the star rating for a review.
@@ -46,57 +45,61 @@ const renderStars = (rating) => {
 /**
  * A component to display a single user review.
  * @param {object} props The props for the component.
- * @param {string} props.requester The name of the user who wrote the review.
- * @param {string} props.tradePartner The name of the person who received the review.
+ * @param {string} props.reviewerFirstName The first name of the user who wrote the review.
+ * @param {string} props.reviewerLastName The last name of the user who wrote the review.
+ * @param {string} props.reviewerUsername The username of the reviewer (for profile link).
+ * @param {string} props.reviewerAvatar The avatar URL of the reviewer.
  * @param {string} props.tradeCompletionDate The date the trade was completed.
  * @param {string} props.requestTitle The title of the requested skill.
  * @param {string} props.offerTitle The title of the offered skill.
  * @param {number} props.rating The numerical rating given in the review.
- * @param {string} props.reviewTitle The title of the review.
  * @param {string} props.reviewDescription The main body of the review.
- * @param {number} props.likes The number of likes the review has.
  * @returns {JSX.Element} The rendered ReviewCard component.
  */
 const ReviewCard = ({
-  requester,
-  tradePartner,
+  reviewerFirstName,
+  reviewerLastName,
+  reviewerUsername,
+  reviewerAvatar,
   tradeCompletionDate,
   requestTitle,
   offerTitle,
   rating,
-  reviewTitle,
   reviewDescription,
-  likes,
 }) => {
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(likes);
-
-  const handleLike = () => {
-    if (liked) {
-      setLikeCount(likeCount - 1);
-    } else {
-      setLikeCount(likeCount + 1);
-    }
-    setLiked(!liked);
-  };
+  const reviewerFullName = `${reviewerFirstName} ${reviewerLastName}`.trim();
+  const avatarUrl = reviewerAvatar || "/assets/defaultavatar.png";
 
   return (
     <div className="border border-white/20 rounded-[15px] p-[25px] flex flex-col gap-4 bg-[#050015]">
       {/* Reviewer and date */}
       <div className="flex items-center gap-[15px]">
-        <Image
-          src="https://placehold.co/40x40/906EFF/ffffff?text=U" // Placeholder for requester avatar
-          alt={`${requester}'s avatar`}
-          width={40}
-          height={40}
-          className="rounded-full object-cover flex-shrink-0"
-        />
+        {/* Clickable Avatar */}
+        <Link href={`/home/profile/${reviewerUsername}`} className="flex-shrink-0">
+          <div className="w-[40px] h-[40px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
+            <Image
+              src={avatarUrl}
+              alt={`${reviewerFullName}'s avatar`}
+              width={40}
+              height={40}
+              className="w-full h-full object-cover"
+              onError={(e) => { 
+                e.target.src = '/assets/defaultavatar.png'; 
+              }}
+            />
+          </div>
+        </Link>
+
         <div className="flex-1">
-          <h6 className="text-[16px] font-semibold">{requester}</h6>
+          {/* Clickable Name */}
+          <Link href={`/home/profile/${reviewerUsername}`} className="hover:text-[#906EFF] transition-colors">
+            <h6 className="text-[16px] font-semibold">{reviewerFullName}</h6>
+          </Link>
           <p className="text-[13px] text-white/50 leading-none">
             {tradeCompletionDate}
           </p>
         </div>
+
         <div className="flex items-center gap-1">
           {renderStars(rating)}
         </div>
@@ -114,32 +117,7 @@ const ReviewCard = ({
 
       {/* Review content */}
       <div className="flex flex-col gap-2">
-        <h5 className="text-[18px] font-semibold">{reviewTitle}</h5>
         <p className="text-[15px] leading-[1.6] text-white/80">{reviewDescription}</p>
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-4 text-white/70 text-sm">
-        <button
-          onClick={handleLike}
-          className={clsx(
-            "flex items-center gap-2 transition-colors",
-            liked ? "text-[#906EFF]" : "hover:text-[#906EFF]"
-          )}
-        >
-          <Icon
-            icon="lucide:heart"
-            className={clsx(
-              "w-4 h-4",
-              liked ? "fill-[#906EFF] text-[#906EFF]" : ""
-            )}
-          />
-          <span>{likeCount}</span>
-        </button>
-        <button className="flex items-center gap-2 transition-colors hover:text-[#906EFF]">
-          <Icon icon="lucide:message-circle" className="w-4 h-4" />
-          <span>Comment</span>
-        </button>
       </div>
     </div>
   );

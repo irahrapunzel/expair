@@ -492,4 +492,4 @@ class SupportTicket(models.Model):
 
     class Meta:
         db_table = "supptix_tbl"
-        managed = False   # ❗ since manual edits tayo sa table
+        managed = True

@@ -30,6 +30,10 @@ export default function ActiveTradesPage() {
   const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState(null);
 
+  const [showProofSuccessDialog, setShowProofSuccessDialog] = useState(false);
+  const [proofSuccessData, setProofSuccessData] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   // State for real data
   const [activeTrades, setActiveTrades] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +51,12 @@ export default function ActiveTradesPage() {
         return;
       }
 
+      // Don't fetch if dialogs are open to prevent data loss
+      if (showUploadDialog || showViewProofDialog || showSuccessDialog || showEvaluationDialog) {
+        console.log("Skipping fetch - dialog is open");
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
@@ -61,6 +71,16 @@ export default function ActiveTradesPage() {
         if (response.ok) {
           const data = await response.json();
           console.log("Active trades data:", data);
+
+          console.log("=== FRONTEND DEBUG: RAW BACKEND DATA ===");
+          data.home_active_trades.forEach(trade => {
+            console.log(`Trade ${trade.tradereq_id}:`);
+            console.log(`  Backend reqname: "${trade.reqname}"`);
+            console.log(`  Backend exchange: "${trade.exchange}"`);
+            console.log(`  Backend is_requester: ${trade.is_requester}`);
+            console.log(`  Current user ID: ${session?.user?.id}`);
+          });
+          console.log("=== END FRONTEND DEBUG ===");
 
           if (!isMounted) return;
 
@@ -103,6 +123,9 @@ export default function ActiveTradesPage() {
 
                 if (proofStatusResponse.ok) {
                   proofStatus = await proofStatusResponse.json();
+                } else {
+                  console.log(`Failed to fetch proof status for trade ${trade.tradereq_id}`);
+                  // Keep default proofStatus values
                 }
 
                 if (tradeDetailsResponse.ok) {
@@ -140,9 +163,8 @@ export default function ActiveTradesPage() {
                   reviews: "0",
                   level: trade.other_user.level.toString(),
 
-                  // Use database fields directly
-                  requested: trade.reqname,
-                  offering: trade.exchange,
+                  requested: trade.exchange,   // What PARTNER wants
+                  offering: trade.reqname,     // What PARTNER offers
 
                   deadline: trade.deadline_formatted,
                   xp: `${trade.total_xp} XP`,
@@ -277,46 +299,80 @@ export default function ActiveTradesPage() {
     }
   };
 
-  const handleProofSubmission = async (files) => {
-    if (!selectedTrade || !files.length) return;
+  const handleProofSubmission = async (proofData) => {
+    if (!selectedTrade || (!proofData.files?.length && !proofData.links?.length)) {
+      console.error("No new proof data to submit");
+      return;
+    }
 
     try {
-      // Create FormData for file upload
       const formData = new FormData();
-      files.forEach(fileData => {
-        formData.append('proof_files', fileData.file);
-      });
-      formData.append('trade_request_id', selectedTrade.tradereq_id);
+      formData.append("trade_request_id", selectedTrade.tradereq_id);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/upload/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access}`,
-        },
-        body: formData
-      });
+      // ✅ Append each file to 'proof_files'
+      if (proofData.files && proofData.files.length > 0) {
+        proofData.files.forEach((fileItem) => {
+          if (fileItem.file) {
+            formData.append("proof_files", fileItem.file);
+          }
+        });
+      }
+
+      // ✅ Append each link to 'proof_links[]'
+      if (proofData.links && proofData.links.length > 0) {
+        proofData.links.forEach((linkItem) => {
+          if (linkItem.url) {
+            formData.append("proof_links[]", linkItem.url);
+          }
+        });
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/upload/`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session?.access}` },
+          body: formData,
+        }
+      );
 
       if (response.ok) {
-        // Update local state to reflect proof submission
-        setActiveTrades(prevTrades =>
-          prevTrades.map(trade =>
+        const result = await response.json();
+        console.log("✅ Proof uploaded successfully:", result);
+
+        // Update local UI state
+        setActiveTrades((prevTrades) =>
+          prevTrades.map((trade) =>
             trade.id === selectedTrade.id
-              ? { ...trade, myProofSubmitted: true }
+              ? {
+                ...trade,
+                myProofSubmitted: true,
+                proofWorkflowStatus: "waiting_for_approval"
+              }
               : trade
           )
         );
 
+        // Close upload dialog and show success modal
         setShowUploadDialog(false);
-        console.log("Proof submitted successfully");
+        setProofSuccessData(result);
+        setShowProofSuccessDialog(true);
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to submit proof");
+        console.error("❌ Upload failed:", errorData);
+        alert(errorData.error || "Failed to submit proof. Please try again.");
       }
     } catch (error) {
-      console.error("Error submitting proof:", error);
-      alert("Failed to submit proof. Please try again.");
+      console.error("❌ Error submitting proof:", error);
+      alert("An error occurred while submitting your proof. Please try again.");
     }
   };
+
+  const handleProofSuccessClose = () => {
+    setShowProofSuccessDialog(false);
+    setProofSuccessData(null);
+  };
+
 
   const handleTradeRating = async (ratingData) => {
     if (!selectedTrade) return;
@@ -339,37 +395,13 @@ export default function ActiveTradesPage() {
         const result = await response.json();
         console.log("Rating submitted successfully:", result);
 
-        // Award XP immediately after rating
-        try {
-          const xpResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-xp/award/${selectedTrade.tradereq_id}/`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session?.access}`,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (xpResponse.ok) {
-            const xpResult = await xpResponse.json();
-            console.log("XP awarded:", xpResult);
-          }
-        } catch (xpError) {
-          console.error("Error awarding XP:", xpError);
-        }
-
-        // Remove trade from local state immediately (user has rated)
+        // ✅ Remove trade from local state (user has rated)
         setActiveTrades(prevTrades =>
           prevTrades.filter(trade => trade.id !== selectedTrade.id)
         );
 
-        setShowSuccessDialog(false);
-
-        // Show success message
-        const message = result.both_users_rated ?
-          "Trade completed! Both users have rated each other." :
-          "Rating submitted! Trade will be removed from your active trades.";
-
-        alert(message);
+        // ✅ RETURN the result so success-dialog can use it
+        return result;
 
       } else {
         const errorData = await response.json();
@@ -377,7 +409,7 @@ export default function ActiveTradesPage() {
       }
     } catch (error) {
       console.error("Error submitting rating:", error);
-      alert("Failed to submit rating. Please try again.");
+      throw error; // Re-throw so success-dialog can catch it
     }
   };
 
@@ -398,12 +430,8 @@ export default function ActiveTradesPage() {
         setSelectedTrade({
           ...trade,
           partnerProofData: partnerProofData,
-          proofFile: {
-            name: partnerProofData.proof_file.name,
-            url: partnerProofData.proof_file.url,
-            isImage: partnerProofData.proof_file.is_image
-          }
         });
+
         setShowViewProofDialog(true);
       } else {
         const errorData = await response.json();
@@ -487,7 +515,7 @@ export default function ActiveTradesPage() {
         setShowViewProofDialog(false);
 
         // Show immediate feedback
-        alert(`${selectedTrade.firstname} will be notified to resubmit their proof.`);
+        setShowSuccessModal(true);
 
         setActiveTrades(prevTrades =>
           prevTrades.map(trade =>
@@ -652,6 +680,8 @@ export default function ActiveTradesPage() {
       </div>
     );
   }
+
+
 
   return (
     <div className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}>
@@ -1058,6 +1088,9 @@ export default function ActiveTradesPage() {
           title={selectedTrade?.myProofSubmitted ? "View Your Proof" : "Your proof"}
           mode={selectedTrade?.myProofSubmitted ? "view" : "upload"}
           tradereq_id={selectedTrade?.tradereq_id}
+          showSuccess={showProofSuccessDialog}
+          successData={proofSuccessData}
+          onSuccessClose={handleProofSuccessClose}
         />
       )}
 
@@ -1082,6 +1115,46 @@ export default function ActiveTradesPage() {
           trade={selectedTrade}
           onRatingSubmit={handleTradeRating}
         />
+      )}
+
+      {/* --- SUCCESS MODAL: Proof Rejected Notification --- */}
+      {showSuccessModal && selectedTrade && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
+          <div
+            className="w-[618px] flex flex-col items-center justify-center p-[50px] relative"
+            style={{
+              background: "rgba(0, 0, 0, 0.4)",
+              border: "2px solid #FF3838",
+              boxShadow: "0px 4px 15px #E58D8D",
+              backdropFilter: "blur(40px)",
+              borderRadius: "15px"
+            }}
+          >
+            {/* Close Button */}
+            <button onClick={() => setShowSuccessModal(false)} className="absolute top-[26px] right-[26px] text-white hover:text-gray-300">
+              <Icon icon="lucide:x" className="w-[15px] h-[15px]" />
+            </button>
+
+            {/* Content Wrapper */}
+            <div className="flex flex-col items-center gap-[30px] w-[470px]">
+              <h2 className="text-[25px] font-bold text-white text-center">
+                Proof Rejected Successfully
+              </h2>
+
+              <p className="text-[16px] text-white/80 text-center">
+                {selectedTrade.firstname} has been notified to resubmit their proof for the trade.
+              </p>
+
+              {/* Acknowledge Button (Styled like the red confirm button) */}
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-[168px] h-[40px] bg-[#FF3838] rounded-[15px] text-white text-[16px] shadow-[0px_0px_15px_#CC4242] hover:bg-[#CC4242] transition-colors"
+              >
+                Acknowledge
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Evaluation Dialog */}

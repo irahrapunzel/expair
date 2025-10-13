@@ -237,10 +237,10 @@ export default function ProfilePage() {
       user.verification_status
         ? user.verification_status
         : user.is_verified
-        ? "VERIFIED"
-        : user.userVerifyId
-        ? "PENDING"
-        : "UNVERIFIED"
+          ? "VERIFIED"
+          : user.userVerifyId
+            ? "PENDING"
+            : "UNVERIFIED"
     ).toLowerCase();
     setVerificationStatus(s);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
@@ -375,8 +375,7 @@ export default function ProfilePage() {
         tradereq_id: trade.tradereq_id,
         name:
           (isOwnProfile
-            ? `${session?.user?.first_name || ""} ${
-                session?.user?.last_name || ""
+            ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
               }`.trim()
             : `${user?.firstname || ""} ${user?.lastname || ""}`.trim()) ||
           session?.user?.username ||
@@ -414,9 +413,9 @@ export default function ProfilePage() {
             })) || [],
         until: trade.deadline
           ? new Date(trade.deadline).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-            })
+            month: "long",
+            day: "numeric",
+          })
           : "No deadline",
       }));
       console.log("🧩 Transformed trades:", transformed);
@@ -785,8 +784,12 @@ export default function ProfilePage() {
           requester:
             `${review.reviewer_first_name} ${review.reviewer_last_name}`.trim() ||
             review.reviewer_username,
+          requesterUsername: review.reviewer_username,
+          requesterAvatar: review.reviewer_profilepic || "/assets/defaultavatar.png",
           tradePartner:
             `${user.firstname} ${user.lastname}`.trim() || user.username,
+          tradePartnerUsername: user.username,
+          tradePartnerAvatar: user.profilePic || "/assets/defaultavatar.png",
           tradeCompletionDate: new Date(review.completed_at).toLocaleDateString(
             "en-US",
             {
@@ -798,7 +801,6 @@ export default function ProfilePage() {
           offerTitle: review.offer_title,
           rating: review.rating,
           reviewDescription: review.review_description,
-          likes: review.likes_count || 0,
           trade_id: review.trade_id,
         }));
 
@@ -2349,13 +2351,16 @@ export default function ProfilePage() {
   const ReviewCard = ({ review }) => {
     const {
       requester,
+      requesterUsername,
+      requesterAvatar,
       tradePartner,
+      tradePartnerUsername,
+      tradePartnerAvatar,
       tradeCompletionDate,
       requestTitle,
       offerTitle,
       rating,
       reviewDescription,
-      likes,
     } = review;
     const [isLiked, setIsLiked] = useState(false);
 
@@ -2417,25 +2422,41 @@ export default function ProfilePage() {
           <div className="flex items-start gap-[15px]">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                {/* Use the defaultavatar.png for the review cards */}
-                <Image
-                  src="/assets/defaultavatar.png"
-                  alt={`${tradePartner}'s avatar`}
-                  width={35}
-                  height={35}
-                  className="rounded-full object-cover"
-                />
+                {/* Trade Partner Avatar - Clickable */}
+                <Link href={`/home/profile/${tradePartnerUsername}`} className="flex-shrink-0">
+                  <div className="w-[35px] h-[35px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
+                    <Image
+                      src={tradePartnerAvatar}
+                      alt={`${tradePartner}'s avatar`}
+                      width={35}
+                      height={35}
+                      className="rounded-full object-cover"
+                    />
+                  </div>
+                </Link>
                 <Icon icon="ic:baseline-close" className="w-4 h-4 text-white" />
-                {/* Use the defaultavatar.png for the review cards */}
-                <Image
-                  src="/assets/defaultavatar.png"
-                  alt={`${requester}'s avatar`}
-                  width={35}
-                  height={35}
-                  className="rounded-full object-cover"
-                />
+                {/* Requester Avatar - Clickable */}
+                <Link href={`/home/profile/${requesterUsername}`} className="flex-shrink-0">
+                  <div className="w-[35px] h-[35px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
+                    <Image
+                      src={requesterAvatar}
+                      alt={`${requester}'s avatar`}
+                      width={35}
+                      height={35}
+                      className="rounded-full object-cover"
+                    />
+                  </div>
+                </Link>
                 <div className="flex flex-col justify-start">
-                  <span className="font-semibold text-white text-base">{`${tradePartner} & ${requester}`}</span>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/home/profile/${tradePartnerUsername}`} className="hover:text-[#906EFF] transition-colors">
+                      <span className="font-semibold text-white text-base cursor-pointer">{tradePartner}</span>
+                    </Link>
+                    <span className="text-white text-base">&</span>
+                    <Link href={`/home/profile/${requesterUsername}`} className="hover:text-[#906EFF] transition-colors">
+                      <span className="font-semibold text-white text-base cursor-pointer">{requester}</span>
+                    </Link>
+                  </div>
                   <span className="text-white/50 text-base">
                     {tradeCompletionDate}
                   </span>
@@ -2446,7 +2467,7 @@ export default function ProfilePage() {
 
           <div className="relative flex items-center gap-5 text-white text-sm">
             {/* Rating number on the left */}
-            <span className="text-lg">{safeFixed(user.rating, 1)}</span>
+            <span className="text-lg">{safeFixed(rating, 1)}</span>
             <div className="flex items-center gap-[5px]">
               {renderStars(rating)}
             </div>
@@ -2464,8 +2485,13 @@ export default function ProfilePage() {
           {/* Trade Details Section */}
           <div className="flex-1 flex flex-col gap-[25px]">
             <div className="flex items-center gap-[15px] w-full">
+              <Link href={`/home/profile/${requesterUsername}`} className="hover:text-[#906EFF] transition-colors">
+                <h6 className="text-white text-base text-white/50 whitespace-nowrap cursor-pointer">
+                  {requester}
+                </h6>
+              </Link>
               <h6 className="text-white text-base text-white/50 whitespace-nowrap">
-                Name requested
+              requested
               </h6>
               <div className="inline-flex items-center px-[15px] py-[8px] text-[13px] rounded-full border-2 text-white bg-[#284CCC]/20 border-[#284CCC]/80 text-[#C1C9E1]">
                 <span className="whitespace-nowrap">{requestTitle}</span>
@@ -2487,21 +2513,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center mt-2">
-          <div className="flex items-center gap-1.5 text-white text-sm">
-            <button
-              onClick={() => setIsLiked(!isLiked)}
-              className="transition-transform transform hover:scale-110"
-            >
-              <Heart
-                className={clsx(
-                  "w-5 h-5 transition-colors duration-300",
-                  isLiked ? "fill-[#906EFF] stroke-[#906EFF]" : "stroke-white"
-                )}
-              />
-            </button>
-            <span>{likes + (isLiked ? 1 : 0)}</span>
-          </div>
+        <div className="flex justify-end items-center mt-2">
           <div className="flex gap-4">
             <Button
               className="bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm rounded-[15px] px-5 py-2 shadow-[0px_0px_15px_#284CCC]"
@@ -2746,12 +2758,7 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="absolute top-0 right-0">
-              <Link href="/home/messages">
-                <Button className="bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[16px] rounded-[15px] px-5 py-2 shadow-[0px_0px_15px_#284CCC] flex items-center gap-2">
-                  <Icon icon="mdi:email-outline" className="w-4 h-4" />
-                  Message
-                </Button>
-              </Link>
+              
             </div>
           )}
           {/* Rating + Level */}

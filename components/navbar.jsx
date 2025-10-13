@@ -165,6 +165,11 @@ export default function Navbar() {
                   Active
                 </DropdownMenuItem>
               </Link>
+              <Link href="/home/trades/completed">
+                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                  Completed
+                </DropdownMenuItem>
+              </Link>
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>

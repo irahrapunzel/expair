@@ -10,49 +10,45 @@ export default function UploadProofDialog({
   onSubmit,
   title = "Upload your proof",
   mode = "upload",
-  tradereq_id = null, // Add this prop to fetch existing proof
+  tradereq_id = null,
+  showSuccess = false,
+  successData = null,
+  onSuccessClose = null,
 }) {
   const { data: session } = useSession();
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [linkProof, setLinkProof] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
   // Fetch existing proof when in view mode
   useEffect(() => {
     const fetchExistingProof = async () => {
-      if (!isOpen || mode !== "view" || !tradereq_id || !session?.access)
-        return;
+      if (!isOpen || mode !== "view" || !tradereq_id || !session?.access) return;
 
       setLoading(true);
       try {
-        // Fetch user's own proof (you'll need to create this endpoint)
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-proof/${tradereq_id}/my-proof/`,
           {
-            headers: {
-              Authorization: `Bearer ${session.access}`,
-              "Content-Type": "application/json",
-            },
+            headers: { Authorization: `Bearer ${session.access}` },
           }
         );
 
         if (response.ok) {
           const proofData = await response.json();
-          if (proofData.proof_file) {
-            // Convert server proof to local file format
-            const existingFile = {
-              name: proofData.proof_file.name,
-              file: null, // We don't have the actual File object
-              isImage: proofData.proof_file.is_image,
-              preview: proofData.proof_file.is_image
-                ? proofData.proof_file.url
-                : null,
-              url: proofData.proof_file.url, // Add URL for viewing
-              isExisting: true, // Flag to indicate this is from server
-            };
-            setUploadedFiles([existingFile]);
+          if (Array.isArray(proofData.proof_file)) {
+            const existingProofs = proofData.proof_file.map(item => ({
+              ...item,
+              name: item.filename,
+              isExisting: true,
+              isLink: item.type === 'link',
+              isImage: item.file_type?.startsWith("image/"),
+              preview: item.file_type?.startsWith("image/") ? item.url : null,
+            }));
+            setUploadedFiles(existingProofs);
           }
         } else {
           console.error("Failed to fetch existing proof");
@@ -65,27 +61,28 @@ export default function UploadProofDialog({
     };
 
     fetchExistingProof();
-  }, [isOpen, mode, tradereq_id, session]);
+  }, [isOpen, mode, tradereq_id, session?.access]);
 
-  // Reset files when dialog closes
+  // Reset state when dialog closes
   useEffect(() => {
     if (!isOpen) {
-      // Cleanup preview URLs
-      uploadedFiles.forEach((file) => {
-        if (file.preview && !file.isExisting) {
-          URL.revokeObjectURL(file.preview);
-        }
-      });
-      setUploadedFiles([]);
+        uploadedFiles.forEach(file => {
+            if (file.preview && !file.isExisting) {
+                URL.revokeObjectURL(file.preview);
+            }
+        });
+        setUploadedFiles([]);
+        setLinkProof("");
+        setSubmitting(false);
     }
   }, [isOpen]);
 
-  // Cleanup preview URLs when component unmounts
+  // Cleanup preview URLs on unmount
   useEffect(() => {
     return () => {
-      uploadedFiles.forEach((file) => {
+      uploadedFiles.forEach(file => {
         if (file.preview && !file.isExisting) {
-          URL.revokeObjectURL(file.preview);
+            URL.revokeObjectURL(file.preview);
         }
       });
     };
@@ -96,26 +93,27 @@ export default function UploadProofDialog({
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
+    if (mode !== 'upload') return;
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
     } else if (e.type === "dragleave") {
       setDragActive(false);
     }
   };
-
+  
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (mode !== 'upload') return;
     setDragActive(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFiles(e.dataTransfer.files);
     }
   };
-
+  
   const handleChange = (e) => {
     e.preventDefault();
+    if (mode !== 'upload') return;
     if (e.target.files && e.target.files[0]) {
       handleFiles(e.target.files);
     }
@@ -126,80 +124,67 @@ export default function UploadProofDialog({
       name: file.name,
       file: file,
       isImage: file.type.startsWith("image/"),
-      preview: file.type.startsWith("image/")
-        ? URL.createObjectURL(file)
-        : null,
+      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
       isExisting: false,
+      type: "file",
     }));
-    setUploadedFiles([...uploadedFiles, ...newFiles]);
+    setUploadedFiles(prev => [...prev, ...newFiles]);
   };
-
-  const removeFile = (fileName) => {
-    const fileToRemove = uploadedFiles.find((file) => file.name === fileName);
-    if (fileToRemove && fileToRemove.preview && !fileToRemove.isExisting) {
-      URL.revokeObjectURL(fileToRemove.preview);
+  
+  const handleAddLink = () => {
+    if (!linkProof.trim()) return;
+    try {
+        new URL(linkProof);
+    } catch (_) {
+        alert("Please enter a valid URL.");
+        return;
     }
-    setUploadedFiles(uploadedFiles.filter((file) => file.name !== fileName));
+    const newLink = {
+      name: linkProof,
+      url: linkProof,
+      isExisting: false,
+      isLink: true,
+      type: "link",
+    };
+    setUploadedFiles(prev => [...prev, newLink]);
+    setLinkProof("");
   };
 
+  const removeFile = (name) => {
+    const fileToRemove = uploadedFiles.find(f => f.name === name);
+    if (fileToRemove?.preview && !fileToRemove.isExisting) {
+        URL.revokeObjectURL(fileToRemove.preview);
+    }
+    setUploadedFiles(prev => prev.filter(item => item.name !== name));
+  };
+  
   const viewFile = (file) => {
-    if (file.isExisting && file.url) {
-      // For existing files from server, use the server URL
-      window.open(file.url, "_blank");
-    } else if (file.file) {
-      // For new files, create object URL
-      const url = URL.createObjectURL(file.file);
-      window.open(url, "_blank");
-    }
-  };
-
-  const downloadFile = (file) => {
-    if (file.isExisting && file.url) {
-      // For existing files, download from server
-      const link = document.createElement("a");
-      link.href = file.url;
-      link.download = file.name;
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else if (file.file) {
-      // For new files, create download link
-      const url = URL.createObjectURL(file.file);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = file.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
-  };
-
-  const downloadAllFiles = () => {
-    if (uploadedFiles.length === 0) return;
-
-    uploadedFiles.forEach((file, index) => {
-      setTimeout(() => {
-        downloadFile(file);
-      }, index * 100);
-    });
+      const urlToOpen = file.isExisting ? file.url : URL.createObjectURL(file.file);
+      window.open(urlToOpen, "_blank");
   };
 
   const handleSubmit = () => {
-    if (uploadedFiles.length > 0) {
-      // Only submit non-existing files (new uploads)
-      const newFiles = uploadedFiles.filter((file) => !file.isExisting);
-      if (newFiles.length > 0) {
-        onSubmit(newFiles);
-      }
+    const newFiles = uploadedFiles.filter(item => !item.isExisting && item.type === 'file');
+    const newLinks = uploadedFiles.filter(item => !item.isExisting && item.type === 'link');
+
+    if (newFiles.length === 0 && newLinks.length === 0) {
+      alert("Please add at least one new file or link to submit.");
+      return;
     }
+
+    setSubmitting(true);
+    onSubmit({
+      files: newFiles,
+      links: newLinks
+    });
   };
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div
-        className="w-[650px] max-h-[90vh] flex flex-col p-[40px] relative overflow-y-auto"
+
+      {/* Main Upload Dialog */}
+      <div 
+        className="w-[650px] max-h-[90vh] flex flex-col p-[40px] relative overflow-y-auto" 
         style={{
           background: "rgba(0, 0, 0, 0.05)",
           border: "2px solid #0038FF",
@@ -208,261 +193,118 @@ export default function UploadProofDialog({
           borderRadius: "15px",
         }}
       >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-[25px] right-[25px] text-white hover:text-gray-300"
-        >
+        <button onClick={onClose} className="absolute top-[25px] right-[25px] text-white hover:text-gray-300">
           <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
         </button>
 
         <div className="flex flex-col items-center gap-[30px] w-full mt-[20px]">
-          {/* Title */}
-          <div className="flex flex-col items-center w-full mb-[10px]">
-            <h2 className="text-[28px] font-bold text-white text-center">
-              {title}
-            </h2>
-          </div>
+          <h2 className="text-[28px] font-bold text-white text-center">{title}</h2>
 
-          {/* Upload area (only in upload mode) */}
-{mode === "upload" && (
-  <>
-    <div
-      className={`w-full h-[280px] border-2 border-dashed rounded-[25px] flex flex-col items-center justify-center ${
-        dragActive ? "border-white" : "border-white/60"
-      }`}
-      onDragEnter={handleDrag}
-      onDragLeave={handleDrag}
-      onDragOver={handleDrag}
-      onDrop={handleDrop}
-    >
-      <div className="flex flex-col items-center gap-[15px]">
-        <Icon
-          icon="lucide:cloud-upload"
-          className="w-[120px] h-[80px] text-white/40"
-        />
-        <p className="text-[18px] text-white/60 text-center">
-          Drag and drop your files here
-        </p>
-      </div>
-      <button
-        onClick={() => fileInputRef.current.click()}
-        className="mt-[30px] px-[60px] py-[15px] border border-white rounded-[12px] text-[14px] text-white hover:bg-[#1A0F3E] transition-colors"
-      >
-        Browse files
-      </button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        onChange={handleChange}
-        className="hidden"
-      />
-    </div>
+          {/* UPLOAD UI (only in upload mode) */}
+          {mode === "upload" && (
+            <>
+              {/* Drag & Drop Area */}
+              <div
+                className={`w-full h-[200px] border-2 border-dashed rounded-[25px] flex flex-col items-center justify-center ${dragActive ? "border-white" : "border-white/60"}`}
+                onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+              >
+                <Icon icon="lucide:cloud-upload" className="w-[80px] h-[60px] text-white/40" />
+                <p className="text-[16px] text-white/60 text-center">Drag & drop files or</p>
+                <button onClick={() => fileInputRef.current.click()} className="mt-2 text-[#6DDFFF] hover:underline">
+                  Browse files
+                </button>
+                <input ref={fileInputRef} type="file" multiple onChange={handleChange} className="hidden" />
+              </div>
 
-    {/* Optional link proof input (moved BELOW upload box) */}
-    <div className="flex flex-col w-full mt-6 gap-2">
-      <label className="text-[16px] text-white/80 font-medium">
-        Or submit a link as proof
-      </label>
-      <div className="flex gap-3">
-        <input
-          type="url"
-          placeholder="https://drive.google.com/your-proof-link"
-          value={linkProof}
-          onChange={(e) => setLinkProof(e.target.value)}
-          className="flex-1 bg-[#120A2A] border border-white/40 rounded-[12px] p-3 text-white text-sm placeholder:text-white/40 outline-none"
-        />
-        <button
-          onClick={() => {
-            if (!linkProof.trim()) return;
-            const newLink = {
-              name: linkProof,
-              file: null,
-              isImage: false,
-              preview: null,
-              url: linkProof,
-              isExisting: false,
-              isLink: true,
-            };
-            setUploadedFiles([...uploadedFiles, newLink]);
-            setLinkProof("");
-          }}
-          className="px-5 bg-[#0038FF] text-white rounded-[12px] text-sm font-medium hover:bg-[#1a4dff] transition-colors"
-        >
-          Add Link
-        </button>
-      </div>
-    </div>
-  </>
-)}
+              {/* Link Input Area */}
+              <div className="flex flex-col w-full gap-2">
+                <label className="text-[16px] text-white/80 font-medium">Or submit a link as proof</label>
+                <div className="flex gap-3">
+                  <input
+                    type="url"
+                    placeholder="https://your-proof-link.com"
+                    value={linkProof}
+                    onChange={(e) => setLinkProof(e.target.value)}
+                    className="flex-1 bg-[#120A2A] border border-white/40 rounded-[12px] p-3 text-white text-sm placeholder:text-white/40 outline-none"
+                  />
+                  <button onClick={handleAddLink} className="px-5 bg-[#0038FF] text-white rounded-[12px] text-sm font-medium hover:bg-[#1a4dff] transition-colors">
+                    Add Link
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
-
-          {/* Uploaded files */}
-          <div className="flex flex-col gap-[25px] w-full">
+          {/* PROOF LIST (for both upload and view modes) */}
+          <div className="flex flex-col gap-[15px] w-full">
             <p className="text-[18px] text-white font-medium">
-              {mode === "view" ? "Your submitted proof" : "Uploaded file(s) and link(s)"}
+              {mode === "view" ? `Your submitted proof (${uploadedFiles.length})` : `Uploaded items (${uploadedFiles.length})`}
             </p>
-
             <div className="flex flex-col gap-[12px] w-full min-h-[70px]">
               {loading ? (
-                <div className="h-[70px] flex items-center justify-center">
-                  <div className="flex items-center gap-2">
-                    <Icon
-                      icon="lucide:loader-2"
-                      className="w-5 h-5 animate-spin text-white/60"
-                    />
-                    <p className="text-[14px] text-white/60">
-                      Loading your proof...
-                    </p>
-                  </div>
+                <div className="flex justify-center items-center h-[70px]">
+                  <p className="text-white/60">Loading proof...</p>
                 </div>
               ) : uploadedFiles.length > 0 ? (
-                uploadedFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-row justify-between items-center p-[20px] bg-[#120A2A] rounded-[12px] shadow-lg w-full"
-                  >
+                uploadedFiles.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center p-[20px] bg-[#120A2A] rounded-[12px] shadow-lg">
                     <div className="flex items-center gap-[15px] min-w-0 flex-1">
-                      {/* File thumbnail / icon */}
-                      {(() => {
-                        if (file.isLink) {
-                          return (
-                            <div className="w-[50px] h-[50px] rounded-[8px] bg-[#1A0F3E] border border-white/20 flex items-center justify-center flex-shrink-0">
-                              <Icon
-                                icon="lucide:link"
-                                className="w-[24px] h-[24px] text-[#6DDFFF]"
-                              />
-                            </div>
-                          );
-                        } else if (file.isImage && file.preview) {
-                          return (
-                            <div className="w-[50px] h-[50px] rounded-[8px] overflow-hidden flex-shrink-0 border border-white/20">
-                              <img
-                                src={file.preview}
-                                alt={file.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div className="w-[50px] h-[50px] rounded-[8px] bg-[#1A0F3E] border border-white/20 flex items-center justify-center flex-shrink-0">
-                              <Icon
-                                icon="lucide:file"
-                                className="w-[24px] h-[24px] text-white/60"
-                              />
-                            </div>
-                          );
-                        }
-                      })()}
-
-                      <div className="flex flex-col gap-[2px] min-w-0 flex-1">
-                        <span
-                          className="text-[16px] text-white truncate"
-                          title={file.name}
-                        >
-                          {file.name}
-                        </span>
-                        <span className="text-[12px] text-white/50">
-                          {file.isImage ? "Image file" : "Document"}
-                          {file.isExisting && (
-                            <span className="ml-2 px-2 py-0.5 bg-green-600/20 text-green-400 rounded text-xs">
-                              Submitted
-                            </span>
-                          )}
-                        </span>
+                      {/* Thumbnail or Icon */}
+                      {item.isImage && item.preview ? (
+                        <div className="w-[50px] h-[50px] rounded-[8px] overflow-hidden shrink-0 border border-white/20">
+                            <img src={item.preview} alt={item.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-[50px] h-[50px] rounded-[8px] bg-[#1A0F3E] flex items-center justify-center shrink-0 border border-white/20">
+                          <Icon icon={item.isLink ? "lucide:link" : "lucide:file"} className="w-6 h-6 text-white/80" />
+                        </div>
+                      )}
+                      
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-[16px] text-white truncate" title={item.name}>{item.name}</span>
+                        <span className="text-[12px] text-white/50">{item.isLink ? "External Link" : "File"}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-[12px] flex-shrink-0">
-                      <button
-                        onClick={() => viewFile(file)}
-                        className="hover:bg-white/10 p-2 rounded transition-colors"
-                        title="View file"
-                      >
-                        <Icon
-                          icon="lucide:eye"
-                          className="w-[20px] h-[20px] text-white"
-                        />
+                    {/* Actions */}
+                    <div className="flex items-center gap-[12px] text-white">
+                      <button onClick={() => window.open(item.url || URL.createObjectURL(item.file), "_blank")} title={item.isLink ? "Open Link" : "View File"} className="hover:text-gray-300">
+                        <Icon icon={item.isLink ? 'lucide:external-link' : 'lucide:eye'} className="w-5 h-5" />
                       </button>
-                      {mode === "view" && (
-                        <button
-                          onClick={() => downloadFile(file)}
-                          className="hover:bg-white/10 p-2 rounded transition-colors"
-                          title="Download file"
-                        >
-                          <Icon
-                            icon="lucide:download"
-                            className="w-[20px] h-[20px] text-white"
-                          />
-                        </button>
-                      )}
-                      {mode === "upload" && !file.isExisting && (
-                        <button
-                          onClick={() => removeFile(file.name)}
-                          className="hover:bg-white/10 p-2 rounded transition-colors"
-                          title="Remove file"
-                        >
-                          <Icon
-                            icon="lucide:x"
-                            className="w-[20px] h-[20px] text-white"
-                          />
+                      {(mode === "upload" && !item.isExisting) && (
+                        <button onClick={() => removeFile(item.name)} title="Remove" className="hover:text-red-400">
+                            <Icon icon="lucide:x" className="w-5 h-5" />
                         </button>
                       )}
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="h-[70px] flex items-center justify-center">
-                  <p className="text-[14px] text-white/40">
-                    {mode === "view"
-                      ? "No proof found"
-                      : "No files uploaded yet"}
-                  </p>
+                <div className="flex justify-center items-center h-[70px]">
+                  <p className="text-white/40">{mode === 'view' ? "No proof submitted yet." : "No files or links added yet."}</p>
                 </div>
               )}
             </div>
-
-            {mode === "upload" && (
-              <div className="space-y-3 mt-[15px]">
-                <p className="text-[14px] text-white/50 text-center leading-relaxed">
-                  Files and final approval are withheld from the other party
-                  until both users upload their outputs. Ensure that the file
-                  you have uploaded is final, as this will not become editable
-                  after. Files and final approval are withheld from the other
-                  party until both users upload their outputs.
-                </p>
-              </div>
-            )}
           </div>
 
-          {/* Submit and Download buttons */}
-          <div className="flex justify-center items-center gap-[15px] mt-[25px] mb-[10px]">
-            {mode === "view" && (
-              <button
-                onClick={downloadAllFiles}
-                disabled={uploadedFiles.length === 0 || loading}
-                className="w-[180px] h-[45px] rounded-[15px] text-white text-[16px] font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                style={{
-                  background: "#0038FF",
-                  boxShadow: "0px 0px 15px rgba(40, 76, 204, 0.6)",
-                }}
-              >
-                <div className="flex items-center justify-center gap-[8px]">
-                  <Icon icon="lucide:download" className="w-[18px] h-[18px]" />
-                  <span>Download</span>
-                </div>
-              </button>
-            )}
+          {/* Action Buttons */}
+          <div className="flex justify-center w-full mt-[25px]">
             {mode === "upload" && (
               <button
                 onClick={handleSubmit}
-                disabled={
-                  uploadedFiles.filter((f) => !f.isExisting).length === 0
-                }
-                className="w-[180px] h-[45px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#0042FF] transition-colors"
+                disabled={uploadedFiles.filter(f => !f.isExisting).length === 0 || submitting}
+                className="w-[180px] h-[45px] bg-[#0038FF] rounded-[15px] text-white text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Submit
+                {submitting ? (
+                    <>
+                        <Icon icon="lucide:loader-2" className="animate-spin w-5 h-5" />
+                        <span>Submitting...</span>
+                    </>
+                ) : "Submit"}
+              </button>
+            )}
+            {mode === "view" && (
+               <button onClick={onClose} className="w-[180px] h-[45px] bg-[#0038FF] rounded-[15px] text-white text-base font-medium">
+                Close
               </button>
             )}
           </div>
