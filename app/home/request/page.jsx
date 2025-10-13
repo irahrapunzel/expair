@@ -99,13 +99,8 @@ export default function RequestPage() {
 
   return (
     <div
-      className={`pt-[40px] pb-[40px] flex min-h-screen items-center justify-center ${inter.className} relative overflow-hidden`}
-      style={{ 
-        backgroundImage: "url('/assets/bg_register1.png')",
-        backgroundSize: "100% 120%",
-        backgroundPosition: "center top",
-        backgroundRepeat: "no-repeat"
-      }}
+      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
+      style={{ backgroundImage: "url('/assets/bg_register1.png')" }}
     >
       {/* Background glows */}
       <div className="absolute w-[673px] h-[673px] left-[-611.5px] top-[-336px] bg-[#906EFF] opacity-35 blur-[200px]"></div>
