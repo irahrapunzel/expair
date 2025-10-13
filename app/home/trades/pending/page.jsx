@@ -803,8 +803,8 @@ export default function PendingTradesPage() {
                       {/* Needs */}
                       <div className="flex flex-col items-start gap-[10px]">
                         <span className="text-[13px] text-white">Needs</span>
-                        <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
-                          <span className="text-[12px] text-white leading-tight">
+                        <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
+                          <span className="text-[13px] text-white leading-tight">
                             {trade.needs}
                           </span>
                         </div>
@@ -1048,19 +1048,22 @@ export default function PendingTradesPage() {
                 </div>
 
                 {/* Needs/Offers Section */}
-                <div className="flex justify-between items-start w-full space-x-4">
-                  <div className="flex flex-col justify-center items-start gap-[10px] flex-1">
+                <div className="flex justify-between items-start w-full">
+                  {/* Needs */}
+                  <div className="flex flex-col items-start gap-[10px]">
                     <span className="text-[13px] text-white">Needs</span>
-                    <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px] max-w-full">
-                      <span className="text-[12px] text-white leading-tight line-clamp-2">
+                    <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] max-w-full">
+                      <span className="text-[13px] text-white leading-tight">
                         {trade.needs}
                       </span>
                     </div>
                   </div>
-                  <div className="flex flex-col justify-center items-end gap-[10px] flex-1">
+
+                  {/* Offers */}
+                  <div className="flex flex-col items-end gap-[10px]">
                     <span className="text-[13px] text-white">Can offer</span>
-                    <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px] max-w-full">
-                      <span className="text-[12px] text-white leading-tight line-clamp-2">
+                    <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] max-w-full">
+                      <span className="text-[13px] text-white leading-tight">
                         {trade.offers}
                       </span>
                     </div>
@@ -1604,28 +1607,28 @@ export default function PendingTradesPage() {
                           </div>
                         </div>
                         {/* Needs/Offers Section */}
-                        <div className="flex justify-between items-start w-full">
+                        <div className="flex justify-between items-start gap-4 flex-wrap w-full">
                           {/* Needs */}
-                          <div className="flex flex-col items-start gap-[10px]">
-                            <span className="text-[13px] text-white">
-                              Needs
-                            </span>
-                            <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                              <span className="text-[13px] text-white leading-tight">
-                                {trade.needs}
-                              </span>
+                          <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
+                            <span className="text-[13px] text-white/90 font-medium">Needs</span>
+                            <div
+                              className="inline-block px-[12px] py-[6px] rounded-[15px] border-[2px] border-[#0038FF] bg-[rgba(40,76,204,0.2)] 
+                                        text-[13px] text-white leading-tight max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                              title={trade.needs}
+                            >
+                              {trade.needs}
                             </div>
                           </div>
 
-                          {/* Offers */}
-                          <div className="flex flex-col items-end gap-[10px]">
-                            <span className="text-[13px] text-white">
-                              Can offer
-                            </span>
-                            <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                              <span className="text-[13px] text-white leading-tight">
-                                {trade.offers}
-                              </span>
+                          {/* Can offer */}
+                          <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
+                            <span className="text-[13px] text-white/90 font-medium">Can offer</span>
+                            <div
+                              className="inline-block px-[12px] py-[6px] rounded-[15px] border-[2px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] 
+                                        text-[13px] text-white leading-tight max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                              title={trade.offers}
+                            >
+                              {trade.offers}
                             </div>
                           </div>
                         </div>
