@@ -987,10 +987,7 @@ export default function PendingTradesPage() {
 
                       <div className="flex items-center gap-[15px]">
                         <div className="flex items-center gap-[5px]">
-                          <Icon
-                            icon="lucide:star"
-                            className="w-4 h-4 text-[#906EFF] fill-current flex-shrink-0"
-                          />
+                          <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
                           <span className="text-[13px] font-bold text-white">
                             {trade.rating} ({trade.reviews})
                           </span>
