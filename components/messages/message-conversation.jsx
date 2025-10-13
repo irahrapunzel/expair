@@ -275,26 +275,17 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       {perspectiveLabels.requested && perspectiveLabels.exchange && (
         <div className="px-5 py-3 bg-[#0A0519]">
           <div className="flex justify-between">
-            <div className="flex items-start gap-6 flex-wrap">
-              {/* Requested */}
-              <div className="flex flex-col gap-2 min-w-[45%]">
-                <span className="text-sm text-white/80 font-medium">Requested</span>
-                <div
-                  className="inline-block px-[15px] py-[7px] mt-1 rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap"
-                  title={perspectiveLabels.requested}
-                >
-                  {perspectiveLabels.requested}
+            <div className="flex items-start gap-4">
+              <div className="flex flex-col">
+                <span className="text-[16px] text-white">Requested</span>
+                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
+                  <span className="text-[13px] text-white">{perspectiveLabels.requested}</span>
                 </div>
               </div>
-
-              {/* In exchange for */}
-              <div className="flex flex-col gap-2 min-w-[45%] items-end">
-                <span className="text-sm text-white/80 font-medium">In exchange for</span>
-                <div
-                  className="inline-block px-[15px] py-[7px] mt-1 rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
-                  title={perspectiveLabels.exchange}
-                >
-                  {perspectiveLabels.exchange}
+              <div className="flex flex-col">
+                <span className="text-[16px] text-white">In exchange for</span>
+                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
+                  <span className="text-[13px] text-white">{perspectiveLabels.exchange}</span>
                 </div>
               </div>
             </div>
