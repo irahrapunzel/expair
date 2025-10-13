@@ -478,7 +478,10 @@ export default function Onboarding2({ onNext, onPrev }) {
                                 }
                                 className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full text-left"
                               >
-                                <X className="w-4 h-4 text-white" />
+                                <Icon
+                                  icon="mdi:alert-circle-outline"
+                                  className="text-white text-base"
+                                />
                                 Report
                               </button>
                             </div>
