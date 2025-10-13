@@ -1541,7 +1541,7 @@ def explore_feed(request):
 
         # Get all skills that the REQUESTER has (what they can offer in exchange)
         requester_skills_query = (
-            UserSkill.objects.filter(user_id=TradeRequest.requester.id)
+            UserSkill.objects.filter(user_id=tr.requester.id)
             .select_related("specSkills__genSkills_id")
             .values_list("specSkills__genSkills_id_id", "specSkills__genSkills_id__genCateg")
         )
