@@ -15,6 +15,8 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   const [replyingTo, setReplyingTo] = useState(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [tradeRequest, setTradeRequest] = useState(null);
+  const [detailsSubmitted, setDetailsSubmitted] = useState(false);
+  const [checkingDetailsStatus, setCheckingDetailsStatus] = useState(true);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -23,7 +25,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   useEffect(() => {
     const fetchTradeRequest = async () => {
       if (!conversation?.id || !session?.access) return;
-
+      
       try {
         const resp = await fetch(`${BACKEND_URL}/conversations/`, {
           headers: {
@@ -32,10 +34,10 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           },
           credentials: 'include',
         });
-
+        
         if (!resp.ok) return;
         const data = await resp.json();
-
+        
         // Find this conversation
         const conv = data.conversations?.find(c => c.conversation_id === conversation.id);
         if (conv) {
@@ -51,11 +53,57 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         console.error('Failed to fetch trade request:', error);
       }
     };
-
+    
     fetchTradeRequest();
   }, [conversation?.id, session?.access]);
 
+  // Check if user has submitted trade details
+  useEffect(() => {
+    const checkDetailsStatus = async () => {
+      if (!tradeRequest?.tradereq_id || !session?.access) {
+        setCheckingDetailsStatus(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/trade-requests/${tradeRequest.tradereq_id}/details/status/`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access}`,
+            },
+            credentials: 'include',
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setDetailsSubmitted(data.current_user?.has_submitted || false);
+        }
+      } catch (error) {
+        console.error('Failed to check details status:', error);
+      } finally {
+        setCheckingDetailsStatus(false);
+      }
+    };
+
+    checkDetailsStatus();
+
+    // Listen for details updates
+    const handleStorageChange = (e) => {
+      if (e.key === 'trade_details_updated') {
+        checkDetailsStatus();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [tradeRequest?.tradereq_id, session?.access]);
+
   // Determine perspective-based labels
+  // Note: Backend already handles perspective in list_conversations
+  // So reqname and exchange are already from the current user's viewpoint
   const getPerspectiveLabels = () => {
     if (!tradeRequest || !session?.user) {
       // Fallback to original static labels
@@ -65,6 +113,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       };
     }
 
+    // ✅ NO SWAPPING - Backend already adjusted perspective
     // reqname = what current user needs
     // exchange = what current user offers
     return {
@@ -203,7 +252,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
 
   return (
     <div className="flex-1 bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden relative">
-
+      
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
         <div className="absolute inset-0 flex justify-center items-center z-50 rounded-[25px]">
@@ -227,18 +276,18 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
       )}
-
-      {/* ✅ UPDATED HEADER - Name and avatar link to profile with hover effects */}
+      
+      {/* Header with name and avatar */}
       <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href={`/home/profile/${conversation.username || conversation.userId}`}>
-            <Image
-              src={conversation.avatar}
-              alt={conversation.name}
-              width={45}
-              height={45}
-              className="rounded-full cursor-pointer hover:opacity-80 transition-opacity"
-              unoptimized
+            <Image 
+              src={conversation.avatar} 
+              alt={conversation.name} 
+              width={45} 
+              height={45} 
+              className="rounded-full cursor-pointer hover:opacity-80 transition-opacity" 
+              unoptimized 
             />
           </Link>
           <div>
@@ -272,7 +321,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         </div>
       </div>
 
-      {/* ✅ UPDATED REQUEST/EXCHANGE SECTION - Removed "Evaluate" button */}
+      {/* Request/Exchange Section */}
       {perspectiveLabels.requested && perspectiveLabels.exchange && (
         <div className="px-5 py-3 bg-[#0A0519]">
           <div className="flex justify-between">
@@ -292,17 +341,32 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             </div>
 
             <div className="flex items-end gap-3 pb-1">
-              <Link
-                href={`/home/trades/add-details?tradereq_id=${tradeRequest?.tradereq_id || ''}&requested=${encodeURIComponent(tradeRequest?.reqname || '')}&exchange=${encodeURIComponent(tradeRequest?.exchange || '')}`}
-                onClick={() => {
-                  // Mark that details were accessed - this helps trigger refresh
-                  sessionStorage.setItem('trade_details_updated', Date.now().toString());
-                }}
-              >
-                <button className="w-[120px] h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
-                  <span className="text-[13px] text-white">Add details</span>
+              {checkingDetailsStatus ? (
+                <button 
+                  disabled 
+                  className="w-[120px] h-[30px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
+                >
+                  <span className="text-[13px] text-white">Loading...</span>
                 </button>
-              </Link>
+              ) : detailsSubmitted ? (
+                <button 
+                  disabled 
+                  className="w-[140px] h-[30px] bg-[#6DDFFF] rounded-[10px] cursor-default"
+                >
+                  <span className="text-[13px] text-black font-bold">Details Submitted</span>
+                </button>
+              ) : (
+                <Link 
+                  href={`/home/trades/add-details?tradereq_id=${tradeRequest?.tradereq_id || ''}&requested=${encodeURIComponent(tradeRequest?.reqname || '')}&exchange=${encodeURIComponent(tradeRequest?.exchange || '')}`}
+                  onClick={() => {
+                    sessionStorage.setItem('trade_details_updated', Date.now().toString());
+                  }}
+                >
+                  <button className="w-[120px] h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
+                    <span className="text-[13px] text-white">Add details</span>
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
