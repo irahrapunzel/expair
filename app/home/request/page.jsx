@@ -99,7 +99,7 @@ export default function RequestPage() {
 
   return (
     <div
-      className={`pb-[40px] flex min-h-screen items-center justify-center ${inter.className} relative overflow-hidden`}
+      className={`pt-[40px] pb-[40px] flex min-h-screen items-center justify-center ${inter.className} relative overflow-hidden`}
       style={{ 
         backgroundImage: "url('/assets/bg_register1.png')",
         backgroundSize: "100% 120%",
