@@ -99,14 +99,21 @@ export default function RequestPage() {
 
   return (
     <div
-      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
-      style={{ backgroundImage: "url('/assets/bg_register1.png')" }}
+      className={`pt-[40px] pb-[40px] flex min-h-screen items-center justify-center ${inter.className} relative overflow-hidden`}
+      style={{ 
+        backgroundImage: "url('/assets/bg_register1.png')",
+        backgroundPosition: "center top",
+        backgroundRepeat: "no-repeat"
+      }}
     >
       {/* Background glows */}
       <div className="absolute w-[673px] h-[673px] left-[-611.5px] top-[-336px] bg-[#906EFF] opacity-35 blur-[200px]"></div>
       <div className="absolute w-[673px] h-[673px] right-[-354px] bottom-[-454px] bg-[#0038FF] opacity-35 blur-[200px]"></div>
       
       <div className="relative z-10 w-full max-w-5xl text-center px-4 flex flex-col items-center">
+        {/* Header spacing - reduced for authenticated users */}
+        <div className="mb-[360px]"></div>
+        
         {/* Main content */}
         <div className="flex flex-col items-center justify-center w-full max-w-[941px] mx-auto">
           {/* Title and subtitle */}
