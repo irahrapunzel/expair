@@ -23,7 +23,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   useEffect(() => {
     const fetchTradeRequest = async () => {
       if (!conversation?.id || !session?.access) return;
-      
+
       try {
         const resp = await fetch(`${BACKEND_URL}/conversations/`, {
           headers: {
@@ -32,10 +32,10 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           },
           credentials: 'include',
         });
-        
+
         if (!resp.ok) return;
         const data = await resp.json();
-        
+
         // Find this conversation
         const conv = data.conversations?.find(c => c.conversation_id === conversation.id);
         if (conv) {
@@ -51,7 +51,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         console.error('Failed to fetch trade request:', error);
       }
     };
-    
+
     fetchTradeRequest();
   }, [conversation?.id, session?.access]);
 
@@ -65,26 +65,12 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       };
     }
 
-    const currentUserId = session.user.user_id || session.user.id;
-    const isRequester = tradeRequest.requester_id === currentUserId;
-
-    if (isRequester) {
-      // Requester's perspective: 
-      // "Requested" = what I need (reqname)
-      // "In exchange for" = what I'm offering (exchange)
-      return {
-        requested: tradeRequest.reqname,
-        exchange: tradeRequest.exchange,
-      };
-    } else {
-      // Responder's perspective:
-      // "Requested" = what I need (exchange - the requester's offer)
-      // "In exchange for" = what I'm offering (reqname - what requester asked for)
-      return {
-        requested: tradeRequest.exchange,
-        exchange: tradeRequest.reqname,
-      };
-    }
+    // reqname = what current user needs
+    // exchange = what current user offers
+    return {
+      requested: tradeRequest.reqname,
+      exchange: tradeRequest.exchange,
+    };
   };
 
   const perspectiveLabels = getPerspectiveLabels();
@@ -217,7 +203,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
 
   return (
     <div className="flex-1 bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden relative">
-      
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
         <div className="absolute inset-0 flex justify-center items-center z-50 rounded-[25px]">
@@ -241,15 +227,30 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
       )}
-      
-      {/* Header */}
+
+      {/* ✅ UPDATED HEADER - Name and avatar link to profile with hover effects */}
       <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Image src={conversation.avatar} alt={conversation.name} width={45} height={45} className="rounded-full" unoptimized />
+          <Link href={`/home/profile/${conversation.username || conversation.userId}`}>
+            <Image
+              src={conversation.avatar}
+              alt={conversation.name}
+              width={45}
+              height={45}
+              className="rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+              unoptimized
+            />
+          </Link>
           <div>
-            <h3 className="text-[16px] text-white">{conversation.name}</h3>
+            <Link href={`/home/profile/${conversation.username || conversation.userId}`}>
+              <h3 className="text-[16px] text-white hover:text-[#906EFF] transition-colors cursor-pointer">
+                {conversation.name}
+              </h3>
+            </Link>
             <div className="flex items-center gap-5 mt-1">
-              <span className="text-[13px] text-[rgba(255,255,255,0.60)]">LVL {conversation.level}</span>
+              <span className="text-[13px] text-[rgba(255,255,255,0.60)]">
+                LVL {conversation.level}
+              </span>
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
                 <span className="text-[13px] text-[rgba(255,255,255,0.60)]">{conversation.rating}</span>
@@ -258,12 +259,12 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleDeleteConversation} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg">
+          <button onClick={handleDeleteConversation} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
             <Icon icon="lucide:trash-2" className="text-base" />
             Delete
           </button>
           <Link href="/home/help">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
               <Icon icon="lucide:flag" className="text-base" />
               Report
             </button>
@@ -271,7 +272,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         </div>
       </div>
 
-      {/* ✅ FIXED: Dynamic Request/Exchange based on user perspective */}
+      {/* ✅ UPDATED REQUEST/EXCHANGE SECTION - Removed "Evaluate" button */}
       {perspectiveLabels.requested && perspectiveLabels.exchange && (
         <div className="px-5 py-3 bg-[#0A0519]">
           <div className="flex justify-between">
@@ -291,16 +292,17 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             </div>
 
             <div className="flex items-end gap-3 pb-1">
-              <Link href={`/home/trades/add-details?tradereq_id=${tradeRequest?.tradereq_id || ''}&requested=${encodeURIComponent(perspectiveLabels.requested)}&exchange=${encodeURIComponent(perspectiveLabels.exchange)}`}>
-                <button className="w-[120px] h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff]">
+              <Link
+                href={`/home/trades/add-details?tradereq_id=${tradeRequest?.tradereq_id || ''}&requested=${encodeURIComponent(tradeRequest?.reqname || '')}&exchange=${encodeURIComponent(tradeRequest?.exchange || '')}`}
+                onClick={() => {
+                  // Mark that details were accessed - this helps trigger refresh
+                  sessionStorage.setItem('trade_details_updated', Date.now().toString());
+                }}
+              >
+                <button className="w-[120px] h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
                   <span className="text-[13px] text-white">Add details</span>
                 </button>
               </Link>
-              <button className="w-[120px] h-[30px] rounded-[15px] p-[2px]" style={{background: "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"}}>
-                <div className="w-full h-full rounded-[13px] bg-[#120A2A] hover:bg-[#1A0F3E] flex items-center justify-center">
-                  <span className="text-[13px] text-white">Evaluate</span>
-                </div>
-              </button>
             </div>
           </div>
         </div>
@@ -330,7 +332,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             placeholder="Message..."
             className="flex-1 h-[50px] bg-[#120A2A] rounded-[15px] px-4 text-white placeholder:text-[#413663] focus:outline-none"
           />
-          <button type="submit" disabled={!newMessage.trim()} className="w-[50px] h-[50px] bg-[#0038FF] rounded-[15px] flex items-center justify-center disabled:opacity-50">
+          <button type="submit" disabled={!newMessage.trim()} className="w-[50px] h-[50px] bg-[#0038FF] rounded-[15px] flex items-center justify-center disabled:opacity-50 hover:bg-[#1a4dff] transition-colors">
             <Icon icon="lucide:send" className="w-5 h-5 text-white" />
           </button>
         </div>

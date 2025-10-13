@@ -379,6 +379,45 @@ export default function PendingTradesPage() {
     }
   }, [session, refreshAllTrades]);
 
+  useEffect(() => {
+  const handleVisibilityChange = () => {
+    if (!document.hidden && session?.access) {
+      console.log('Page became visible - refreshing trades...');
+      refreshAllTrades(false);
+    }
+  };
+
+  const handleFocus = () => {
+    if (session?.access) {
+      console.log('Window focused - refreshing trades...');
+      refreshAllTrades(false);
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('focus', handleFocus);
+
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('focus', handleFocus);
+  };
+}, [session, refreshAllTrades]);
+
+useEffect(() => {
+  const handleStorageChange = (e) => {
+    if (e.key === 'trade_details_updated' && session?.access) {
+      console.log('Trade details updated - refreshing...');
+      refreshAllTrades(false);
+    }
+  };
+
+  window.addEventListener('storage', handleStorageChange);
+
+  return () => {
+    window.removeEventListener('storage', handleStorageChange);
+  };
+}, [session, refreshAllTrades]);
+
   const handleViewClick = useCallback((trade) => {
     console.log("=== HANDLE VIEW CLICK DEBUG ===");
     console.log("Trade object:", trade);
