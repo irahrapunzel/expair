@@ -3,12 +3,15 @@
 export default function TradeRequestInfo({ requested, exchange }) {
   return (
     <div className="px-8 py-6 bg-[#0A0519] rounded-[20px] mb-[15px]">
-      <div className="flex flex-wrap justify-between items-start gap-8">
+      {/* Trade Info Section */}
+      <div className="flex justify-between items-start w-full flex-wrap gap-4">
         {/* You're requesting */}
-        <div className="flex flex-col flex-1 min-w-[200px]">
-          <span className="text-[18px] text-white mb-2">You're requesting</span>
+        <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
+          <span className="text-sm text-white/80 font-medium">
+            You're requesting
+          </span>
           <div
-            className="inline-block px-[15px] py-[8px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-[15px] text-white max-w-full sm:max-w-[300px] truncate cursor-default transition-all hover:scale-[1.02]"
+            className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
             title={requested}
           >
             {requested}
@@ -16,12 +19,12 @@ export default function TradeRequestInfo({ requested, exchange }) {
         </div>
 
         {/* In exchange, you'll provide */}
-        <div className="flex flex-col flex-1 min-w-[200px] items-end text-right">
-          <span className="text-[18px] text-white mb-2">
+        <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
+          <span className="text-sm text-white/80 font-medium">
             In exchange, you'll provide
           </span>
           <div
-            className="inline-block px-[15px] py-[8px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-[15px] text-white max-w-full sm:max-w-[300px] truncate cursor-default transition-all hover:scale-[1.02] text-right"
+            className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
             title={exchange}
           >
             {exchange}
