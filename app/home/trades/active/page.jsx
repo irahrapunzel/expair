@@ -30,6 +30,10 @@ export default function ActiveTradesPage() {
   const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState(null);
 
+  const [showProofSuccessDialog, setShowProofSuccessDialog] = useState(false);
+  const [proofSuccessData, setProofSuccessData] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   // State for real data
   const [activeTrades, setActiveTrades] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +71,16 @@ export default function ActiveTradesPage() {
         if (response.ok) {
           const data = await response.json();
           console.log("Active trades data:", data);
+
+          console.log("=== FRONTEND DEBUG: RAW BACKEND DATA ===");
+          data.home_active_trades.forEach(trade => {
+            console.log(`Trade ${trade.tradereq_id}:`);
+            console.log(`  Backend reqname: "${trade.reqname}"`);
+            console.log(`  Backend exchange: "${trade.exchange}"`);
+            console.log(`  Backend is_requester: ${trade.is_requester}`);
+            console.log(`  Current user ID: ${session?.user?.id}`);
+          });
+          console.log("=== END FRONTEND DEBUG ===");
 
           if (!isMounted) return;
 
@@ -149,9 +163,8 @@ export default function ActiveTradesPage() {
                   reviews: "0",
                   level: trade.other_user.level.toString(),
 
-                  // Use database fields directly
-                  requested: trade.reqname,
-                  offering: trade.exchange,
+                  requested: trade.exchange,   // What PARTNER wants
+                  offering: trade.reqname,     // What PARTNER offers
 
                   deadline: trade.deadline_formatted,
                   xp: `${trade.total_xp} XP`,
@@ -340,9 +353,10 @@ export default function ActiveTradesPage() {
           )
         );
 
-        // Close dialog and show success message
+        // Close upload dialog and show success modal
         setShowUploadDialog(false);
-        alert(`Proof submitted successfully! (${result.files_uploaded} files, ${result.links_added} links)`);
+        setProofSuccessData(result);
+        setShowProofSuccessDialog(true);
       } else {
         const errorData = await response.json();
         console.error("❌ Upload failed:", errorData);
@@ -354,44 +368,50 @@ export default function ActiveTradesPage() {
     }
   };
 
+  const handleProofSuccessClose = () => {
+    setShowProofSuccessDialog(false);
+    setProofSuccessData(null);
+  };
+
+
   const handleTradeRating = async (ratingData) => {
-  if (!selectedTrade) return;
+    if (!selectedTrade) return;
 
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-rating/submit/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session?.access}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        trade_request_id: selectedTrade.tradereq_id,
-        rating: ratingData.rating,
-        review_description: ratingData.feedback
-      })
-    });
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-rating/submit/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          trade_request_id: selectedTrade.tradereq_id,
+          rating: ratingData.rating,
+          review_description: ratingData.feedback
+        })
+      });
 
-    if (response.ok) {
-      const result = await response.json();
-      console.log("Rating submitted successfully:", result);
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Rating submitted successfully:", result);
 
-      // ✅ Remove trade from local state (user has rated)
-      setActiveTrades(prevTrades =>
-        prevTrades.filter(trade => trade.id !== selectedTrade.id)
-      );
+        // ✅ Remove trade from local state (user has rated)
+        setActiveTrades(prevTrades =>
+          prevTrades.filter(trade => trade.id !== selectedTrade.id)
+        );
 
-      // ✅ RETURN the result so success-dialog can use it
-      return result;
+        // ✅ RETURN the result so success-dialog can use it
+        return result;
 
-    } else {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to submit rating");
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to submit rating");
+      }
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      throw error; // Re-throw so success-dialog can catch it
     }
-  } catch (error) {
-    console.error("Error submitting rating:", error);
-    throw error; // Re-throw so success-dialog can catch it
-  }
-};
+  };
 
   const handleViewPartnerProof = async (trade) => {
     try {
@@ -495,7 +515,7 @@ export default function ActiveTradesPage() {
         setShowViewProofDialog(false);
 
         // Show immediate feedback
-        alert(`${selectedTrade.firstname} will be notified to resubmit their proof.`);
+        setShowSuccessModal(true);
 
         setActiveTrades(prevTrades =>
           prevTrades.map(trade =>
@@ -660,6 +680,8 @@ export default function ActiveTradesPage() {
       </div>
     );
   }
+
+
 
   return (
     <div className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}>
@@ -1066,6 +1088,9 @@ export default function ActiveTradesPage() {
           title={selectedTrade?.myProofSubmitted ? "View Your Proof" : "Your proof"}
           mode={selectedTrade?.myProofSubmitted ? "view" : "upload"}
           tradereq_id={selectedTrade?.tradereq_id}
+          showSuccess={showProofSuccessDialog}
+          successData={proofSuccessData}
+          onSuccessClose={handleProofSuccessClose}
         />
       )}
 
@@ -1090,6 +1115,46 @@ export default function ActiveTradesPage() {
           trade={selectedTrade}
           onRatingSubmit={handleTradeRating}
         />
+      )}
+
+      {/* --- SUCCESS MODAL: Proof Rejected Notification --- */}
+      {showSuccessModal && selectedTrade && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
+          <div
+            className="w-[618px] flex flex-col items-center justify-center p-[50px] relative"
+            style={{
+              background: "rgba(0, 0, 0, 0.4)",
+              border: "2px solid #FF3838",
+              boxShadow: "0px 4px 15px #E58D8D",
+              backdropFilter: "blur(40px)",
+              borderRadius: "15px"
+            }}
+          >
+            {/* Close Button */}
+            <button onClick={() => setShowSuccessModal(false)} className="absolute top-[26px] right-[26px] text-white hover:text-gray-300">
+              <Icon icon="lucide:x" className="w-[15px] h-[15px]" />
+            </button>
+
+            {/* Content Wrapper */}
+            <div className="flex flex-col items-center gap-[30px] w-[470px]">
+              <h2 className="text-[25px] font-bold text-white text-center">
+                Proof Rejected Successfully
+              </h2>
+
+              <p className="text-[16px] text-white/80 text-center">
+                {selectedTrade.firstname} has been notified to resubmit their proof for the trade.
+              </p>
+
+              {/* Acknowledge Button (Styled like the red confirm button) */}
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-[168px] h-[40px] bg-[#FF3838] rounded-[15px] text-white text-[16px] shadow-[0px_0px_15px_#CC4242] hover:bg-[#CC4242] transition-colors"
+              >
+                Acknowledge
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Evaluation Dialog */}

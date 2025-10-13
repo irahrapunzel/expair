@@ -141,7 +141,7 @@ export default function PendingTradesPage() {
             const statusData = statusResponse.ok
               ? await statusResponse.json()
               : null;
-            
+
             const evaluationData = evaluationResponse.ok
               ? await evaluationResponse.json()
               : null;
@@ -851,7 +851,13 @@ export default function PendingTradesPage() {
                     {isTradeLocked ? (
                       <div className="w-full flex justify-end">
                         <Tooltip
-                          content="Your trade is currently locked because you have already accepted an offer. Please finalize or cancel that accepted offer before viewing or considering other offers."
+                          content={
+                            <>
+                              Trade Locked: You have an accepted offer pending.
+                              <br /><br />
+                              You can't view or consider new offers until you resolve the current one.
+                            </>
+                          }
                           placement="top"
                         >
                           <button
@@ -1219,7 +1225,7 @@ export default function PendingTradesPage() {
                           </button>
                         </div>
 
-                       {/* Context Image - Only show if contextpic exists */}
+                        {/* Context Image - Only show if contextpic exists */}
                         {trade.tradeDetails?.contextpic && (
                           <div className="px-[25px] pb-[20px]">
                             <div className="w-full h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
@@ -1254,50 +1260,38 @@ export default function PendingTradesPage() {
                             </span>
                           </div>
 
-                          <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between w-full">
-                              <div className="flex items-center gap-2">
-                                <Icon
-                                  icon="lucide:map-pin"
-                                  className="w-4 h-4 text-[rgba(255,255,255,0.60)]"
-                                />
-                                <span className="text-[13px] text-[rgba(255,255,255,0.60)]">
-                                  {getModeOfDeliveryText(trade)}
-                                </span>
-                              </div>
-                              <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">
-                                Due on {trade.until}
+                          {/* Tags and Due Date on same row */}
+                          <div className="flex items-center justify-between gap-4 mb-4">
+                            <div className="flex flex-wrap gap-[15px]">
+                              {getTradeDetailTags(trade).map((tag, tagIndex) => (
+                                <div
+                                  key={tagIndex}
+                                  className="px-[15px] py-[4px] border-[2px] border-white rounded-[15px]"
+                                >
+                                  <span className="text-[13px] font-normal text-white">
+                                    {tag}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+
+                            <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap">
+                              Due on {trade.until}
+                            </span>
+                          </div>
+
+                          <div className="mb-3">
+                            <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
+                              <span className="text-[16px] text-white">
+                                In exchange for {trade.offers}
                               </span>
                             </div>
-
-                            <div className="flex flex-wrap gap-[15px]">
-                              {getTradeDetailTags(trade).map(
-                                (tag, tagIndex) => (
-                                  <div
-                                    key={tagIndex}
-                                    className="px-[15px] py-[4px] border-[2px] border-white rounded-[15px]"
-                                  >
-                                    <span className="text-[13px] font-normal text-white">
-                                      {tag}
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-
-                            <div>
-                              <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
-                                <span className="text-[16px] text-white">
-                                  In exchange for {trade.offers}
-                                </span>
-                              </div>
-                            </div>
-
-                            <p className="text-[15px] text-[rgba(255,255,255,0.60)]">
-                              {trade.tradeDetails?.reqbio ||
-                                `Trade request: ${trade.needs}`}
-                            </p>
                           </div>
+
+                          <p className="text-[15px] text-[rgba(255,255,255,0.60)]">
+                            {trade.tradeDetails?.reqbio ||
+                              `Trade request: ${trade.needs}`}
+                          </p>
                         </div>
 
                         {/* Action Buttons */}
@@ -1799,6 +1793,6 @@ export default function PendingTradesPage() {
           refreshAllTrades(false);
         }}
       />
-    </div>
+    </div >
   );
 }
