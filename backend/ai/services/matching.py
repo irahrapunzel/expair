@@ -13,12 +13,22 @@ from ai.config import (
     GEMINI_FLASH
 )
 from ai.model_access import get_model
+from accounts.models import TradeRequest
+from functools import lru_cache
 
-
+@lru_cache(maxsize=1000)
 def calculate_location_proximity(user_location: str, trade_location: str) -> float:
     """
-    Use Gemini AI to calculate location proximity score.
-    Handles varying formats: addresses, cities, provinces, coordinates, etc.
+    Fast location proximity scoring using string matching.
+    No external API calls - instant results.
+    
+    Scoring logic:
+    - Exact match = 1.0
+    - High similarity (80%+ word overlap) = 0.9
+    - Same region likely (50%+ overlap) = 0.7
+    - Some overlap (30%+ overlap) = 0.5
+    - One contains other = 0.7
+    - No match = 0.3
     
     Args:
         user_location: User's location (any format)
@@ -30,58 +40,41 @@ def calculate_location_proximity(user_location: str, trade_location: str) -> flo
     if not user_location or not trade_location:
         return 0.5  # Neutral if no location data
     
-    if not gemini_client:
-        # Fallback to simple string matching
-        user_loc_lower = str(user_location).lower()
-        trade_loc_lower = str(trade_location).lower()
-        
-        if user_loc_lower == trade_loc_lower:
-            return 1.0
-        elif user_loc_lower in trade_loc_lower or trade_loc_lower in user_loc_lower:
-            return 0.7
-        return 0.3
+    user_loc = str(user_location).lower().strip()
+    trade_loc = str(trade_location).lower().strip()
     
-    prompt = f"""
-Analyze the proximity between these two locations and return a proximity score.
-
-Location 1: {user_location}
-Location 2: {trade_location}
-
-Consider:
-- Same exact location = 1.0
-- Same city/municipality = 0.9
-- Same province/state = 0.7
-- Same region = 0.5
-- Same country = 0.3
-- Different country = 0.1
-
-Respond with ONLY a number between 0.0 and 1.0, nothing else.
-"""
+    # Exact match
+    if user_loc == trade_loc:
+        return 1.0
     
-    try:
-        response = gemini_client.models.generate_content(
-            model=GEMINI_FLASH,
-            contents=prompt
-        )
+    # Split into parts (e.g., "Manila, Philippines" -> ["manila", "philippines"])
+    # Remove common words that don't add location value
+    stop_words = {'city', 'province', 'street', 'road', 'avenue', 'barangay'}
+    
+    user_parts = set(user_loc.replace(',', ' ').split()) - stop_words
+    trade_parts = set(trade_loc.replace(',', ' ').split()) - stop_words
+    
+    # Calculate Jaccard similarity (intersection over union)
+    if user_parts and trade_parts:
+        intersection = len(user_parts & trade_parts)
+        union = len(user_parts | trade_parts)
+        jaccard = intersection / union if union > 0 else 0
         
-        score_text = response.text.strip()
-        score = float(score_text)
-        
-        # Ensure score is between 0 and 1
-        score = max(0.0, min(1.0, score))
-        return score
-        
-    except Exception as e:
-        print(f"⚠️ Location scoring error: {e}, using fallback")
-        # Fallback to simple matching
-        user_loc_lower = str(user_location).lower()
-        trade_loc_lower = str(trade_location).lower()
-        
-        if user_loc_lower == trade_loc_lower:
-            return 1.0
-        elif user_loc_lower in trade_loc_lower or trade_loc_lower in user_loc_lower:
-            return 0.7
-        return 0.3
+        # Scale Jaccard (0-1) to our scoring system
+        if jaccard >= 0.8:
+            return 0.9  # Very similar locations
+        elif jaccard >= 0.5:
+            return 0.7  # Same region likely
+        elif jaccard >= 0.3:
+            return 0.5  # Some overlap
+        else:
+            return 0.3  # Different locations
+    
+    # Check if one location contains the other (substring match)
+    if user_loc in trade_loc or trade_loc in user_loc:
+        return 0.7
+    
+    return 0.3  # No match
 
 
 def get_best_match(for_user_id: int) -> dict:
@@ -189,7 +182,10 @@ def rank_explore_trades(for_user_id: int, top_k: int = 20) -> list:
         requester=user
     ).exclude(
         status__in=['COMPLETED', 'CANCELLED']
-    ).select_related('requester')
+    ).select_related('requester')[:200]
+
+    if not available_trades.exists():
+        return []
     
     results = []
     today = date.today()

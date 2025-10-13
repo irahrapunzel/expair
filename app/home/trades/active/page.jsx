@@ -351,17 +351,16 @@ export default function ActiveTradesPage() {
     if (!selectedTrade) return;
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-rating/submit/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/submit-rating/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session?.access}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          trade_request_id: selectedTrade.tradereq_id,
-          rating: ratingData.rating,
-          review_description: ratingData.feedback
-        })
+          tradereq_id: selectedTrade.tradereq_id,
+          review_text: ratingData.feedback
+          })
       });
       
       if (response.ok) {
@@ -1153,6 +1152,8 @@ export default function ActiveTradesPage() {
             offerTitle: selectedTrade?.offering,
             feedback: `This trade for ${selectedTrade?.requested} in exchange for ${selectedTrade?.offering} is well-balanced, with a high skill level required and moderate time commitment. The task complexity is fairly challenging, which makes this a valuable and rewarding exchange for both parties. Overall, it's a great match that promises meaningful growth and results.`
           }}
+          onTradeUpdate={(tradeRequestId) => updateActiveTrade(tradeRequestId)}
+          viewOnly={true}
         />
       )}
     </div>

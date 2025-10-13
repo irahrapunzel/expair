@@ -57,18 +57,38 @@ export default function Onboarding2({ onNext, onPrev }) {
         const token = session?.access || session?.accessToken;
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const resp = await fetch(`${BACKEND_URL}/explore/feed/`, { headers });
+        const resp = await fetch(`${BACKEND_URL}/api/ai/onboarding-picks/`, { 
+          method: "GET",
+          headers,
+          });
+        
         if (!resp.ok) {
           setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
           return;
         }
+        
         const data = await resp.json();
-        setExploreItems(Array.isArray(data.items) ? data.items : []);
+
+        const mappedPicks = (data.best_picks || []).map(item => ({
+        tradereq_id: item.tradereq_id,
+        name: item.name || item.requester,
+        username: item.username || item.requester,
+        userId: item.requester_id || item.userId,
+        need: item.need || item.reqname,
+        offer: item.offer || item.exchange || "—",
+        deadline: item.deadline || item.reqdeadline,
+        profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+        rating: item.rating || 0,
+        ratingCount: item.ratingCount || 0,
+        level: item.level || 1,
+      }));
+      
+      setExploreItems(mappedPicks);
       } catch (e) {
-        setExploreErr(e?.message || "Network error");
+      setExploreErr(e?.message || "Network error");
       } finally {
-        setLoading(false);
-      }
+      setLoading(false);
+    }
     })();
   }, [session]);
 

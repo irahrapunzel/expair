@@ -898,7 +898,7 @@ export default function PendingTradesPage() {
             {initiatedTrades.map((trade, index) => (
               <div
                 key={trade.id}
-                className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between duration-300 hover:scale-[1.01] h-[240px] rounded-[20px] border-[3px] border-[#FB9696]/80"
+                className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#FB9696]/80"
                 style={{
                   background:
                     "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -1806,6 +1806,7 @@ export default function PendingTradesPage() {
         onTradeUpdate={(tradeRequestId) =>
           updateFinalizationTrade(tradeRequestId)
         }
+        viewOnly={false}
       />
     </div>
   );

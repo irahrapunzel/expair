@@ -15,6 +15,7 @@ from ai.api.serializers import SubmitRatingIn
 from accounts.models import ReputationSystem, TradeRequest
 from django.utils import timezone
 from django.db.models import Avg
+from django.core.cache import cache
 
 
 def check_ai_available():
@@ -76,9 +77,15 @@ def api_onboarding_picks(request):
     
     user_id = request.user.pk
     
+    # Caching
+    cache_key = f"onboarding_picks_{user_id}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return Response(cached_data)
+
     try:
         picks = get_onboarding_best_picks(user_id)
-        return Response({
+        response_data = {
             "best_picks": [
                 {
                     "tradereq_id": p['trade'].pk,
@@ -89,11 +96,25 @@ def api_onboarding_picks(request):
                     "category": getattr(p['trade'], 'classified_category', None),
                     "exchange": getattr(p['trade'], 'exchange', None),
                     "reqdeadline": getattr(p['trade'], 'reqdeadline', None),
+                    # Frontend display fields
+                    "name": p['trade'].requester.get_full_name() or p['trade'].requester.username,
+                    "username": p['trade'].requester.username,
+                    "profilePicUrl": getattr(p['trade'].requester, 'profilepic', None) or '/assets/defaultavatar.png',
+                    "rating": float(getattr(p['trade'].requester, 'avgStars', 0) or 0),
+                    "ratingCount": getattr(p['trade'].requester, 'ratingCount', 0) or 0,
+                    "level": getattr(p['trade'].requester, 'currentLevel', 1) or 1,
+                    "need": p['trade'].reqname,
+                    "offer": p['trade'].exchange or "—",
+                    "deadline": str(p['trade'].reqdeadline) if p['trade'].reqdeadline else None,
+                    "userId": p['trade'].requester.pk,
                 }
                 for p in picks
             ],
             "count": len(picks)
-        })
+        }
+
+        cache.set(cache_key, response_data, 300)
+        return Response(response_data)
     except Exception as e:
         return Response(
             {"error": str(e)},
@@ -146,11 +167,16 @@ def api_explore_feed(request):
     
     user_id = request.user.pk
     top_k = int(request.GET.get('top_k', 20))
+    cache_key = f"explore_feed_{user_id}_{top_k}"
     
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return Response(cached_data)
+
     try:
         trades = rank_explore_trades(for_user_id=user_id, top_k=top_k)
-        return Response({
-            "trades": [
+        response_data = {
+            "ranked_trades": [
                 {
                     "tradereq_id": t['trade'].pk,
                     "reqname": t['trade'].reqname,
@@ -165,7 +191,10 @@ def api_explore_feed(request):
                 for t in trades
             ],
             "count": len(trades)
-        })
+        }
+
+        cache.set(cache_key, response_data, 900)
+        return Response(response_data)
     except Exception as e:
         return Response(
             {"error": str(e)},

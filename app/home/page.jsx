@@ -1,1812 +1,886 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { Inter } from "next/font/google";
-import { Icon } from "@iconify/react";
 import Image from "next/image";
-import Link from "next/link";
-import OffersPopup from "@/components/trade-cards/offers-popup";
-import EvaluationDialog from "@/components/trade-cards/evaluation-dialog";
-import { Star } from "lucide-react";
-import Tooltip from "@/components/ui/tooltip";
+import { Star } from "lucide-react"
 
+import { useRouter } from "next/navigation";
+import { Inter } from "next/font/google";
+import { Archivo } from "next/font/google";
+import { Button } from "../../components/ui/button";
+import { Icon } from "@iconify/react";
+import ActiveTradeCardHome from "../../components/trade-cards/active-home";
+import SortDropdown from "../../components/shared/sortdropdown";
+import ExploreCard from "../../components/trade-cards/explore-card";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 const inter = Inter({ subsets: ["latin"] });
+const archivo = Archivo({ subsets: ["latin"] });
 
-export default function PendingTradesPage() {
+export default function HomePage() {
+  const router = useRouter();
   const { data: session } = useSession();
 
+  const [exploreItems, setExploreItems] = useState([]); // Explore items from backend
+  const [exploreErr, setExploreErr] = useState(""); // Error message for explore fetch
+
+  const [greeting, setGreeting] = useState("Starry evening, voyager");
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedSort, setSelectedSort] = useState("Date");
+  const [selectedActiveSort, setSelectedActiveSort] = useState("Date");
   const [showSortOptions, setShowSortOptions] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
-  const [showOffersPopup, setShowOffersPopup] = useState(false);
-  const [selectedService, setSelectedService] = useState("");
-  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
-  const [selectedTrade, setSelectedTrade] = useState(null);
-  const [expandedFinalizationCardId, setExpandedFinalizationCardId] =
-    useState(null);
 
-  const [postedTrades, setPostedTrades] = useState([]);
-  const [initiatedTrades, setInitiatedTrades] = useState([]);
-  const [finalizationTrades, setFinalizationTrades] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [actionLoading, setActionLoading] = useState({});
+  // Dialog states
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState(null);
 
-  const [showModal, setShowModal] = useState(false);
-  const [tradeToDelete, setTradeToDelete] = useState(null);
-  const [showDeleteModalForCard, setShowDeleteModalForCard] = useState(null);
+  // Explore section state
+  const [exploreLoading, setExploreLoading] = useState(true);
+  const [showExploreSortMenu, setShowExploreSortMenu] = useState(false);
+  const [showExploreFilterMenu, setShowExploreFilterMenu] = useState(false);
+  const [exploreSortBy, setExploreSortBy] = useState("recommended");
+  const [exploreFilters, setExploreFilters] = useState({
+    minRating: 0,
+    skillCategory: "all",
+    minLevel: 0,
+  });
+  const hiddenKey = 'explore_hidden_trades'; // Changed from usernames to trades
 
-  const handleDeleteTrade = async (trade) => {
-    const tradereqId = trade?.tradereq_id || trade?.id || tradeToDelete?.tradereq_id;
-    if (!tradereqId) {
-      console.error("No tradereq_id provided for delete.", { trade, tradeToDelete });
-      alert("Unable to delete: missing trade identifier.");
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Refs for click-outside handling
+  const menuRefs = useRef([]);
+  const exploreSortMenuRef = useRef(null);
+  const exploreFilterMenuRef = useRef(null);
+
+  const handleNotInterested = (partnerId) => {
+    setOpenMenuIndex(null);
+    console.log(`Marked partner ${partnerId} as not interested`);
+  };
+
+  const handleReport = (partnerId) => {
+    setOpenMenuIndex(null);
+    console.log(`Reported partner ${partnerId}`);
+  };
+
+  // Handle "I'm interested" button click
+  const handleInterestedClick = (partner) => {
+    setSelectedPartner(partner);
+    setShowConfirmDialog(true);
+  };
+
+  // Handle confirmation dialog actions
+  const handleConfirmInterest = async () => {
+    setShowConfirmDialog(false);
+
+    try {
+      if (!selectedPartner?.tradereq_id) {
+        alert("Missing trade identifier. Please refresh and try again.");
+        return;
+      }
+      const headers = { "Content-Type": "application/json" };
+      const token = session?.access || session?.accessToken;
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      else {
+        alert("Please sign in to express interest.");
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/express-interest/`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          tradereq_id: selectedPartner?.tradereq_id,
+          requester_name: selectedPartner?.name
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Interest expressed successfully:", data);
+
+        // ✅ REMOVE CARD whether it's new interest OR reactivated interest
+        setExploreItems(prevItems =>
+          prevItems.filter(item => item.tradereq_id !== selectedPartner.tradereq_id)
+        );
+
+        // Show appropriate success message
+        if (data.reactivated) {
+          console.log("Reactivated declined interest - card removed from explore");
+        }
+
+        setShowSuccessDialog(true);
+      } else {
+        let message = "";
+        try {
+          const text = await response.text();
+          try {
+            const json = JSON.parse(text);
+            message = (json?.error || json?.detail || text || "").toString();
+          } catch {
+            message = text || "";
+          }
+        } catch {
+          message = "";
+        }
+
+        // If user already expressed interest, still remove card and show success
+        if (response.status === 400 && /already expressed interest/i.test(message)) {
+          setExploreItems(prevItems =>
+            prevItems.filter(item => item.tradereq_id !== selectedPartner.tradereq_id)
+          );
+          setShowSuccessDialog(true);
+          return;
+        }
+
+        const finalMsg = message || `Failed to express interest (HTTP ${response.status}).`;
+        console.error("Failed to express interest:", finalMsg);
+        alert(finalMsg);
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      alert("Network error while expressing interest. Please try again.");
+    }
+  };
+
+  const handleCancelInterest = () => {
+    setShowConfirmDialog(false);
+    setSelectedPartner(null);
+  };
+
+  const handleSuccessDialogClose = () => {
+    setShowSuccessDialog(false);
+    setSelectedPartner(null);
+  };
+
+  const handleGoToPendingTrades = () => {
+    setShowSuccessDialog(false);
+    setSelectedPartner(null);
+    router.push('/home/trades/pending');
+  };
+
+  // Explore sort and filter handlers
+  const handleExploreSortChange = (option) => {
+    setExploreSortBy(option);
+    setShowExploreSortMenu(false);
+  };
+
+  const handleExploreFilterChange = (key, value) => {
+    setExploreFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleApplyExploreFilters = () => {
+    setShowExploreFilterMenu(false);
+  };
+
+  const handleResetExploreFilters = () => {
+    setExploreFilters({
+      minRating: 0,
+      skillCategory: "all",
+      minLevel: 0,
+    });
+  };
+
+  // Click outside handler to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check partner menu dropdowns
+      let clickedInsideMenu = false;
+      menuRefs.current.forEach((ref) => {
+        if (ref && ref.contains(event.target)) {
+          clickedInsideMenu = true;
+        }
+      });
+
+      if (!clickedInsideMenu && openMenuIndex !== null) {
+        setOpenMenuIndex(null);
+      }
+
+      // Check explore sort menu
+      if (
+        exploreSortMenuRef.current &&
+        !exploreSortMenuRef.current.contains(event.target)
+      ) {
+        setShowExploreSortMenu(false);
+      }
+
+      // Check explore filter menu
+      if (
+        exploreFilterMenuRef.current &&
+        !exploreFilterMenuRef.current.contains(event.target)
+      ) {
+        setShowExploreFilterMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openMenuIndex]);
+
+  // Skill categories for filter
+  const skillCategories = [
+    "All Categories",
+    "Home Services",
+    "Technology",
+    "Creative",
+    "Performance Arts",
+    "Education",
+    "Health & Fitness",
+  ];
+
+  // Set greeting based on time of day
+  useEffect(() => {
+    const hour = new Date().getHours();
+    let prefix = "Starry night", emoji = "⭐";
+    if (hour >= 5 && hour < 12) { prefix = "Bright morning"; emoji = "☀️"; }
+    else if (hour >= 12 && hour < 18) { prefix = "Good afternoon"; emoji = "☁️"; }
+    else if (hour >= 18 && hour < 22) { prefix = "Stellar evening"; emoji = "🌙"; }
+
+    console.log("Session user object:", session?.user);
+
+    // 1) Prefer DB-backed name from session (Google or credentials via NextAuth)
+    let first =
+      (session?.user?.first_name || "").trim() ||
+      (session?.user?.name || "").trim().split(" ")[0];
+
+    // 2) Only use localStorage if no session data exists
+    if (!first && !session?.user && typeof window !== "undefined") {
+      const fromLS =
+        localStorage.getItem("first_name") ||
+        localStorage.getItem("prefill_name") || "";
+      first = fromLS.trim().split(" ")[0];
+    }
+
+    if (!first) {
+      // derive from username/email as a last resort (optional)
+      const handle = session?.user?.username || session?.user?.email || "";
+      first = handle.split(/[._\-\s@]+/)[0]?.replace(/\d+/g, "") || "voyager";
+    }
+    setGreeting(`${prefix}, ${first} ${emoji}`);
+  }, [session]);
+
+  // Load Explore feed from backend
+  // REPLACE the explore fetch useEffect (around line 260-310) with:
+
+useEffect(() => {
+  // Wait for the session to load
+  if (!session?.access && !session?.accessToken) {
+    console.log("⏳ Waiting for session...");
+    setExploreLoading(false);
+    return;
+  }
+
+  let isMounted = true;
+
+  (async () => {
+    if (!isMounted) return;
+    setExploreLoading(true);
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      const token = session?.access || session?.accessToken;
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      
+      console.log("🔍 Fetching explore feed at:", new Date().toISOString());
+      const startTime = Date.now();
+      
+      const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, { 
+        method: 'GET',
+        headers,
+      });
+
+      const endTime = Date.now();
+      console.log(`⏱️ API took ${(endTime - startTime) / 1000}s`);
+      
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        console.error("❌ API Error:", errorText);
+        if (isMounted) setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
+        return;
+      }
+      
+      const data = await resp.json();
+      console.log("✅ API Response:", data);
+      
+      // Handle both possible response formats
+      const itemsArray = data.ranked_trades || data.items || [];
+      console.log("📊 Items received:", itemsArray.length);
+
+      if (itemsArray.length === 0) {
+        console.log("⚠️ No items returned from API");
+      }
+
+      // Map backend fields to frontend display format
+      const mappedItems = itemsArray.map(item => ({
+        tradereq_id: item.tradereq_id,
+        name: item.requester || "Unknown",
+        username: item.requester,
+        userId: item.requester_id,
+        need: item.reqname,
+        offer: item.exchange || "—",
+        deadline: item.reqdeadline,
+        profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+        rating: item.rating || 0,
+        ratingCount: item.ratingCount || 0,
+        level: item.level || 1,
+      }));
+
+
+      const uniqueItems = Array.from(
+        new Map(mappedItems.map(item => [item.tradereq_id, item])).values()
+      );
+      
+      // Filter out hidden trades from localStorage
+      let hidden = [];
+      try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
+      const hiddenSet = new Set(hidden.map(v => Number(v)));
+      const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
+
+      console.log("✅ Final items to display:", filtered.length);
+      if (isMounted) {
+        setExploreItems(filtered);
+        setExploreErr(""); // Clear any previous errors
+      }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      console.error("💥 Network error:", e);
+      if (isMounted) setExploreErr(e?.message || "Network error");
+    } finally {
+      if (isMounted) setExploreLoading(false);
+    }
+  })();
+
+  return () => {
+    isMounted = false; // Stop state updates after unmount
+    };
+}, [session?.access, session?.accessToken]);
+
+  // Listen for hide updates from cards and refetch
+  const refreshExplore = async () => {
+  try {
+    const headers = { "Content-Type": "application/json" };
+    const token = session?.access || session?.accessToken;
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    
+    const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, {
+      method: 'GET',
+      headers,
+    });
+    
+    if (!resp.ok) {
+      console.error("❌ Refresh failed:", resp.status);
       return;
     }
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradereqId}/delete/`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${session?.access}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    
+    const data = await resp.json();
+    const itemsArray = data.ranked_trades || data.items || [];
 
-      if (response.ok) {
-        setPostedTrades((prevTrades) =>
-          prevTrades.filter((t) => t.tradereq_id !== tradereqId)
-        );
-        setShowModal(false);
-        setShowDeleteModalForCard(null);
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || "Failed to delete trade request");
-      }
-    } catch (error) {
-      console.error("Error deleting trade request:", error);
-      alert("Failed to delete trade request");
-    }
+    const mappedItems = itemsArray.map(item => ({
+      tradereq_id: item.tradereq_id,
+      name: item.requester || "Unknown",
+      username: item.requester,
+      userId: item.requester_id,
+      need: item.reqname,
+      offer: item.exchange || "—",
+      deadline: item.reqdeadline,
+      profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+      rating: item.rating || 0,
+      ratingCount: item.ratingCount || 0,
+      level: item.level || 1,
+    }));
+
+    const uniqueItems = Array.from(new Map(mappedItems.map(item => [item.tradereq_id, item])).values());
+
+    let hidden = [];
+    try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
+    const hiddenSet = new Set(hidden.map(v => Number(v)));
+    const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
+    
+    setExploreItems(filtered);
+  } catch (e) {
+    console.error("💥 Refresh error:", e);
+  }
+};
+
+  // useEffect(() => {
+  //   const handler = () => refreshExplore();
+  //   window.addEventListener('explore:hide-updated', handler);
+  //   return () => window.removeEventListener('explore:hide-updated', handler);
+  // }, [session]);
+
+  const fmtUntil = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "long", day: "numeric" });
   };
 
-  const handleCancelDelete = () => setShowModal(false);
-
-  // Add the missing toggle function
-  const toggleFinalizationCardExpand = useCallback(
-    (tradeId) => {
-      setExpandedFinalizationCardId(
-        expandedFinalizationCardId === tradeId ? null : tradeId
-      );
-    },
-    [expandedFinalizationCardId]
-  );
-
-  // Set loading state for individual actions
-  const setActionLoadingState = useCallback((actionId, isLoading) => {
-    setActionLoading((prev) => ({
-      ...prev,
-      [actionId]: isLoading,
-    }));
-  }, []);
-
-  const updateFinalizationTrade = useCallback(
-    async (tradeRequestId) => {
-      if (!session?.access) return;
-
-      setActionLoadingState(`finalization-${tradeRequestId}`, true);
-
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/active-trades/`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.access}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const updatedTrade = data.active_trades.find(
-            (trade) => trade.trade_request_id === tradeRequestId
-          );
-
-          if (updatedTrade) {
-            const statusResponse = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradeRequestId}/details/status/`,
-              {
-                headers: {
-                  Authorization: `Bearer ${session.access}`,
-                  "Content-Type": "application/json",
-                },
-              }
-            );
-
-            const statusData = statusResponse.ok
-              ? await statusResponse.json()
-              : null;
-            const tradeWithStatus = {
-              ...updatedTrade,
-              detailsStatus: statusData,
-            };
-
-            setFinalizationTrades((prevTrades) =>
-              prevTrades.map((trade) =>
-                trade.trade_request_id === tradeRequestId
-                  ? tradeWithStatus
-                  : trade
-              )
-            );
-          }
-        }
-      } catch (error) {
-        console.error("Error updating finalization trade:", error);
-      } finally {
-        setActionLoadingState(`finalization-${tradeRequestId}`, false);
-      }
-    },
-    [session, setActionLoadingState]
-  );
-
-  const refreshAllTrades = useCallback(
-    async (shouldSetLoading = false) => {
-      if (!session?.access) return;
-
-      if (shouldSetLoading) {
-        setLoading(true);
-        setError(null);
+  // Filter and sort explore items
+  const getFilteredAndSortedItems = () => {
+    let filtered = exploreItems.filter((item) => {
+      // Search filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          item.name?.toLowerCase().includes(query) ||
+          item.need?.toLowerCase().includes(query) ||
+          item.offer?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
       }
 
-      try {
-        const [postedResponse, interestedResponse, activeResponse] =
-          await Promise.all([
-            fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/`, {
-              headers: {
-                Authorization: `Bearer ${session.access}`,
-                "Content-Type": "application/json",
-              },
-            }),
-            fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/interested-trades/`, {
-              headers: {
-                Authorization: `Bearer ${session.access}`,
-                "Content-Type": "application/json",
-              },
-            }),
-            fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/active-trades/`, {
-              headers: {
-                Authorization: `Bearer ${session.access}`,
-                "Content-Type": "application/json",
-              },
-            }),
-          ]);
+      // Rating filter
+      if (exploreFilters.minRating > 0 && item.rating < exploreFilters.minRating) return false;
 
-        if (postedResponse.ok) {
-          const postedData = await postedResponse.json();
-          const transformedPostedTrades = postedData.posted_trades.map(
-            (trade) => ({
-              id: trade.tradereq_id,
-              tradereq_id: trade.tradereq_id,
-              name:
-                `${session.user.first_name || ""} ${session.user.last_name || ""
-                  }`.trim() ||
-                session.user.username ||
-                "You",
-              rating: session.user.rating || "0.0",
-              reviews: session.user.reviews || "0",
-              level: session.user.level || "1",
-              needs: trade.reqname,
-              interested: trade.interested_users
-                .filter((user) => user.status === "PENDING")
-                .map((user) => ({
-                  id: user.id,
-                  interest_id: user.interest_id,
-                  name: user.name,
-                  username: user.username,
-                  avatar: user.profilePic
-                    ? user.profilePic.startsWith("http")
-                      ? user.profilePic
-                      : `${process.env.NEXT_PUBLIC_BACKEND_URL}${user.profilePic}`
-                    : "/defaultavatar.png",
-                  rating: user.rating,
-                  reviews: user.rating_count,
-                  level: user.level,
-                  status: user.status,
-                })),
-              interested_users: trade.interested_users.filter(
-                (user) => user.status === "PENDING"
-              ),
-              until: trade.deadline
-                ? new Date(trade.deadline).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                })
-                : "No deadline",
-              status: trade.status,
-            })
-          );
-          setPostedTrades(transformedPostedTrades);
-        }
+      // Level filter
+      if (exploreFilters.minLevel > 0 && item.level < exploreFilters.minLevel) return false;
 
-        if (interestedResponse.ok) {
-          const interestedData = await interestedResponse.json();
-          setInitiatedTrades(interestedData.interested_trades);
-        }
+      // Skill category filter (you may need to add skillCategory to your backend data)
+      // if (exploreFilters.skillCategory !== "all" && item.skillCategory !== exploreFilters.skillCategory) return false;
 
-        if (activeResponse.ok) {
-          const activeData = await activeResponse.json();
+      return true;
+    });
 
-          // Fetch trade details status and details; only fetch evaluation if both submitted
-          const tradesWithStatus = await Promise.all(
-            activeData.active_trades.map(async (trade) => {
-              try {
-                // First: status and details in parallel
-                const [statusResponse, tradeDetailsResponse] = await Promise.all([
-                  fetch(
-                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${trade.trade_request_id}/details/status/`,
-                    {
-                      headers: {
-                        Authorization: `Bearer ${session.access}`,
-                        "Content-Type": "application/json",
-                      },
-                    }
-                  ),
-                  fetch(
-                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-details/${trade.trade_request_id}/`,
-                    {
-                      headers: {
-                        Authorization: `Bearer ${session.access}`,
-                        "Content-Type": "application/json",
-                      },
-                    }
-                  ),
-                ]);
-
-                let statusData = null;
-                let tradeDetails = null;
-                let evaluationData = null;
-
-                if (statusResponse.ok) {
-                  statusData = await statusResponse.json();
-                }
-
-                if (tradeDetailsResponse.ok) {
-                  const detailsData = await tradeDetailsResponse.json();
-                  if (detailsData.details && Array.isArray(detailsData.details)) {
-                    const otherUserId = trade.is_requester
-                      ? trade.responder?.id
-                      : trade.requester?.id;
-                    tradeDetails = detailsData.details.find(
-                      (detail) => detail.user_id === otherUserId
-                    );
-                    if (!tradeDetails && detailsData.details.length > 0) {
-                      tradeDetails = detailsData.details.find(
-                        (detail) => detail.user_id === session.user.id
-                      );
-                    }
-                  }
-                }
-
-                // Only fetch evaluation if both users have submitted details to avoid 400
-                if (statusData?.submission_status?.both_submitted) {
-                  const evaluationResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${trade.trade_request_id}/evaluation/`,
-                    {
-                      headers: {
-                        Authorization: `Bearer ${session.access}`,
-                        "Content-Type": "application/json",
-                      },
-                    }
-                  );
-                  if (evaluationResponse.ok) {
-                    evaluationData = await evaluationResponse.json();
-                  }
-                }
-
-                return {
-                  ...trade,
-                  detailsStatus: statusData,
-                  tradeDetails: tradeDetails,
-                  evaluationStatus: evaluationData,
-                };
-              } catch (error) {
-                console.error("Error fetching trade details status:", error);
-                return trade;
-              }
-            })
-          );
-
-          // Filter out trades that are fully confirmed (both users accepted evaluation)
-          const pendingFinalizationTrades = tradesWithStatus.filter((trade) => {
-            const isFullyConfirmed =
-              trade.evaluationStatus?.both_users_responded &&
-              trade.evaluationStatus?.both_accepted;
-            return !isFullyConfirmed;
-          });
-
-          setFinalizationTrades(pendingFinalizationTrades);
-        }
-      } catch (error) {
-        console.error("Error refreshing trades:", error);
-        if (shouldSetLoading) {
-          setError("Failed to load trades");
-        }
-      } finally {
-        if (shouldSetLoading) {
-          setLoading(false);
-        }
+    // Sort the filtered items
+    return filtered.sort((a, b) => {
+      switch (exploreSortBy) {
+        case "date":
+          return new Date(a.deadline) - new Date(b.deadline);
+        case "level":
+          return b.level - a.level;
+        case "rating":
+          return b.rating - a.rating;
+        case "recommended":
+        default:
+          return b.rating - a.rating; // fallback to rating
       }
-    },
-    [session]
-  );
+    });
+  };
+
+  const filteredAndSortedItems = getFilteredAndSortedItems();
+
+  const [homeActiveTrades, setHomeActiveTrades] = useState([]);
+  const [homeTradesLoading, setHomeTradesLoading] = useState(true);
 
   useEffect(() => {
-    if (session) {
-      refreshAllTrades(true); // Pass true to handle loading state
-    }
-  }, [session, refreshAllTrades]);
+    const fetchHomeActiveTrades = async () => {
+      try {
+        const headers = { "Content-Type": "application/json" };
+        const token = session?.access || session?.accessToken;
+        if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const handleViewClick = useCallback((trade) => {
-    console.log("=== HANDLE VIEW CLICK DEBUG ===");
-    console.log("Trade object:", trade);
-    console.log("Trade.interested_users:", trade.interested_users);
-    console.log("Trade.interested:", trade.interested);
-    console.log("Trade status:", trade.status);
-
-    // Debug each interested user to see the data structure
-    if (trade.interested_users) {
-      trade.interested_users.forEach((user, index) => {
-        console.log(`User ${index}:`, user);
-        console.log(`User ${index} interest_id:`, user.interest_id);
-        console.log(
-          `User ${index} trade_interests_id:`,
-          user.trade_interests_id
-        );
-      });
-    }
-
-    // Create a consistent trade object for the popup
-    const tradeForPopup = {
-      tradereq_id: trade.tradereq_id,
-      interested_users: trade.interested_users || trade.interested || [],
-      deadline: trade.until,
-      until: trade.until,
-      status: trade.status,
-    };
-
-    console.log("Trade for popup:", tradeForPopup);
-
-    setSelectedTrade(tradeForPopup);
-    setSelectedService(trade.needs);
-    setShowOffersPopup(true);
-  }, []);
-
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [tradeToCancel, setTradeToCancel] = useState(null);
-  const [showCancelModalForCard, setShowCancelModalForCard] = useState(null);
-
-  const InlineConfirmationModal = ({ message, onConfirm, onCancel }) => {
-    return (
-      // Outer container: absolute positioning (for inline use)
-      <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-70 z-20 rounded-[20px]">
-        <div
-          // Window size changed from w-[300px] to w-[420px] to be proportional to SavedPopup
-          className="w-[420px] p-8 flex flex-col gap-6 rounded-[15px] shadow-lg"
-          style={{
-            // Window styles copied exactly from SavedPopup
-            background: "rgba(0, 0, 0, 0.4)",
-            border: "2px solid #0038FF",
-            boxShadow: "0px 4px 15px #D78DE5",
-            backdropFilter: "blur(40px)",
-            borderRadius: "15px",
-          }}
-        >
-          {/* Message Text: Adjusted size and margin for better fit */}
-          <h3 className="text-center text-[18px] font-semibold text-white">
-            {message}
-          </h3>
-
-          {/* Buttons Container */}
-          <div className="flex justify-center gap-4 mt-2">
-            {/* Cancel Button - Secondary Style (Transparent, Blue Border) */}
-            <button
-              onClick={onCancel}
-              // Styled to be the secondary action: transparent background, primary blue border
-              className="w-[150px] h-[38px] py-2 rounded-[10px] text-white border-2 border-[#0038FF] bg-transparent text-[15px] hover:bg-white/10 transition duration-300"
-            >
-              <span className="text-[15px]">Cancel</span>
-            </button>
-
-            {/* Confirm Button - Primary Style (Blue from SavedPopup) */}
-            <button
-              onClick={onConfirm}
-              // Styled to be the primary action: Blue background, blue shadow
-              className="w-[150px] h-[38px] py-2 rounded-[10px] text-white bg-[#0038FF] text-[15px] shadow-[0px_0px_10px_#284CCC] hover:bg-[#1a4dff] transition duration-300"
-            >
-              <span className="text-[15px]">Confirm</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Handle trade cancellation
-  const handleCancelTrade = async (tradeRequestId) => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradeRequestId}/cancel/`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session?.access}`,
-            "Content-Type": "application/json",
-          },
+        const response = await fetch(`${BACKEND_URL}/home/active-trades/`, { headers });
+        if (response.ok) {
+          const data = await response.json();
+          setHomeActiveTrades(data.home_active_trades);
         }
-      );
-
-      if (response.ok) {
-        refreshAllTrades();
-        setOpenMenuIndex(null);
-        setShowCancelModalForCard(null);
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || "Failed to cancel trade");
+      } catch (error) {
+        console.error("Error fetching home active trades:", error);
+      } finally {
+        setHomeTradesLoading(false);
       }
-    } catch (error) {
-      console.error("Error cancelling trade:", error);
-      alert("Failed to cancel trade");
-    }
-  };
-
-  const handleCancelModalClose = () => {
-    setShowCancelModal(false);
-    setTradeToCancel(null);
-  };
-
-  // Helper function to get trade detail tags
-  const getTradeDetailTags = (trade) => {
-    const tags = [];
-
-    if (!trade.tradeDetails) {
-      return ["Pending Details"];
-    }
-
-    // Skill Proficiency
-    if (trade.tradeDetails.skillprof) {
-      const skillMap = {
-        BEGINNER: "Beginner Level",
-        INTERMEDIATE: "Intermediate Level",
-        ADVANCED: "Advanced Level",
-        CERTIFIED: "Certified",
-      };
-      tags.push(
-        skillMap[trade.tradeDetails.skillprof] || trade.tradeDetails.skillprof
-      );
-    }
-
-    // Mode of Delivery
-    if (trade.tradeDetails.modedel) {
-      const deliveryMap = {
-        ONLINE: "Online",
-        ONSITE: "Onsite",
-        HYBRID: "Hybrid",
-      };
-      tags.push(
-        deliveryMap[trade.tradeDetails.modedel] || trade.tradeDetails.modedel
-      );
-    }
-
-    // Request Type
-    if (trade.tradeDetails.reqtype) {
-      const typeMap = {
-        SERVICE: "Service",
-        OUTPUT: "Output",
-        PROJECT: "Project",
-      };
-      tags.push(
-        typeMap[trade.tradeDetails.reqtype] || trade.tradeDetails.reqtype
-      );
-    }
-
-    return tags.length > 0 ? tags : ["Pending Details"];
-  };
-
-  // Helper function to get mode of delivery display text
-  const getModeOfDeliveryText = (trade) => {
-    if (!trade.tradeDetails?.modedel) {
-      return "Location TBD";
-    }
-
-    const deliveryMap = {
-      ONLINE: "Online",
-      ONSITE: "Onsite",
-      HYBRID: "Hybrid",
     };
 
-    return (
-      deliveryMap[trade.tradeDetails.modedel] || trade.tradeDetails.modedel
-    );
-  };
-
-  // Helper to get the other user's username for messaging deep-link
-  const getOtherUserUsername = (trade) => {
-    if (!trade) return "";
-    const otherUser = trade.is_requester ? trade.responder : trade.requester;
-    return otherUser?.username || "";
-  };
-
-  // Memoize expensive computations
-  const memoizedPostedTrades = useMemo(() => postedTrades, [postedTrades]);
-  const memoizedInitiatedTrades = useMemo(
-    () => initiatedTrades,
-    [initiatedTrades]
-  );
-  const memoizedFinalizationTrades = useMemo(
-    () => finalizationTrades,
-    [finalizationTrades]
-  );
-
-  if (loading) {
-    return (
-      <div
-        className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
-      >
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg">Loading your trades...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div
-        className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
-      >
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg text-red-400">{error}</div>
-        </div>
-      </div>
-    );
-  }
+    if (session) {
+      fetchHomeActiveTrades();
+    }
+  }, [session]);
 
   return (
     <div
       className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
     >
-      {/* Page Title with Sort/Filter */}
+      {/* Greeting Header */}
+      <h1
+        className={`text-[40px] font-bold mb-10 ${archivo.className}`}
+        style={{
+          textShadow: "0px 3px 25px rgba(126, 89, 248, 0.8)",
+        }}
+      >
+        {greeting}
+      </h1>
+
+      {/* Active Trades Header */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-[25px] font-bold">Pending trades</h1>
+        <h4 className="text-[22px] font-bold">Active trades</h4>
 
         <div className="flex items-center gap-4">
-          {/* Sort Button */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer">
-            <span>Sort</span>
-            <Icon icon="lucide:arrow-up-down" className="text-lg" />
-          </div>
+          {/* Sort Dropdown */}
+          <SortDropdown
+            selected={selectedActiveSort}
+            onChange={setSelectedActiveSort}
+          />
 
-          {/* Filter Button */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer">
-            <span>Filter</span>
-            <Icon icon="lucide:filter" className="text-lg" />
-          </div>
+          {/* Asc/Desc Toggle */}
+          <button
+            onClick={() => setSortAsc((prev) => !prev)}
+            className="w-9 h-9 bg-[#120A2A] rounded-full flex items-center justify-center hover:bg-[#1A0F3E] transition"
+          >
+            <Icon
+              icon={sortAsc ? "mdi:arrow-up" : "mdi:arrow-down"}
+              className="text-lg"
+            />
+          </button>
         </div>
       </div>
 
-      {/* Trades You Posted Section */}
-      <div className="mb-10">
-        <h2 className="text-[20px] font-[500] mb-5 text-[#D78DE5]">
-          Trades you posted
-        </h2>
-        {postedTrades.length === 0 ? (
-          <div className="text-white/60 text-center py-8">
-            You haven't posted any trades yet.
+      {/* Active Trade Cards Grid */}
+      <div className="w-full max-w-[940px] flex flex-wrap gap-[25px] mt-6">
+        {homeTradesLoading ? (
+          <div className="text-white/60">Loading active trades...</div>
+        ) : homeActiveTrades.length === 0 ? (
+          <div className="w-full py-10 text-center">
+            <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4 mx-auto">
+              <Icon icon="lucide:handshake" className="w-8 h-8 text-white/50" />
+            </div>
+            <h3 className="text-xl font-medium text-white mb-2">
+              No active trades ready yet
+            </h3>
+            <p className="text-white/60 text-center max-w-md mx-auto">
+              Complete trade details with your partners to see active trades here.
+            </p>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-[25px]">
-
-
-            {postedTrades.map((trade, index) => {
-              console.log(`Trade ${trade.tradereq_id} status:`, trade.status);
-
-              // Determines if the trade is locked (Status 'PENDING' for posted trades is the lock indicator)
-              const isTradeLocked = trade.status === 'PENDING';
-
-              // Use the clean array of pending offers created in refreshAllTrades (lines 217-220)
-              const visibleInterests = trade.interested || [];
-
-              // Explicitly return the JSX element
-              return (
-                <div key={trade.id} className="relative">
-                  <div
-                    className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
-                    style={{
-                      background:
-                        "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
-                      boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
-                    }}
-                  >
-                    {/* Trade Header */}
-                    <div className="flex justify-between items-start w-full">
-                      <div className="flex items-start gap-[10px]">
-                        {/* Clickable Profile Picture */}
-                        {session?.user?.username ? (
-                          <Link
-                            href={`/home/profile/${session.user.username}`}
-                            className="flex-shrink-0"
-                          >
-                            <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#D78DE5] transition-all">
-                              <Image
-                                src={
-                                  session?.user?.image ||
-                                  "/assets/defaultavatar.png"
-                                }
-                                alt="Your profile picture"
-                                width={25}
-                                height={25}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = "/assets/defaultavatar.png";
-                                }}
-                                unoptimized={session?.user?.image?.startsWith(
-                                  "http"
-                                )}
-                              />
-                            </div>
-                          </Link>
-                        ) : (
-                          <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
-                            <Image
-                              src={
-                                session?.user?.image ||
-                                "/assets/defaultavatar.png"
-                              }
-                              alt="Your profile picture"
-                              width={25}
-                              height={25}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = "/assets/defaultavatar.png";
-                              }}
-                              unoptimized={session?.user?.image?.startsWith(
-                                "http"
-                              )}
-                            />
-                          </div>
-                        )}
-                        <div className="flex flex-col items-start gap-[5px]">
-                          {/* Clickable Name */}
-                          {session?.user?.username ? (
-                            <Link
-                              href={`/home/profile/${session.user.username}`}
-                              className="text-[16px] text-white hover:text-[#D78DE5] transition-colors cursor-pointer"
-                            >
-                              <span>{trade.name}</span>
-                            </Link>
-                          ) : (
-                            <span className="text-[16px] text-white">
-                              {trade.name}
-                            </span>
-                          )}
-
-                          <div className="flex items-center gap-[15px]">
-                            <div className="flex items-center gap-[5px]">
-                              <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
-                              <span className="text-[13px] font-bold text-white">
-                                {trade.rating}
-                              </span>
-                              <span className="text-[13px] font-normal text-white">
-                                {" "}
-                                ({trade.reviews})
-                              </span>
-                            </div>
-                            <div className="flex flex-col gap-[3px]">
-                              <div className="flex items-center gap-[5px]">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="12"
-                                  height="13"
-                                  viewBox="0 0 12 13"
-                                  fill="none"
-                                >
-                                  <path
-                                    d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
-                                    fill="url(#paint0_radial_1202_2090)"
-                                    stroke="url(#paint1_linear_1202_2090)"
-                                    strokeWidth="1.5"
-                                  />
-                                  <defs>
-                                    <radialGradient
-                                      id="paint0_radial_1202_2090"
-                                      cx="0"
-                                      cy="0"
-                                      r="1"
-                                      gradientUnits="userSpaceOnUse"
-                                      gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
-                                    >
-                                      <stop offset="0.4" stopColor="#933BFF" />
-                                      <stop offset="1" stopColor="#34188D" />
-                                    </radialGradient>
-                                    <linearGradient
-                                      id="paint1_linear_1202_2090"
-                                      x1="6.00002"
-                                      y1="0.0778344"
-                                      x2="6.00002"
-                                      y2="13.2525"
-                                      gradientUnits="userSpaceOnUse"
-                                    >
-                                      <stop stopColor="white" />
-                                      <stop offset="0.5" stopColor="#999999" />
-                                      <stop offset="1" stopColor="white" />
-                                    </linearGradient>
-                                  </defs>
-                                </svg>
-                                <span className="text-[13px] text-white">
-                                  LVL {trade.level}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {/* --- REMOVED: Old Locked - Pending Status Indicator --- */}
-                      <div className="relative">
-                        <button
-                          onClick={() =>
-                            setOpenMenuIndex(
-                              openMenuIndex === index ? null : index
-                            )
-                          }
-                        >
-                          <Icon
-                            icon="lucide:more-horizontal"
-                            className="w-6 h-6 text-white"
-                          />
-                        </button>
-                        {openMenuIndex === index && (
-                          <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
-                            <button
-                              className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full"
-                              onClick={() => {
-                                setShowDeleteModalForCard(trade.id);
-                                setOpenMenuIndex(null);
-                              }}
-                            >
-                              <Icon
-                                icon="lucide:trash-2"
-                                className="text-white text-base"
-                              />
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Needs and Interested Section */}
-                    <div className="flex justify-between items-start w-full">
-                      {/* Needs */}
-                      <div className="flex flex-col items-start gap-[10px]">
-                        <span className="text-[13px] text-white">Needs</span>
-                        <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
-                          <span className="text-[12px] text-white leading-tight">
-                            {trade.needs}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Interested People */}
-                      <div className="flex flex-col items-end gap-[10px]">
-                        <span className="text-[13px] text-white">
-                          Look who's interested
-                        </span>
-                        <div className="flex -space-x-2">
-                          {visibleInterests && visibleInterests.length > 0 ? (
-                            visibleInterests.map((person) => (
-                              <div
-                                key={person.id}
-                                className="w-[25px] h-[25px] rounded-full border border-white overflow-hidden"
-                              >
-                                <Image
-                                  src={person.avatar || "/assets/defaultavatar.png"}
-                                  alt={`${person.name}'s profile picture`}
-                                  width={25}
-                                  height={25}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-[12px] text-white/60">
-                              No requests yet
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Date */}
-                    <div className="flex justify-end items-center w-full">
-                      <span className="text-[13px] text-white/60">
-                        until {trade.until}
-                      </span>
-                    </div>
-
-                    {/* Action Button: Dynamic Text and State */}
-                    {isTradeLocked ? (
-                      <div className="w-full flex justify-end">
-                        <Tooltip
-                          content="Your trade is currently locked because you have already accepted an offer. Please finalize or cancel that accepted offer before viewing or considering other offers."
-                          placement="top"
-                        >
-                          <button
-                            className="w-[180px] h-[30px] flex justify-center items-center rounded-[10px] cursor-not-allowed transition-colors bg-[#6DDFFF]/20 border border-[#6DDFFF]"
-                            disabled={true}
-                          >
-                            <span className="text-[13px] text-[#6DDFFF]">Review Accepted Offer</span>
-                          </button>
-                        </Tooltip>
-                      </div>
-                    ) : (
-                      <div className="w-full flex justify-start">
-                        <button
-                          className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors mt-[-30px]"
-                          onClick={() => handleViewClick(trade)}
-                          disabled={!trade.interested || trade.interested.length === 0}
-                        >
-                          <span className="text-[13px] text-white">
-                            {!trade.interested || trade.interested.length === 0
-                              ? "No offers"
-                              : "View Offers"}
-                          </span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Inline Delete Modal */}
-                  {showDeleteModalForCard === trade.id && (
-                    <InlineConfirmationModal
-                      message="Are you sure you want to delete this trade request? This action cannot be undone."
-                      onConfirm={() => handleDeleteTrade(trade)}
-                      onCancel={() => setShowDeleteModalForCard(null)}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          homeActiveTrades.map((trade) => (
+            <ActiveTradeCardHome
+              key={trade.tradereq_id}
+              name={trade.other_user.name}
+              username={trade.other_user.username}
+              profilePic={trade.other_user.profilePic}
+              offering={trade.exchange}
+              totalXp={trade.total_xp}
+              deadline={trade.deadline_formatted}
+            />
+          ))
         )}
       </div>
 
-      {/* Trades You're Interested In Section */}
-      <div className="mb-10">
-        <h2 className="text-[20px] font-medium mb-5 text-[#FB9696]">
-          Trades you're interested in
-        </h2>
-        {initiatedTrades.length === 0 ? (
-          <div className="text-white/60 text-center py-8">
-            You haven't expressed interest in any trades yet.
+      {/* Explore Section */}
+      <div className="mt-20">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-[15px]">
+            <h4 className="text-[25px] font-[600]">Explore</h4>
+            <Image
+              src="/assets/logos/Colored=Logo XS.png"
+              alt="Colored Logo XS"
+              width={38}
+              height={38}
+              className="w-[38px] h-[38px]"
+            />
           </div>
-        ) : (
-          <div className="flex flex-wrap gap-[25px]">
-            {initiatedTrades.map((trade, index) => (
+
+          <div className="flex items-center gap-4">
+            {/* Sort Button and Dropdown */}
+            <div className="relative" ref={exploreSortMenuRef}>
               <div
-                key={trade.id}
-                className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#FB9696]/80"
-                style={{
-                  background:
-                    "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
-                  boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
-                }}
+                className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer"
+                onClick={() => setShowExploreSortMenu(!showExploreSortMenu)}
               >
-                {/* Trade Header */}
-                <div className="flex justify-between items-start w-full">
-                  <div className="flex items-start gap-[10px]">
-                    {/* Clickable Profile Picture */}
-                    {trade.requester?.username ? (
-                      <Link
-                        href={`/home/profile/${trade.requester.username}`}
-                        className="flex-shrink-0"
-                      >
-                        <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#FB9696] transition-all">
-                          <Image
-                            src={
-                              trade.requester?.profile_pic ||
-                              "/assets/defaultavatar.png"
-                            }
-                            alt={`${trade.name}'s profile picture`}
-                            width={25}
-                            height={25}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = "/assets/defaultavatar.png";
-                            }}
-                            unoptimized={trade.requester?.profile_pic?.startsWith(
-                              "http"
-                            )}
-                          />
-                        </div>
-                      </Link>
-                    ) : (
-                      <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
-                        <Image
-                          src={
-                            trade.requester?.profile_pic ||
-                            "/assets/defaultavatar.png"
-                          }
-                          alt={`${trade.name}'s profile picture`}
-                          width={25}
-                          height={25}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = "/assets/defaultavatar.png";
-                          }}
-                          unoptimized={trade.requester?.profile_pic?.startsWith(
-                            "http"
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex flex-col items-start gap-[5px]">
-                      {/* Clickable Name */}
-                      {trade.requester?.username ? (
-                        <Link
-                          href={`/home/profile/${trade.requester.username}`}
-                          className="text-[16px] text-white hover:text-[#FB9696] transition-colors cursor-pointer"
-                        >
-                          <span>{trade.name}</span>
-                        </Link>
-                      ) : (
-                        <span className="text-[16px] text-white">
-                          {trade.name}
-                        </span>
-                      )}
-
-                      <div className="flex items-center gap-[15px]">
-                        <div className="flex items-center gap-[5px]">
-                          <Icon
-                            icon="lucide:star"
-                            className="w-4 h-4 text-[#906EFF] fill-current flex-shrink-0"
-                          />
-                          <span className="text-[13px] font-bold text-white">
-                            {trade.rating} ({trade.reviews})
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-[3px]">
-                          <div className="flex items-center gap-[5px]">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="12"
-                              height="13"
-                              viewBox="0 0 12 13"
-                              fill="none"
-                            >
-                              <path
-                                d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
-                                fill="url(#paint0_radial_1202_2090)"
-                                stroke="url(#paint1_linear_1202_2090)"
-                                strokeWidth="1.5"
-                              />
-                              <defs>
-                                <radialGradient
-                                  id="paint0_radial_1202_2090"
-                                  cx="0"
-                                  cy="0"
-                                  r="1"
-                                  gradientUnits="userSpaceOnUse"
-                                  gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
-                                >
-                                  <stop offset="0.4" stopColor="#933BFF" />
-                                  <stop offset="1" stopColor="#34188D" />
-                                </radialGradient>
-                                <linearGradient
-                                  id="paint1_linear_1202_2090"
-                                  x1="6.00002"
-                                  y1="0.0778344"
-                                  x2="6.00002"
-                                  y2="13.2525"
-                                  gradientUnits="userSpaceOnUse"
-                                >
-                                  <stop stopColor="white" />
-                                  <stop offset="0.5" stopColor="#999999" />
-                                  <stop offset="1" stopColor="white" />
-                                </linearGradient>
-                              </defs>
-                            </svg>
-                            <span className="text-[13px] text-white">
-                              LVL {trade.level}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative"></div>
-                </div>
-
-                {/* Needs/Offers Section */}
-                <div className="flex justify-between items-start w-full space-x-4">
-                  <div className="flex flex-col justify-center items-start gap-[10px] flex-1">
-                    <span className="text-[13px] text-white">Needs</span>
-                    <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px] max-w-full">
-                      <span className="text-[12px] text-white leading-tight line-clamp-2">
-                        {trade.needs}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col justify-center items-end gap-[10px] flex-1">
-                    <span className="text-[13px] text-white">Can offer</span>
-                    <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px] max-w-full">
-                      <span className="text-[12px] text-white leading-tight line-clamp-2">
-                        {trade.offers}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status and Date */}
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-[13px] text-white/60">
-                    {trade.status}
-                  </span>
-                  <span className="text-[13px] text-white/60">
-                    until {trade.until}
-                  </span>
-                </div>
+                <span>
+                  Sort:{" "}
+                  {exploreSortBy.charAt(0).toUpperCase() +
+                    exploreSortBy.slice(1)}
+                </span>
+                <Icon icon="lucide:arrow-up-down" className="text-lg" />
               </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Trades for Confirmation Section */}
-      <div className="mb-10">
-        <h2 className="text-[20px] font-medium mb-5 text-[#6DDFFF]">
-          Trades for confirmation
-        </h2>
-        {finalizationTrades.length === 0 ? (
-          <div className="text-white/60 text-center py-8">
-            No trades ready for confirmation yet.
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-[25px]">
-            {finalizationTrades.map((trade, index) => {
-              const bothSubmitted =
-                trade.detailsStatus?.submission_status?.both_submitted;
-              const isClickable = bothSubmitted;
-              return (
-                <div
-                  key={trade.id}
-                  className={`relative ${isClickable ? "opacity-100" : "opacity-100"
-                    }`}
-                >
-                  <div
-                    className={`${expandedFinalizationCardId === trade.id
-                      ? "w-[945px]"
-                      : "w-[440px]"
-                      } transition-all duration-300 hover:scale-[1.01] ${expandedFinalizationCardId === trade.id
-                        ? "h-auto"
-                        : "h-[240px]"
-                      } rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${isClickable ? "cursor-pointer" : "cursor-default"
-                      }`}
-                    style={{
-                      background:
-                        "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
-                      boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
-                    }}
-                    onClick={() => {
-                      if (isClickable) {
-                        toggleFinalizationCardExpand(trade.id);
-                      }
-                    }}
-                  >
-                    {expandedFinalizationCardId === trade.id ? (
-                      // Expanded View - Full Card with Image
-                      <div>
-                        {/* Header with more options button */}
-                        <div className="p-[25px] pb-[15px] flex justify-between items-start">
-                          <div className="flex items-start gap-[10px]">
-                            {/* Clickable Profile Picture */}
-                            {(() => {
-                              const otherUser = trade.is_requester
-                                ? trade.responder
-                                : trade.requester;
-                              return otherUser?.username;
-                            })() ? (
-                              <Link
-                                href={`/home/profile/${trade.is_requester
-                                  ? trade.responder.username
-                                  : trade.requester.username
-                                  }`}
-                                className="flex-shrink-0"
-                              >
-                                <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#6DDFFF] transition-all">
-                                  <Image
-                                    src={
-                                      trade.other_user_profile_pic ||
-                                      "/assets/defaultavatar.png"
-                                    }
-                                    alt={`${trade.name}'s profile picture`}
-                                    width={25}
-                                    height={25}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.src =
-                                        "/assets/defaultavatar.png";
-                                    }}
-                                    unoptimized={trade.other_user_profile_pic?.startsWith(
-                                      "http"
-                                    )}
-                                  />
-                                </div>
-                              </Link>
-                            ) : (
-                              <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
-                                <Image
-                                  src={
-                                    trade.other_user_profile_pic ||
-                                    "/assets/defaultavatar.png"
-                                  }
-                                  alt={`${trade.name}'s profile picture`}
-                                  width={25}
-                                  height={25}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.src = "/assets/defaultavatar.png";
-                                  }}
-                                  unoptimized={trade.other_user_profile_pic?.startsWith(
-                                    "http"
-                                  )}
-                                />
-                              </div>
-                            )}
-
-                            <div>
-                              {/* Clickable Name */}
-                              {(() => {
-                                const otherUser = trade.is_requester
-                                  ? trade.responder
-                                  : trade.requester;
-                                return otherUser?.username;
-                              })() ? (
-                                <Link
-                                  href={`/home/profile/${trade.is_requester
-                                    ? trade.responder.username
-                                    : trade.requester.username
-                                    }`}
-                                  className="hover:text-[#6DDFFF] transition-colors"
-                                >
-                                  <h3 className="text-[16px] font-normal cursor-pointer">
-                                    {trade.name}
-                                  </h3>
-                                </Link>
-                              ) : (
-                                <h3 className="text-[16px] font-normal">
-                                  {trade.name}
-                                </h3>
-                              )}
-                            </div>
-                          </div>
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuIndex(
-                                  openMenuIndex === `final-${index}`
-                                    ? null
-                                    : `final-${index}`
-                                );
-                              }}
-                            >
-                              <Icon
-                                icon="lucide:more-horizontal"
-                                className="w-6 h-6 text-white"
-                              />
-                            </button>
-                            {openMenuIndex === `final-${index}` && (
-                              <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
-                                <button
-                                  className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowCancelModalForCard(trade.id);
-                                    setOpenMenuIndex(null);
-                                  }}
-                                >
-                                  <Icon
-                                    icon="lucide:x"
-                                    className="text-white text-base"
-                                  />
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Context Image - Only show if contextpic exists */}
-                        {trade.tradeDetails?.contextpic && (
-                          <div className="px-[25px] pb-[20px]">
-                            <div className="w-full h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
-                              <Image
-                                src={trade.tradeDetails.contextpic}
-                                alt="Trade Context"
-                                width={900}
-                                height={300}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Trade Details */}
-                        <div className="px-[25px] pb-[20px]">
-                          <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block">
-                                <span className="text-[16px] text-white">
-                                  Requested {trade.needs}
-                                </span>
-                              </div>
-                            </div>
-                            <span className="text-[16px] font-normal text-[#906EFF]">
-                              {trade.tradeDetails?.total_xp || 111} XP
-                            </span>
-                          </div>
-
-                          <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between w-full">
-                              <div className="flex items-center gap-2">
-                                <Icon
-                                  icon="lucide:map-pin"
-                                  className="w-4 h-4 text-[rgba(255,255,255,0.60)]"
-                                />
-                                <span className="text-[13px] text-[rgba(255,255,255,0.60)]">
-                                  {getModeOfDeliveryText(trade)}
-                                </span>
-                              </div>
-                              <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">
-                                Due on {trade.until}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap gap-[15px]">
-                              {getTradeDetailTags(trade).map(
-                                (tag, tagIndex) => (
-                                  <div
-                                    key={tagIndex}
-                                    className="px-[15px] py-[4px] border-[2px] border-white rounded-[15px]"
-                                  >
-                                    <span className="text-[13px] font-normal text-white">
-                                      {tag}
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-
-                            <div>
-                              <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
-                                <span className="text-[16px] text-white">
-                                  In exchange for {trade.offers}
-                                </span>
-                              </div>
-                            </div>
-
-                            <p className="text-[13px] text-[rgba(255,255,255,0.60)]">
-                              {trade.tradeDetails?.reqbio ||
-                                `Trade request: ${trade.needs}`}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="px-[25px] pb-[25px] flex flex-wrap justify-between">
-                          <button
-                            className="flex items-center justify-center"
-                            onClick={() =>
-                              toggleFinalizationCardExpand(trade.id)
-                            }
-                          >
-                            <Icon
-                              icon="lucide:chevron-up"
-                              className="w-[30px] h-[30px] text-white"
-                            />
-                          </button>
-                          <div className="flex items-center gap-[15px]">
-                            <Tooltip
-                              content="Expair's tailored AI will evaluate your trade using task difficulty, time, and skills. Make sure to add all details before you can run the evaluation."
-                              position="left"
-                            >
-                              <button
-                                className={`min-w-[120px] h-[40px] flex justify-center items-center rounded-[15px] border-2 border-[#7E59F8] shadow-[0_0_15px_#D78DE5] transition-colors ${trade.detailsStatus?.submission_status
-                                  ?.both_submitted
-                                  ? "bg-[#120A2A] cursor-pointer hover:bg-[#1A0F3E]"
-                                  : "bg-[#413663] cursor-not-allowed opacity-50"
-                                  }`}
-                                disabled={
-                                  !trade.detailsStatus?.submission_status
-                                    ?.both_submitted
-                                }
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  if (
-                                    trade.detailsStatus?.submission_status
-                                      ?.both_submitted
-                                  ) {
-                                    setSelectedTrade({
-                                      tradereq_id: trade.trade_request_id,
-                                      requestTitle: trade.needs,
-                                      offerTitle: trade.offers,
-                                      taskComplexity: 10,
-                                      timeCommitment: 50,
-                                      skillLevel: 80,
-                                      feedback:
-                                        trade.tradeDetails?.reqbio ||
-                                        `Trade request: ${trade.needs} in exchange for ${trade.offers}`,
-                                      evaluationStatus: trade.evaluationStatus,
-                                    });
-                                    setShowEvaluationDialog(true);
-                                  }
-                                }}
-                              >
-                                <div className="flex items-center gap-[10px]">
-                                  <img
-                                    src="/assets/logos/White=Logo S.png"
-                                    alt="Logo"
-                                    className="w-[16px] h-[16px]"
-                                  />
-                                  <span className="text-[14px] font-normal text-white">
-                                    {trade.detailsStatus?.submission_status
-                                      ?.both_submitted
-                                      ? "Evaluate"
-                                      : "Waiting for details"}
-                                  </span>
-                                </div>
-                              </button>
-                            </Tooltip>
-                            {/* Message CTA - always available once trade exists */}
-                            <Link
-                              href={`/home/messages${getOtherUserUsername(trade) ? `?user=${encodeURIComponent(getOtherUserUsername(trade))}` : ""}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                            >
-                              <button className="min-w-[120px] h-[40px] flex justify-center items-center rounded-[15px] border-2 border-[#0038FF] bg-[#0038FF] shadow-[0_0_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
-                                <div className="flex items-center gap-[8px]">
-                                  <Icon icon="lucide:message-square" className="w-4 h-4 text-white" />
-                                  <span className="text-[14px] font-normal text-white">Message</span>
-                                </div>
-                              </button>
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      // Collapsed View
-                      <div
-                        className="p-[25px] flex flex-col justify-between h-full"
-                        onClick={(e) => {
-                          // Don't expand if not clickable
-                          if (!isClickable) {
-                            e.stopPropagation();
-                            return;
-                          }
-                          toggleFinalizationCardExpand(trade.id);
-                        }}
-                      >
-                        {" "}
-                        {/* Trade Header */}
-                        <div className="flex justify-between items-start w-full">
-                          <div className="flex items-start gap-[10px]">
-                            {/* Clickable Profile Picture */}
-                            {(() => {
-                              const otherUser = trade.is_requester
-                                ? trade.responder
-                                : trade.requester;
-                              return otherUser?.username;
-                            })() ? (
-                              <Link
-                                href={`/home/profile/${trade.is_requester
-                                  ? trade.responder.username
-                                  : trade.requester.username
-                                  }`}
-                                className="flex-shrink-0"
-                              >
-                                <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#6DDFFF] transition-all">
-                                  <Image
-                                    src={
-                                      trade.other_user_profile_pic ||
-                                      "/assets/defaultavatar.png"
-                                    }
-                                    alt={`${trade.name}'s profile picture`}
-                                    width={25}
-                                    height={25}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.src =
-                                        "/assets/defaultavatar.png";
-                                    }}
-                                    unoptimized={trade.other_user_profile_pic?.startsWith(
-                                      "http"
-                                    )}
-                                  />
-                                </div>
-                              </Link>
-                            ) : (
-                              <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
-                                <Image
-                                  src={
-                                    trade.other_user_profile_pic ||
-                                    "/assets/defaultavatar.png"
-                                  }
-                                  alt={`${trade.name}'s profile picture`}
-                                  width={25}
-                                  height={25}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.src = "/assets/defaultavatar.png";
-                                  }}
-                                  unoptimized={trade.other_user_profile_pic?.startsWith(
-                                    "http"
-                                  )}
-                                />
-                              </div>
-                            )}
-
-                            <div className="flex flex-col items-start gap-[5px]">
-                              {/* Clickable Name */}
-                              {(() => {
-                                const otherUser = trade.is_requester
-                                  ? trade.responder
-                                  : trade.requester;
-                                return otherUser?.username;
-                              })() ? (
-                                <Link
-                                  href={`/home/profile/${trade.is_requester
-                                    ? trade.responder.username
-                                    : trade.requester.username
-                                    }`}
-                                  className="text-[16px] text-white hover:text-[#6DDFFF] transition-colors cursor-pointer"
-                                >
-                                  <span>{trade.name}</span>
-                                </Link>
-                              ) : (
-                                <span className="text-[16px] text-white">
-                                  {trade.name}
-                                </span>
-                              )}
-
-                              <div className="flex items-center gap-[15px]">
-                                <div className="flex items-center gap-[5px]">
-                                  <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
-                                  <span className="text-[13px] font-bold text-white">
-                                    {trade.rating}
-                                  </span>
-                                  <span className="text-[13px] font-normal text-white">
-                                    {" "}
-                                    ({trade.reviews})
-                                  </span>
-                                </div>
-                                <div className="flex flex-col gap-[3px]">
-                                  <div className="flex items-center gap-[5px]">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="12"
-                                      height="13"
-                                      viewBox="0 0 12 13"
-                                      fill="none"
-                                    >
-                                      <path
-                                        d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
-                                        fill="url(#paint0_radial_1202_2090)"
-                                        stroke="url(#paint1_linear_1202_2090)"
-                                        strokeWidth="1.5"
-                                      />
-                                      <defs>
-                                        <radialGradient
-                                          id="paint0_radial_1202_2090"
-                                          cx="0"
-                                          cy="0"
-                                          r="1"
-                                          gradientUnits="userSpaceOnUse"
-                                          gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
-                                        >
-                                          <stop
-                                            offset="0.4"
-                                            stopColor="#933BFF"
-                                          />
-                                          <stop
-                                            offset="1"
-                                            stopColor="#34188D"
-                                          />
-                                        </radialGradient>
-                                        <linearGradient
-                                          id="paint1_linear_1202_2090"
-                                          x1="6.00002"
-                                          y1="0.0778344"
-                                          x2="6.00002"
-                                          y2="13.2525"
-                                          gradientUnits="userSpaceOnUse"
-                                        >
-                                          <stop stopColor="white" />
-                                          <stop
-                                            offset="0.5"
-                                            stopColor="#999999"
-                                          />
-                                          <stop offset="1" stopColor="white" />
-                                        </linearGradient>
-                                      </defs>
-                                    </svg>
-                                    <span className="text-[13px] text-white">
-                                      LVL {trade.level}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {!bothSubmitted && (
-                              <Tooltip
-                                content={`Please wait for ${trade.is_requester
-                                  ? trade.responder?.name?.split(" ")[0]
-                                  : trade.requester?.name?.split(" ")[0]
-                                  } to fill out the details.`}
-                                position="left"
-                              >
-                                <div className="cursor-help">
-                                  <Icon
-                                    icon="lucide:clock"
-                                    className="w-4 h-4 text-[#FB9696]"
-                                  />
-                                </div>
-                              </Tooltip>
-                            )}
-
-                            {bothSubmitted &&
-                              trade.evaluationStatus?.current_user_response &&
-                              !trade.evaluationStatus?.both_users_responded && (
-                                <Tooltip
-                                  content={`Waiting for ${trade.is_requester
-                                    ? trade.responder?.name?.split(" ")[0]
-                                    : trade.requester?.name?.split(" ")[0]
-                                    } to respond to evaluation.`}
-                                  position="left"
-                                >
-                                  <div className="cursor-help">
-                                    <Icon
-                                      icon="lucide:clock"
-                                      className="w-4 h-4 text-[#6DDFFF]"
-                                    />
-                                  </div>
-                                </Tooltip>
-                              )}
-
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  setOpenMenuIndex(
-                                    openMenuIndex === `final-${index}`
-                                      ? null
-                                      : `final-${index}`
-                                  );
-                                }}
-                              >
-                                <Icon
-                                  icon="lucide:more-horizontal"
-                                  className="w-6 h-6 text-white"
-                                />
-                              </button>
-                              {openMenuIndex === `final-${index}` && (
-                                <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
-                                  <button
-                                    className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setShowCancelModalForCard(trade.id);
-                                      setOpenMenuIndex(null);
-                                    }}
-                                  >
-                                    <Icon
-                                      icon="lucide:x"
-                                      className="text-white text-base"
-                                    />
-                                    Cancel
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                            {showCancelModalForCard === trade.id && (
-                              <InlineConfirmationModal
-                                message="Are you sure you want to cancel this trade?"
-                                onConfirm={() =>
-                                  handleCancelTrade(trade.trade_request_id)
-                                }
-                                onCancel={() => setShowCancelModalForCard(null)}
-                              />
-                            )}
-                          </div>
-                        </div>
-                        {/* Needs/Offers Section */}
-                        <div className="flex justify-between items-start w-full">
-                          {/* Needs */}
-                          <div className="flex flex-col items-start gap-[10px]">
-                            <span className="text-[13px] text-white">
-                              Needs
-                            </span>
-                            <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                              <span className="text-[13px] text-white leading-tight">
-                                {trade.needs}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Offers */}
-                          <div className="flex flex-col items-end gap-[10px]">
-                            <span className="text-[13px] text-white">
-                              Can offer
-                            </span>
-                            <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                              <span className="text-[13px] text-white leading-tight">
-                                {trade.offers}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Date */}
-                        <div className="flex justify-end items-center w-full">
-                          <span className="text-[13px] text-white/60">
-                            until {trade.until}
-                          </span>
-                        </div>
-                        {/* Buttons Row */}
-                        <div className="flex justify-between items-center w-full">
-                          {(() => {
-                            const currentUserSubmitted =
-                              trade.detailsStatus?.current_user?.has_submitted;
-                            const otherUserSubmitted = trade.is_requester
-                              ? trade.detailsStatus?.responder?.has_submitted
-                              : trade.detailsStatus?.requester?.has_submitted;
-                            const otherUserName = trade.is_requester
-                              ? trade.detailsStatus?.responder?.name?.split(
-                                " "
-                              )[0]
-                              : trade.detailsStatus?.requester?.name?.split(
-                                " "
-                              )[0];
-
-                            if (!currentUserSubmitted) {
-                              return (
-                                <Link
-                                  href={`/home/trades/add-details?requested=${encodeURIComponent(
-                                    trade.needs
-                                  )}&exchange=${encodeURIComponent(
-                                    trade.offers
-                                  )}&tradereq_id=${trade.trade_request_id}`}
-                                >
-                                  <button
-                                    className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <span className="text-[13px] text-white">
-                                      Add details
-                                    </span>
-                                  </button>
-                                </Link>
-                              );
-                            } else if (!otherUserSubmitted) {
-                              return (
-                                <button
-                                  disabled
-                                  className="w-[140px] h-[30px] flex justify-center items-center bg-[#413663] rounded-[10px] cursor-not-allowed"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                  }}
-                                >
-                                  <span className="text-[11px] text-white/70">
-                                    Waiting for {otherUserName}
-                                  </span>
-                                </button>
-                              );
-                            } else {
-                              return (
-                                <button
-                                  disabled
-                                  className="w-[120px] h-[30px] flex justify-center items-center bg-[#6DDFFF] rounded-[10px]"
-                                >
-                                  <span className="text-[14px] text-black font-bold">
-                                    Ready
-                                  </span>
-                                </button>
-                              );
-                            }
-                          })()}
-
-                          <button
-                            className={`h-[35px] flex justify-center items-center border border-white rounded-[10px] transition-colors ${trade.detailsStatus?.submission_status
-                              ?.both_submitted
-                              ? "w-[120px] bg-[#120A2A] cursor-pointer hover:bg-[#1A0F3E]"
-                              : "w-[170px] bg-[#413663] cursor-not-allowed opacity-50"
-                              }`}
-                            disabled={
-                              !trade.detailsStatus?.submission_status
-                                ?.both_submitted
-                            }
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              if (
-                                trade.detailsStatus?.submission_status
-                                  ?.both_submitted
-                              ) {
-                                setSelectedTrade({
-                                  tradereq_id: trade.trade_request_id,
-                                  requestTitle: trade.needs,
-                                  offerTitle: trade.offers,
-                                  taskComplexity: 60,
-                                  timeCommitment: 50,
-                                  skillLevel: 80,
-                                  feedback: `${trade.name}'s trade for ${trade.needs} in exchange for ${trade.offers} is well-balanced, with a high skill level required and moderate time commitment. The task complexity is fairly challenging, which makes this a valuable and rewarding exchange for both parties. Overall, it's a great match that promises meaningful growth and results.`,
-                                  evaluationStatus: trade.evaluationStatus,
-                                });
-                                setShowEvaluationDialog(true);
-                              }
-                            }}
-                          >
-                            <div className="flex items-center gap-[10px]">
-                              <Icon
-                                icon="lucide:star"
-                                className="w-4 h-4 text-white"
-                              />
-                              <span className="text-[14px] text-white">
-                                {trade.detailsStatus?.submission_status
-                                  ?.both_submitted
-                                  ? "Evaluate"
-                                  : "Waiting for details"}
-                              </span>
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-                    )}
+              {/* Sort Dropdown Menu */}
+              {showExploreSortMenu && (
+                <div className="absolute top-full left-0 mt-2 w-[200px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
+                  <div className="p-2">
+                    <div
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "recommended"
+                        ? "bg-[#1A0F3E] text-white"
+                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                        } transition`}
+                      onClick={() => handleExploreSortChange("recommended")}
+                    >
+                      Recommended
+                    </div>
+                    <div
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "date"
+                        ? "bg-[#1A0F3E] text-white"
+                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                        } transition`}
+                      onClick={() => handleExploreSortChange("date")}
+                    >
+                      By Date
+                    </div>
+                    <div
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "level"
+                        ? "bg-[#1A0F3E] text-white"
+                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                        } transition`}
+                      onClick={() => handleExploreSortChange("level")}
+                    >
+                      By Level
+                    </div>
+                    <div
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "rating"
+                        ? "bg-[#1A0F3E] text-white"
+                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                        } transition`}
+                      onClick={() => handleExploreSortChange("rating")}
+                    >
+                      By Rating
+                    </div>
                   </div>
                 </div>
-              );
-            })}
+              )}
+            </div>
+
+            {/* Filter Button and Dropdown */}
+            <div className="relative" ref={exploreFilterMenuRef}>
+              <div
+                className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer"
+                onClick={() => setShowExploreFilterMenu(!showExploreFilterMenu)}
+              >
+                <span>Filter</span>
+                <Icon icon="lucide:filter" className="text-lg" />
+              </div>
+
+              {/* Filter Dropdown Menu */}
+              {showExploreFilterMenu && (
+                <div className="absolute top-full right-0 mt-2 w-[280px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
+                  <div className="p-4">
+                    <h3 className="text-white font-medium mb-3">
+                      Filter Options
+                    </h3>
+
+                    {/* Rating Filter */}
+                    <div className="mb-4">
+                      <h4 className="text-white/70 text-sm mb-2">
+                        Minimum Rating
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {[0, 2, 3, 4, 5].map((rating) => (
+                          <div
+                            key={rating}
+                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${exploreFilters.minRating === rating
+                              ? "bg-[#0038FF] text-white"
+                              : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
+                              } transition`}
+                            onClick={() =>
+                              handleExploreFilterChange("minRating", rating)
+                            }
+                          >
+                            {rating === 0 ? "Any" : `${rating}⭐+`}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Skill Category Filter */}
+                    <div className="mb-4">
+                      <h4 className="text-white/70 text-sm mb-2">
+                        Skill Category
+                      </h4>
+                      <select
+                        className="w-full px-3 py-2 bg-[#1A0F3E] border border-[#284CCC]/30 rounded-[10px] text-white"
+                        value={exploreFilters.skillCategory}
+                        onChange={(e) =>
+                          handleExploreFilterChange(
+                            "skillCategory",
+                            e.target.value
+                          )
+                        }
+                      >
+                        <option value="all">All Categories</option>
+                        {skillCategories.slice(1).map((category, index) => (
+                          <option key={index} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Level Filter */}
+                    <div className="mb-4">
+                      <h4 className="text-white/70 text-sm mb-2">
+                        Minimum Level
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {[0, 5, 10, 15, 20].map((level) => (
+                          <div
+                            key={level}
+                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${exploreFilters.minLevel === level
+                              ? "bg-[#0038FF] text-white"
+                              : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
+                              } transition`}
+                            onClick={() =>
+                              handleExploreFilterChange("minLevel", level)
+                            }
+                          >
+                            {level === 0 ? "Any" : `LVL ${level}+`}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filter Actions */}
+                    <div className="flex justify-between mt-4">
+                      <button
+                        className="px-4 py-1 text-sm text-white/70 hover:text-white transition"
+                        onClick={handleResetExploreFilters}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        className="px-4 py-1 bg-[#0038FF] text-white text-sm rounded-[10px] hover:bg-[#1a4dff] transition"
+                        onClick={handleApplyExploreFilters}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Search Input */}
+        <div className="w-full max-w-[940px] mb-8">
+          <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border border-[rgba(255,255,255,0.40)]">
+            <Icon icon="lucide:search" className="text-white mr-2 text-xl" />
+            <input
+              type="text"
+              placeholder="Search"
+              className="w-full h-full bg-transparent text-[16px] text-white outline-none placeholder:text-[#413663]"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+        {/* Explore Cards Grid */}
+        <div className="flex flex-wrap justify-start gap-x-[25px] gap-y-[25px] w-full max-w-[940px]">
+          {exploreErr ? (
+            <div className="w-full py-4 text-red-400">{exploreErr}</div>
+          ) : exploreLoading ? (
+            <div className="w-full py-10 flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4 animate-pulse">
+                <Icon icon="lucide:loader-2" className="w-8 h-8 text-white/50 animate-spin" />
+              </div>
+              <h3 className="text-xl font-medium text-white mb-2">
+                Hang tight, voyager!
+              </h3>
+              <p className="text-white/60 text-center max-w-md">
+                We're finding the best trades for you...
+              </p>
+            </div>
+          ) : filteredAndSortedItems.length === 0 ? (
+            <div className="w-full py-10 flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4">
+                <Icon icon="lucide:search" className="w-8 h-8 text-white/50" />
+              </div>
+              <h3 className="text-xl font-medium text-white mb-2">
+                {exploreItems.length === 0 ? "No matches yet" : "No matches found"}
+              </h3>
+              <p className="text-white/60 text-center max-w-md">
+                {exploreItems.length === 0
+                  ? "New requests will appear here as users post them."
+                  : "Try adjusting your filters or search criteria to see more results"
+                }
+              </p>
+            </div>
+          ) : (
+            filteredAndSortedItems.map((item, i) => (
+              <ExploreCard
+                key={`explore-${item.tradereq_id || i}`}
+                name={item.name}
+                rating={item.rating}
+                ratingCount={item.ratingCount}
+                level={item.level}
+                need={item.need}
+                offer={item.offer}
+                deadline={item.deadline ? `until ${fmtUntil(item.deadline)}` : ""}
+                profilePicUrl={item.profilePicUrl}
+                userId={item.userId}
+                username={item.username}
+                tradereqId={item.tradereq_id}
+                onInterestedClick={() => handleInterestedClick(item)}
+              />
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Offers Popup */}
-      <OffersPopup
-        isOpen={showOffersPopup}
-        onClose={() => setShowOffersPopup(false)}
-        service={selectedService}
-        trade={selectedTrade}
-        onTradeUpdate={refreshAllTrades}
-      />
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && selectedPartner && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+            {/* Background gradients */}
+            <div className="absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
+            <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
 
-      {/* Evaluation Dialog */}
-      <EvaluationDialog
-        isOpen={showEvaluationDialog}
-        onClose={() => setShowEvaluationDialog(false)}
-        tradeData={selectedTrade}
-        onTradeUpdate={(tradeRequestId) =>
-          updateFinalizationTrade(tradeRequestId)
-        }
-      />
+            {/* Close button */}
+            <button
+              className="absolute top-4 right-4 text-white hover:text-gray-300"
+              onClick={handleCancelInterest}
+            >
+              <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+            </button>
+
+            <div className="flex flex-col items-center gap-6 w-full px-8 relative z-10">
+              <h2 className="font-bold text-[20px] text-center text-white leading-tight">
+                Are you sure you want to add this to your pending trades?
+              </h2>
+              <div className="flex flex-row gap-4">
+                <button
+                  className="flex items-center justify-center w-[120px] h-[40px] border-2 border-[#0038FF] rounded-[15px] text-[#0038FF] text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#0038FF]/10 transition-colors"
+                  onClick={handleCancelInterest}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="flex items-center justify-center w-[120px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                  onClick={handleConfirmInterest}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Dialog */}
+      {showSuccessDialog && selectedPartner && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="relative flex flex-col items-center justify-center w-[500px] h-[200px] bg-[#120A2A]/95 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[10px] rounded-[20px] overflow-hidden">
+            {/* Background gradients */}
+            <div className="absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
+            <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
+
+            {/* Close button */}
+            <button
+              className="absolute top-4 right-4 text-white hover:text-gray-300"
+              onClick={handleSuccessDialogClose}
+            >
+              <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+            </button>
+
+            <div className="flex flex-col items-center gap-6 w-full px-8 relative z-10">
+              <h2 className="font-bold text-[20px] text-center text-white leading-tight">
+                Trade invitation successfully sent.
+              </h2>
+              <button
+                className="flex items-center justify-center w-[180px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                onClick={handleGoToPendingTrades}
+              >
+                Go to Pending Trades
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -31,19 +31,24 @@ const StarLogo = () => (
   </svg>
 );
 
-export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUpdate }) {
-
+export default function EvaluationDialog({ 
+  isOpen,
+  onClose,
+  tradeData,
+  onTradeUpdate,
+  viewOnly = false 
+}) {
   const { data: session } = useSession();
 
   const currentUserHasResponded = tradeData?.evaluationStatus?.current_user_response !== null;
-  const userResponse = tradeData?.evaluationStatus?.current_user_response; // "CONFIRMED" or "REJECTED"
+  const userResponse = tradeData?.evaluationStatus?.current_user_response;
 
-  // Default values that can be easily adjusted
+  // Default values
   const [evaluation, setEvaluation] = useState({
-    tradeScore: 8,
+    tradeScore: 7,
     taskComplexity: 60,
     timeCommitment: 50,
-    skillLevel: 80,
+    skillLevel: 70,
   });
 
   // Animated progress states
@@ -58,99 +63,113 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
 
-  // Update evaluation if tradeData includes these values
-  useEffect(() => {
-    if (tradeData) {
-      setEvaluation(prev => ({
-        ...prev,
-        tradeScore: tradeData.tradeScore || prev.tradeScore,
-        taskComplexity: tradeData.taskComplexity || prev.taskComplexity,
-        timeCommitment: tradeData.timeCommitment || prev.timeCommitment,
-        skillLevel: tradeData.skillLevel || prev.skillLevel,
-      }));
-    }
-  }, [tradeData]);
-
-  // Hardcoded evaluation logic
+  // AI evaluation states
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationError, setEvaluationError] = useState(null);
   const [hardcodedFeedback, setHardcodedFeedback] = useState('');
-  
+
+  // Helper function to get quality label
+  const getQualityLabel = (score) => {
+    if (score >= 8) return "Excellent trade";
+    if (score >= 6) return "Great trade";
+    if (score >= 4) return "Good trade";
+    if (score >= 2) return "Okay trade";
+    return "Poor trade";
+  };
+
+  // ✅ FETCH AI EVALUATION
   useEffect(() => {
-    if (!isOpen || !tradeData) return;
+    if (!isOpen || !tradeData?.tradereq_id) return;
     
-    // Generate hardcoded evaluation based on trade data
-    const generateHardcodedEvaluation = () => {
-      const requested = tradeData.requestTitle || '';
-      const offered = tradeData.offerTitle || '';
+    const fetchEvaluation = async () => {
+      setIsEvaluating(true);
+      setEvaluationError(null);
       
-      // Simple keyword-based scoring
-      const complexityKeywords = ['complex', 'advanced', 'professional', 'expert', 'detailed', 'comprehensive'];
-      const timeKeywords = ['long', 'extensive', 'thorough', 'complete', 'full'];
-      const skillKeywords = ['expert', 'professional', 'advanced', 'specialized', 'certified'];
-      
-      let taskComplexity = 60; // Default
-      let timeCommitment = 50; // Default
-      let skillLevel = 70; // Default
-      
-      // Adjust based on keywords in titles
-      const combinedText = (requested + ' ' + offered).toLowerCase();
-      
-      complexityKeywords.forEach(keyword => {
-        if (combinedText.includes(keyword)) {
-          taskComplexity += 10;
+      try {
+        // Check if evaluation already exists (TE2 - viewing saved evaluation)
+        const checkResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/evaluation/${tradeData.tradereq_id}/`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session?.access}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        
+        let evaluationData;
+        
+        if (checkResponse.ok) {
+        // TE2: Evaluation exists, load saved data
+        evaluationData = await checkResponse.json();
+        console.log('✅ Loaded saved evaluation:', evaluationData);
+      } else if (viewOnly) {
+        // ❌ View-only mode but no evaluation found
+        throw new Error('No evaluation found for this trade. Please contact support.');
+      } else {
+        // TE1: New evaluation, call AI endpoint (only in Pending Trades)
+        console.log('🤖 Generating new AI evaluation...');
+        const evalResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/evaluate-trade/`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session?.access}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              tradereq_id: tradeData.tradereq_id
+            }),
+          }
+        );
+        
+        if (!evalResponse.ok) {
+          const errorText = await evalResponse.text();
+          throw new Error(errorText || 'Failed to evaluate trade');
         }
+        
+        evaluationData = await evalResponse.json();
+        console.log('✅ AI evaluation complete:', evaluationData);
+      }
+      
+      // Update state with evaluation data
+      setEvaluation({
+        tradeScore: evaluationData.overall_score_out_of_10,
+        taskComplexity: evaluationData.taskcomplexity,
+        timeCommitment: evaluationData.timecommitment,
+        skillLevel: evaluationData.skilllevel,
       });
       
-      timeKeywords.forEach(keyword => {
-        if (combinedText.includes(keyword)) {
-          timeCommitment += 15;
-        }
-      });
+      setHardcodedFeedback(evaluationData.evaluationdescription);
       
-      skillKeywords.forEach(keyword => {
-        if (combinedText.includes(keyword)) {
-          skillLevel += 15;
-        }
-      });
+    } catch (error) {
+      console.error('❌ Evaluation error:', error);
+      setEvaluationError(error.message);
       
-      // Ensure values are within bounds
-      taskComplexity = Math.min(100, Math.max(20, taskComplexity));
-      timeCommitment = Math.min(100, Math.max(20, timeCommitment));
-      skillLevel = Math.min(100, Math.max(30, skillLevel));
-      
-      // Calculate trade score based on balance
-      const avgScore = (taskComplexity + timeCommitment + skillLevel) / 3;
-      const tradeScore = Math.round((avgScore / 100) * 10);
-      
-      // Generate feedback
-      const feedback = `This trade between "${requested}" and "${offered}" appears to be well-balanced. The task complexity is ${taskComplexity > 70 ? 'high' : taskComplexity > 40 ? 'moderate' : 'low'}, requiring ${timeCommitment > 60 ? 'significant' : timeCommitment > 40 ? 'moderate' : 'minimal'} time commitment and ${skillLevel > 70 ? 'advanced' : skillLevel > 50 ? 'intermediate' : 'basic'} skill levels. This represents a fair exchange that benefits both parties.`;
-      
-      return {
-        taskComplexity,
-        timeCommitment,
-        skillLevel,
-        tradeScore,
-        feedback
-      };
-    };
-    
-    const evaluation = generateHardcodedEvaluation();
-    
-    // Update evaluation state
-    setEvaluation(prev => ({
-      ...prev,
-      tradeScore: evaluation.tradeScore,
-      taskComplexity: evaluation.taskComplexity,
-      timeCommitment: evaluation.timeCommitment,
-      skillLevel: evaluation.skillLevel,
-    }));
-    
-    // Set hardcoded feedback
-    setHardcodedFeedback(evaluation.feedback);
-  }, [isOpen, tradeData]);
+      // Only show fallback if NOT in view-only mode
+      if (!viewOnly) {
+        setEvaluation({
+          tradeScore: 7,
+          taskComplexity: 60,
+          timeCommitment: 50,
+          skillLevel: 70,
+        });
+        setHardcodedFeedback('Unable to generate evaluation. Please try again.');
+      } else {
+        // In view-only mode, show error state
+        setHardcodedFeedback(error.message || 'Unable to load evaluation.');
+      }
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+  
+  fetchEvaluation();
+}, [isOpen, tradeData?.tradereq_id, session, viewOnly]);
 
   // Trigger staggered animations after evaluation updates
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isEvaluating) {
       // Reset progress first
       setProgress({
         tradeScore: 0,
@@ -176,7 +195,7 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
         setProgress(prev => ({ ...prev, skillLevel: evaluation.skillLevel }));
       }, 1200);
     }
-  }, [evaluation, isOpen]);
+  }, [evaluation, isOpen, isEvaluating]);
 
   // Handle close with proper event handling and state reset
   const handleClose = (e) => {
@@ -184,7 +203,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
       e.preventDefault();
       e.stopPropagation();
     }
-    // Reset all dialog states when closing
     setShowConfirmDialog(false);
     setShowRejectDialog(false);
     onClose();
@@ -219,16 +237,17 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
     }
   }, [isOpen]);
 
-  // Handle confirm dialog completion
-  const handleConfirmComplete = async () => {
+    const handleConfirmComplete = async () => {
     if (!tradeData?.tradereq_id) {
       console.error('No trade request ID found in tradeData:', tradeData);
-      throw new Error('No trade request ID found');
+      alert('Error: No trade request ID found');
+      return;
     }
 
-    console.log('=== CONFIRM COMPLETE DEBUG ===');
+    console.log('=== CONFIRM TRADE DEBUG ===');
     console.log('Trade ID:', tradeData.tradereq_id);
-    console.log('Session access token exists:', !!session?.access);
+    console.log('Full URL:', `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradeData.tradereq_id}/evaluation/confirm/`);
+    console.log('Session token exists:', !!session?.access);
 
     try {
       const response = await fetch(
@@ -243,34 +262,49 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
       );
 
       console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
       const responseText = await response.text();
-      console.log('Raw response:', responseText);
+      console.log('Raw response text:', responseText);
 
       if (response.ok) {
-        const result = JSON.parse(responseText);
-        console.log('Trade confirmed successfully:', result);
+        let result;
+        try {
+          result = responseText ? JSON.parse(responseText) : {};
+        } catch (e) {
+          console.error('Failed to parse response JSON:', e);
+          result = { message: 'Trade confirmed successfully' };
+        }
+        
+        console.log('✅ Trade confirmed:', result);
         setShowConfirmDialog(false);
         onClose();
-        if (onTradeUpdate) onTradeUpdate();
-        // ✅ Don't throw error on success
+        if (onTradeUpdate) onTradeUpdate(tradeData.tradereq_id);
       } else {
-        let errorData;
-        try {
-          errorData = JSON.parse(responseText);
-        } catch {
-          errorData = { error: responseText };
+        // Better error parsing
+        let errorMessage = 'Unknown error occurred';
+        
+        if (responseText) {
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.error || errorData.detail || errorData.message || JSON.stringify(errorData);
+          } catch {
+            errorMessage = responseText;
+          }
         }
-        console.error('Error confirming trade:', errorData);
-        alert(`Error: ${errorData.error || 'Unknown error occurred'}`);
-        // ✅ THROW ERROR to prevent success dialog
-        throw new Error(errorData.error || 'Failed to confirm trade');
+        
+        console.error('❌ Confirm failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorMessage
+        });
+        
+        alert(`Failed to confirm trade: ${errorMessage}`);
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Network error confirming trade:', error);
-      alert('Network error. Please check your connection and try again.');
-      // ✅ RE-THROW ERROR to propagate it
+      console.error('💥 Network error:', error);
+      alert(`Network error: ${error.message}`);
       throw error;
     }
   };
@@ -317,13 +351,11 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
         }
         console.error('Error rejecting trade:', errorData);
         alert(`Error: ${errorData.error || 'Unknown error occurred'}`);
-        // ✅ THROW ERROR
         throw new Error(errorData.error || 'Failed to reject trade');
       }
     } catch (error) {
       console.error('Network error rejecting trade:', error);
       alert('Network error. Please check your connection and try again.');
-      // ✅ RE-THROW ERROR
       throw error;
     }
   };
@@ -334,7 +366,7 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
   const data = tradeData || {
     requestTitle: "Nutrition Coaching for Weight Loss",
     offerTitle: "Yoga Instruction",
-    feedback: "Olivia's trade for nutrition coaching in exchange for yoga instruction is well-balanced, with a high skill level required and moderate time commitment. The task complexity is fairly challenging, which makes this a valuable and rewarding exchange for both parties. Overall, it's a great match that promises meaningful growth and results."
+    feedback: "Loading evaluation..."
   };
 
   return (
@@ -347,7 +379,7 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
 
       {/* Dialog */}
       <div className="relative w-[940px] h-[790px] flex flex-col justify-center items-center p-[98.5px_74px] bg-black/10 shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[50px] rounded-[15px] z-50 isolate">
-        {/* Close button - Enhanced with better positioning and hover effects */}
+        {/* Close button */}
         <button
           className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] transition-all duration-200 hover:bg-white/10 hover:text-[#D78DE5] rounded-full z-[100]"
           onClick={handleClose}
@@ -360,15 +392,21 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
 
         {/* Background glow effects */}
         <div className="absolute w-[942px] h-[218px] left-[-1px] top-0 z-[1]">
-          {/* Indigo glow left */}
           <div className="absolute w-[421px] h-[218px] left-[calc(50%-421px/2-260.5px)] top-0 bg-[#906EFF] blur-[175px]"></div>
-          {/* Blue glow right */}
           <div className="absolute w-[421px] h-[218px] left-[calc(50%-421px/2+260.5px)] top-0 bg-[#0038FF] blur-[175px]"></div>
-          {/* Indigo glow bottom right */}
           <div className="absolute w-[225px] h-[105.09px] left-[calc(50%-225px/2+283.5px)] top-[83.85px] bg-[#906EFF] blur-[60px]"></div>
-          {/* Blue glow bottom left */}
           <div className="absolute w-[225px] h-[105.09px] left-[calc(50%-225px/2-283.5px)] top-[83.85px] bg-[#0038FF] blur-[60px]"></div>
         </div>
+
+        {/* ✅ LOADING STATE */}
+        {isEvaluating && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[200] rounded-[15px]">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-16 h-16 border-4 border-[#D78DE5] border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-white text-lg">Evaluating trade with AI...</p>
+            </div>
+          </div>
+        )}
 
         {/* Content container */}
         <div className="flex flex-col justify-center items-center gap-[40px] w-[792px] h-[613px] z-[2]">
@@ -378,7 +416,7 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
               {/* Left side */}
               <div className="flex flex-col items-start justify-between w-[300px] h-full">
                 <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-white">
-                  {data.requestTitle}
+                  {data.requestTitle || tradeData?.needs || "Loading..."}
                 </h3>
                 <p className="w-[300px] text-[16px] font-[400] leading-[120%] text-white">
                   What you'll provide
@@ -393,7 +431,7 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
               {/* Right side */}
               <div className="flex flex-col items-end justify-between w-[300px] h-full">
                 <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-right text-white">
-                  {data.offerTitle}
+                  {data.offerTitle || tradeData?.offers || "Loading..."}
                 </h3>
                 <p className="w-[300px] text-[16px] font-[400] leading-[120%] text-right text-white">
                   What you'll get in return
@@ -413,7 +451,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                   boxShadow: progress.tradeScore > 0 ? "0px 0px 20px rgba(126, 89, 248, 0.4)" : "none"
                 }}
               >
-                {/* Inner glow effect */}
                 <div
                   className="absolute inset-0 rounded-[30px] opacity-60"
                   style={{
@@ -421,7 +458,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                   }}
                 />
 
-                {/* Shimmer effect */}
                 {progress.tradeScore > 10 && (
                   <div className="absolute inset-0 rounded-[30px] overflow-hidden">
                     <div
@@ -439,7 +475,7 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
 
             <div className="flex flex-col items-center gap-[5px] w-[110px] h-[48px]">
               <h4 className="font-[700] text-[20px] text-center text-white">
-                Good trade
+                {getQualityLabel(evaluation.tradeScore)}
               </h4>
               <p className="text-[16px] font-[400] text-center text-white">
                 {evaluation.tradeScore} out of 10
@@ -464,7 +500,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     boxShadow: progress.taskComplexity > 0 ? "0px 0px 15px rgba(251, 150, 150, 0.5)" : "none"
                   }}
                 >
-                  {/* Inner glow effect */}
                   <div
                     className="absolute inset-0 rounded-[30px] opacity-60"
                     style={{
@@ -472,7 +507,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     }}
                   />
 
-                  {/* Shimmer effect */}
                   {progress.taskComplexity > 10 && (
                     <div className="absolute inset-0 rounded-[30px] overflow-hidden">
                       <div
@@ -485,7 +519,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     </div>
                   )}
 
-                  {/* Pulse effect at the end */}
                   {progress.taskComplexity > 5 && (
                     <div
                       className="absolute top-1/2 right-0 w-[6px] h-[6px] rounded-full opacity-90"
@@ -516,7 +549,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     boxShadow: progress.timeCommitment > 0 ? "0px 0px 15px rgba(215, 141, 229, 0.5)" : "none"
                   }}
                 >
-                  {/* Inner glow effect */}
                   <div
                     className="absolute inset-0 rounded-[30px] opacity-60"
                     style={{
@@ -524,7 +556,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     }}
                   />
 
-                  {/* Shimmer effect */}
                   {progress.timeCommitment > 10 && (
                     <div className="absolute inset-0 rounded-[30px] overflow-hidden">
                       <div
@@ -538,7 +569,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     </div>
                   )}
 
-                  {/* Pulse effect at the end */}
                   {progress.timeCommitment > 5 && (
                     <div
                       className="absolute top-1/2 right-0 w-[6px] h-[6px] rounded-full opacity-90"
@@ -569,7 +599,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     boxShadow: progress.skillLevel > 0 ? "0px 0px 15px rgba(109, 223, 255, 0.5)" : "none"
                   }}
                 >
-                  {/* Inner glow effect */}
                   <div
                     className="absolute inset-0 rounded-[30px] opacity-60"
                     style={{
@@ -577,7 +606,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     }}
                   />
 
-                  {/* Shimmer effect */}
                   {progress.skillLevel > 10 && (
                     <div className="absolute inset-0 rounded-[30px] overflow-hidden">
                       <div
@@ -591,7 +619,6 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
                     </div>
                   )}
 
-                  {/* Pulse effect at the end */}
                   {progress.skillLevel > 5 && (
                     <div
                       className="absolute top-1/2 right-0 w-[6px] h-[6px] rounded-full opacity-90"
@@ -619,12 +646,11 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
               </span>
             </div>
             <p className="w-[792px] h-[76px] text-[16px] leading-[120%] text-white">
-              {hardcodedFeedback || data.feedback}
+              {hardcodedFeedback || 'Evaluating trade fairness...'}
             </p>
           </div>
 
           {/* Action buttons */}
-          {/* ✅ Show status message if already responded */}
           {currentUserHasResponded && (
             <div className="absolute top-[-40px] left-0 right-0 text-center">
               <span className="text-[14px] text-[#6DDFFF]">
@@ -683,7 +709,7 @@ export default function EvaluationDialog({ isOpen, onClose, tradeData, onTradeUp
 
         {/* Disclaimer */}
         <p className="absolute w-[847px] h-[19px] left-[calc(50%-847px/2+4.5px)] top-[737px] text-[12px] leading-[120%] text-center text-white/80 opacity-60 z-[3]">
-          This evaluation is based on predefined criteria and should serve as a guide for users.
+          This evaluation is based on AI analysis and should serve as a guide for users.
         </p>
       </div>
 
