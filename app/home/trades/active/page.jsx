@@ -1140,19 +1140,22 @@ export default function ActiveTradesPage() {
       )}
 
       {/* Evaluation Dialog */}
-      {showEvaluationDialog && (
-        <ActiveEvaluationDialog
-          isOpen={showEvaluationDialog}
-          onClose={() => setShowEvaluationDialog(false)}
-          tradeData={{
-            requestTitle: selectedTrade?.requested,
-            offerTitle: selectedTrade?.offering,
-            feedback: `This trade for ${selectedTrade?.requested} in exchange for ${selectedTrade?.offering} is well-balanced, with a high skill level required and moderate time commitment. The task complexity is fairly challenging, which makes this a valuable and rewarding exchange for both parties. Overall, it's a great match that promises meaningful growth and results.`
-          }}
-          onTradeUpdate={(tradeRequestId) => updateActiveTrade(tradeRequestId)}
-          viewOnly={true}
-        />
-      )}
+      <ActiveEvaluationDialog
+        isOpen={showEvaluationDialog}
+        onClose={() => setShowEvaluationDialog(false)}
+        tradeData={{
+          // Ensure a valid ID is provided (try common fields)
+          tradereq_id:
+            selectedTrade?.tradereq_id ??
+              selectedTrade?.trade_request_id ??
+              selectedTrade?.id ??
+              null,
+          requestTitle:
+            selectedTrade?.requested ?? selectedTrade?.reqname ?? selectedTrade?.requestTitle,
+          offerTitle:
+            selectedTrade?.offering ?? selectedTrade?.exchange ?? selectedTrade?.offerTitle,
+        }}
+      />
     </div>
   );
 }
