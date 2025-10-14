@@ -560,7 +560,7 @@ useEffect(() => {
       </div>
 
       {/* Active Trade Cards Grid */}
-      <div className="w-full max-w-[940px] flex flex-wrap justify-between gap-x-[30px] gap-y-[25px] mt-6">
+      <div className="w-full max-w-[940px] justify-between flex flex-wrap gap-[25px] mt-6">
         {homeTradesLoading ? (
           <div className="text-white/60">Loading active trades...</div>
         ) : homeActiveTrades.length === 0 ? (
@@ -577,23 +577,15 @@ useEffect(() => {
           </div>
         ) : (
           homeActiveTrades.map((trade) => (
-            <div
+            <ActiveTradeCardHome
               key={trade.tradereq_id}
-              className="flex flex-col w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[20px] relative cursor-pointer hover:scale-[1.02] transition-transform"
-              style={{
-                background: "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
-              }}
-              onClick={() => handleCardClick(trade.tradereq_id)}
-            >
-              <ActiveTradeCardHome
-                name={trade.other_user.name}
-                username={trade.other_user.username}
-                profilePic={trade.other_user.profilePic}
-                offering={trade.exchange}
-                totalXp={trade.total_xp}
-                deadline={trade.deadline_formatted}
-              />
-            </div>
+              name={trade.other_user.name}
+              username={trade.other_user.username}
+              profilePic={trade.other_user.profilePic}
+              offering={trade.exchange}
+              totalXp={trade.total_xp}
+              deadline={trade.deadline_formatted}
+            />
           ))
         )}
       </div>
