@@ -41,7 +41,7 @@ class OnboardingService:
             tradereq_id: The trade request ID to base recommendations on
             requester_id: The user ID of the requester
             limit: Maximum number of recommendations
-            
+           
         Returns:
             List of user recommendations with matching scores
         """
@@ -325,3 +325,101 @@ class OnboardingService:
         
         # Priority 4: Fallback
         return "Skills & Services"
+
+
+# Module-level convenience functions for views.py
+def get_onboarding_best_picks(user_id: int, limit: int = 6) -> List[Dict[str, Any]]:
+    """
+    Convenience wrapper for views to get onboarding recommendations.
+    Gets the user's MOST RECENT trade request and generates picks based on it.
+    """
+    try:
+        # Get user's most recent trade request
+        latest_request = TradeRequest.objects.filter(
+            requester_id=user_id
+        ).order_by('-reqsubdate').first()
+        
+        if not latest_request:
+            logger.warning(f"No trade requests found for user {user_id}")
+            return []
+        
+        service = OnboardingService()
+        return service.get_best_picks_for_request(
+            tradereq_id=latest_request.tradereq_id,
+            requester_id=user_id,
+            limit=limit
+        )
+    except Exception as e:
+        logger.error(f"Error in get_onboarding_best_picks: {e}", exc_info=True)
+        return []
+
+
+def create_interests_from_onboarding(user_id: int, tradereq_ids: List[int]) -> int:
+    """
+    Auto-create user interests based on selected trades during onboarding.
+    
+    Args:
+        user_id: The user's ID
+        tradereq_ids: List of trade request IDs user marked as interested
+        
+    Returns:
+        Number of interests created
+    """
+    try:
+        from accounts.models import TradeRequest, UserInterest, GenSkill
+        from django.contrib.auth import get_user_model
+        
+        User = get_user_model()
+        user = User.objects.get(id=user_id)
+        
+        created_count = 0
+        gen_skills_to_add = set()
+        
+        # Extract categories from selected trades
+        for tradereq_id in tradereq_ids:
+            try:
+                trade = TradeRequest.objects.get(tradereq_id=tradereq_id)
+                
+                # Extract keywords from trade name
+                keywords = extract_keywords(trade.reqname)
+                
+                # Find matching general skills
+                if keywords:
+                    for keyword in keywords:
+                        gen_skills = GenSkill.objects.filter(
+                            genCateg__icontains=keyword
+                        )[:2]  # Limit to 2 per keyword
+                        gen_skills_to_add.update(gen_skills)
+                
+                # Also add category if classified
+                if hasattr(trade, 'classified_category') and trade.classified_category:
+                    category_skills = GenSkill.objects.filter(
+                        genCateg__icontains=trade.classified_category
+                    )[:1]
+                    gen_skills_to_add.update(category_skills)
+                    
+            except TradeRequest.DoesNotExist:
+                logger.warning(f"Trade request {tradereq_id} not found")
+                continue
+        
+        # Create UserInterest entries
+        for gen_skill in gen_skills_to_add:
+            _, created = UserInterest.objects.get_or_create(
+                user_id=user,
+                genSkills_id=gen_skill
+            )
+            if created:
+                created_count += 1
+        
+        logger.info(f"✅ Created {created_count} interests for user {user_id}")
+        return created_count
+        
+    except User.DoesNotExist:
+        logger.error(f"User {user_id} not found")
+        return 0
+    except Exception as e:
+        logger.error(f"❌ Error creating interests: {e}", exc_info=True)
+        return 0
+
+
+__all__ = ["OnboardingService", "get_onboarding_best_picks", "create_interests_from_onboarding"]

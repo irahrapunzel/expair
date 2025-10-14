@@ -209,8 +209,6 @@ def _cos(vec1, vec2):
     
     return float(dot_product / (norm_v1 * norm_v2))
 
-# ...existing code...
-
 class EmbeddingService:
     """
     Lightweight wrapper around the module-level embedding functions.
@@ -227,6 +225,16 @@ class EmbeddingService:
     def generate(self, text: str) -> np.ndarray:
         return _generate_embedding(text)
 
+    # onboarding expects get_embedding(...)
+    def get_embedding(self, text: str) -> np.ndarray:
+        """Alias used by onboarding service."""
+        return _generate_embedding(text)
+
+    # expose cosine similarity with expected name
+    def cosine_similarity(self, vec1, vec2) -> float:
+        """Alias for cosine similarity used by onboarding."""
+        return _cos(vec1, vec2)
+
     def get_user_vec(self, user_id: int, text_fn):
         """Delegate to module-level get_user_vec."""
         return get_user_vec(user_id, text_fn)
@@ -236,4 +244,4 @@ class EmbeddingService:
         return get_trade_vec(trade_id, text_fn)
 
 # make explicit export
-__all__ = ["EmbeddingService", "get_user_vec", "get_trade_vec", "get_trade_vec", "get_user_vec"]
+__all__ = ["EmbeddingService", "get_user_vec", "get_trade_vec"]

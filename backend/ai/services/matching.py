@@ -286,3 +286,17 @@ def rank_explore_trades(for_user_id: int, top_k: int = 20) -> list:
     
     # Return top K
     return results[:top_k]
+
+class MatchingService:
+    """
+    Stub for matching service used by onboarding.
+    Add methods as needed.
+    """
+    def __init__(self):
+        pass
+
+    def find_matches(self, user_id, limit=10):
+        # Placeholder implementation
+        return []
+
+__all__ = ["MatchingService"]
