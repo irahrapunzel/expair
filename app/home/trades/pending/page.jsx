@@ -1528,7 +1528,7 @@ export default function PendingTradesPage() {
                                 </span>
                               )}
 
-                              <div className="flex items-center gap-[15px]">
+                              <div className="flex items-center gap-[15px] mb-[15px]">
                                 <div className="flex items-center gap-[5px]">
                                   <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
                                   <span className="text-[13px] font-bold text-white">
@@ -1663,7 +1663,7 @@ export default function PendingTradesPage() {
                         <div className="flex justify-between items-start gap-4 flex-wrap w-full">
                           {/* Needs */}
                           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
-                            <span className="text-sm text-white/80 font-medium">Needs</span>
+                            <span className="text-sm text-white/80 font-medium mb-[10px]">Needs</span>
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] 
                                         text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
@@ -1675,7 +1675,7 @@ export default function PendingTradesPage() {
 
                           {/* Can offer */}
                           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
-                            <span className="text-sm text-white/80 font-medium">Can offer</span>
+                            <span className="text-sm text-white/80 font-medium mb-[10px]" >Can offer</span>
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] 
                                         text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
@@ -1686,7 +1686,7 @@ export default function PendingTradesPage() {
                           </div>
                         </div>
                         {/* Date */}
-                        <div className="flex justify-end items-center w-full">
+                        <div className="flex justify-end mt-[15px] mb-[15px] items-center w-full">
                           <span className="text-[13px] text-white/60">
                             until {trade.until}
                           </span>
