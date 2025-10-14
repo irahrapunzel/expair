@@ -22,13 +22,12 @@ import cloudinary.uploader
 import cloudinary.api
 
 from dotenv import load_dotenv
-load_dotenv()
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -58,6 +57,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'ai'
 ]
 
 MIDDLEWARE = [
@@ -221,11 +221,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 # base directory of your Django project (where manage.py is)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# explicitly load the .env file from the root project folder
-load_dotenv(dotenv_path=BASE_DIR.parent / '.env')
+# # explicitly load the .env file from the root project folder
+# load_dotenv(dotenv_path=BASE_DIR.parent / '.env')
 
 # Cloudinary config
-import cloudinary
+# import cloudinary
 cloudinary.config(
     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
     api_key=os.environ.get('CLOUDINARY_API_KEY'),

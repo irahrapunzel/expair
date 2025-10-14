@@ -375,43 +375,25 @@ export default function ActiveTradesPage() {
 
 
   const handleTradeRating = async (ratingData) => {
-    if (!selectedTrade) return;
+  try {
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access}`,
+    };
 
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-rating/submit/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          trade_request_id: selectedTrade.tradereq_id,
-          rating: ratingData.rating,
-          review_description: ratingData.feedback
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Rating submitted successfully:", result);
-
-        // ✅ Remove trade from local state (user has rated)
-        setActiveTrades(prevTrades =>
-          prevTrades.filter(trade => trade.id !== selectedTrade.id)
-        );
-
-        // ✅ RETURN the result so success-dialog can use it
-        return result;
-
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to submit rating");
-      }
-    } catch (error) {
-      console.error("Error submitting rating:", error);
-      throw error; // Re-throw so success-dialog can catch it
-    }
-  };
+    // ✅ CALL AI ENDPOINT DIRECTLY (already handled in SuccessDialog)
+    // This function might not even be needed anymore since SuccessDialog
+    // now handles the API call internally
+    
+    // If you still want to use this handler, just return the data
+    // that SuccessDialog already submitted
+    return ratingData;
+    
+  } catch (error) {
+    console.error("Rating submission error:", error);
+    throw error;
+  }
+};
 
   const handleViewPartnerProof = async (trade) => {
     try {
@@ -1167,6 +1149,8 @@ export default function ActiveTradesPage() {
             offerTitle: selectedTrade?.offering,
             feedback: `This trade for ${selectedTrade?.requested} in exchange for ${selectedTrade?.offering} is well-balanced, with a high skill level required and moderate time commitment. The task complexity is fairly challenging, which makes this a valuable and rewarding exchange for both parties. Overall, it's a great match that promises meaningful growth and results.`
           }}
+          onTradeUpdate={(tradeRequestId) => updateActiveTrade(tradeRequestId)}
+          viewOnly={true}
         />
       )}
     </div>

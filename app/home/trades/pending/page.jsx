@@ -1843,9 +1843,9 @@ export default function PendingTradesPage() {
         tradeData={selectedTrade}
         onTradeUpdate={(tradeRequestId) => {
           updateFinalizationTrade(tradeRequestId);
-          // Also refresh all trades to update other sections
           refreshAllTrades(false);
         }}
+        viewOnly={false}
       />
     </div >
   );
