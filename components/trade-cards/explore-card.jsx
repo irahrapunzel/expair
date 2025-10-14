@@ -193,43 +193,17 @@ export default function ExploreCard({
             </div>
           </div>
 
-          {/* Menu */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              className="p-1 hover:bg-white/10 rounded-full transition-colors"
-            >
-              <Icon icon="mdi:dots-horizontal" className="text-white text-xl" />
-            </button>
-
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-20 shadow-lg overflow-hidden">
-                <button
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full transition-colors"
-                  onClick={handleReport}
-                >
-                  <Icon
-                    icon="mdi:alert-circle-outline"
-                    className="text-white text-base"
-                  />
-                  Report
-                </button>
-                <button
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full transition-colors"
-                  onClick={handleNotInterested}
-                >
-                  <Icon
-                    icon="mdi:eye-off-outline"
-                    className="text-white text-base"
-                  />
-                  Not Interested
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Report Button */}
+          <button
+            onClick={handleReport}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <Icon
+              icon="mdi:alert-circle-outline"
+              className="text-white text-base"
+            />
+            Report
+          </button>
         </div>
 
         {/* Needs + Offer */}
