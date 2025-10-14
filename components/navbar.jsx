@@ -206,27 +206,33 @@ export default function Navbar() {
                   <ProfileAvatar src={profileImage} size={25} />
                 </button>
               </DropdownMenuTrigger>
+
               <DropdownMenuContent
                 align="end"
-                className="bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]"
+                className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]`}
               >
                 <Link href={profileHref}>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">
                     <User className="w-4 h-4" />
                     Your profile
                   </DropdownMenuItem>
                 </Link>
+
                 <Link href={settingsHref}>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">
                     <Settings className="w-4 h-4" />
                     Settings
                   </DropdownMenuItem>
                 </Link>
+
                 <DropdownMenuItem
-                  className="text-red-400"
-                  onClick={handleLogout}
+                  className="flex items-center gap-2 text-red-400 data-[highlighted]:bg-transparent data-[highlighted]:text-red-300 cursor-pointer"
+                  onClick={() => {
+                    handleLogout();
+                  }}
                 >
-                  <LogOut className="w-4 h-4" /> Log out
+                  <LogOut className="w-4 h-4" />
+                  Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

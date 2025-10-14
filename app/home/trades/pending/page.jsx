@@ -889,7 +889,7 @@ export default function PendingTradesPage() {
                     </div>
 
                     {/* Date */}
-                    <div className="flex justify-end items-center w-full mb-[15px]">
+                    <div className="flex justify-end items-center w-full">
                       <span className="text-[13px] text-white/60">
                         until {trade.until}
                       </span>
@@ -918,7 +918,7 @@ export default function PendingTradesPage() {
                         </Tooltip>
                       </div>
                     ) : (
-                      <div className="w-full flex justify-start">
+                      <div className="w-full flex justify-start mt-[15px]">
                         <button
                           className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors mt-[-30px]"
                           onClick={() => handleViewClick(trade)}
