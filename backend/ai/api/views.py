@@ -200,8 +200,8 @@ def api_onboarding_picks(request):
         
         # Priority 5: Fallback to database skill (last resort)
         if not can_offer:
-            any_skill = GenSkill.objects.first()
-            can_offer = any_skill.genCateg if any_skill else "Skills & Services"
+            any_spec = SpecSkill.objects.first()
+            can_offer = any_spec.specName if any_spec else ""
         
         # Build the response item
         item_data = {
