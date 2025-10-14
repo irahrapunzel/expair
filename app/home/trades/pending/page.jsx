@@ -1148,26 +1148,20 @@ export default function PendingTradesPage() {
             No trades ready for confirmation yet.
           </div>
         ) : (
-          <div className="flex flex-wrap gap-[25px]">
+          <div className="flex flex-wrap justify-between gap-x-[30px] gap-y-[25px] w-full max-w-[940px]">
             {finalizationTrades.map((trade, index) => {
               const bothSubmitted =
                 trade.detailsStatus?.submission_status?.both_submitted;
               const isClickable = bothSubmitted;
+
               return (
-                <div
-                  key={trade.id}
-                  className={`relative ${isClickable ? "opacity-100" : "opacity-100"
-                    }`}
-                >
+                <div key={trade.id} className={`relative ${isClickable ? "opacity-100" : "opacity-100"}`}>
                   <div
                     className={`${expandedFinalizationCardId === trade.id
                       ? "w-[945px]"
-                      : "w-[440px]"
-                      } transition-all duration-300 hover:scale-[1.01] ${expandedFinalizationCardId === trade.id
-                        ? "h-auto"
-                        : "h-[240px]"
-                      } rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${isClickable ? "cursor-pointer" : "cursor-default"
-                      }`}
+                      : "w-[455px]"
+                    } transition-all duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${isClickable ? "cursor-pointer" : "cursor-default"
+                      } p-[25px] flex flex-col gap-[15px] relative`}
                     style={{
                       background:
                         "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
