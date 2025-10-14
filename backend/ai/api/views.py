@@ -275,7 +275,7 @@ def api_explore_feed(request):
         return error_response
     
     user_id = request.user.pk
-    top_k = int(request.GET.get('top_k', 20))
+    top_k = int(request.GET.get('top_k', 50))   
     cache_key = f"explore_feed_{user_id}_{top_k}"
     
     cached_data = cache.get(cache_key)
