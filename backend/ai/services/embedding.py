@@ -208,3 +208,32 @@ def _cos(vec1, vec2):
         return 0.0
     
     return float(dot_product / (norm_v1 * norm_v2))
+
+# ...existing code...
+
+class EmbeddingService:
+    """
+    Lightweight wrapper around the module-level embedding functions.
+    Provides common method names that callers often expect.
+    """
+    def __init__(self):
+        pass
+
+    def embed(self, text: str) -> np.ndarray:
+        """Return numpy embedding for text (alias)."""
+        return _generate_embedding(text)
+
+    # alternative common name
+    def generate(self, text: str) -> np.ndarray:
+        return _generate_embedding(text)
+
+    def get_user_vec(self, user_id: int, text_fn):
+        """Delegate to module-level get_user_vec."""
+        return get_user_vec(user_id, text_fn)
+
+    def get_trade_vec(self, trade_id: int, text_fn):
+        """Delegate to module-level get_trade_vec."""
+        return get_trade_vec(trade_id, text_fn)
+
+# make explicit export
+__all__ = ["EmbeddingService", "get_user_vec", "get_trade_vec", "get_trade_vec", "get_user_vec"]
