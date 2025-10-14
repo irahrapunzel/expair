@@ -560,7 +560,7 @@ useEffect(() => {
       </div>
 
       {/* Active Trade Cards Grid */}
-      <div className="w-full max-w-[940px] justify-between flex flex-wrap gap-[25px] mt-6">
+      <div className="w-full max-w-[940px] justify-between flex flex-wrap mt-6">
         {homeTradesLoading ? (
           <div className="text-white/60">Loading active trades...</div>
         ) : homeActiveTrades.length === 0 ? (
