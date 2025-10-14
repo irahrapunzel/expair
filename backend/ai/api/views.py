@@ -70,6 +70,7 @@ def api_onboarding_picks(request):
     """
     Get 6 best picks for user onboarding (SM1).
     Called after user completes signup and enters first trade request.
+    Also shows what each requester can offer based on skill matching.
     """
     available, error_response = check_ai_available()
     if not available:
@@ -120,6 +121,113 @@ def api_onboarding_picks(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+    
+    viewer = request.user if getattr(request, 'id', None) else None
+
+    items_with_matches = []
+    items_without_matches = []
+
+    for tr in qs:
+        requester = tr.requester
+        display_name = (f"{(requester.first_name or '').strip()} {(requester.last_name or '').strip()}").strip() or requester.username
+
+        needs = tr.reqname
+        profile_pic_url = requester.profilePic if requester.profilePic else None
+
+        # 🔧 IMPROVED SKILL MATCHING LOGIC
+        # Get all skills that the REQUESTER has (what they can offer)
+        requester_skills = UserSkill.objects.filter(
+            user_id=tr.requester.id
+        ).select_related("specSkills__genSkills_id")
+
+        # Build requester's skill categories
+        requester_gen_skills = {}  # {gen_skill_id: category_name}
+        requester_spec_skills = []  # List of specific skill names
+        
+        for skill in requester_skills:
+            if skill.specSkills:
+                requester_spec_skills.append(skill.specSkills.specName)
+                if skill.specSkills.genSkills_id:
+                    requester_gen_skills[skill.specSkills.genSkills_id.genskills_id] = skill.specSkills.genSkills_id.genCateg
+        
+        # Determine what the requester "can offer"
+        can_offer = ""
+        has_match = False
+        
+        if viewer:
+            # Get viewer's interests
+            viewer_interests = UserInterest.objects.filter(
+                user=viewer
+            ).values_list('genSkills_id_id', flat=True)
+            
+            # Priority 1: Match requester's skills with viewer's interests (BEST MATCH)
+            if viewer_interests and requester_gen_skills:
+                matching_skill_ids = set(viewer_interests) & set(requester_gen_skills.keys())
+                
+                if matching_skill_ids:
+                    # Use the first matching skill category
+                    matching_skill_id = list(matching_skill_ids)[0]
+                    can_offer = requester_gen_skills[matching_skill_id]
+                    has_match = True
+            
+            # Priority 2: Check if any requester's SPECIFIC skills are mentioned in viewer's request
+            if not can_offer and requester_spec_skills:
+                needs_lower = needs.lower()
+                for spec_skill in requester_spec_skills:
+                    if spec_skill.lower() in needs_lower:
+                        # Find the general category for this specific skill
+                        for skill in requester_skills:
+                            if skill.specSkills and skill.specSkills.specName == spec_skill:
+                                if skill.specSkills.genSkills_id:
+                                    can_offer = skill.specSkills.genSkills_id.genCateg
+                                    has_match = True
+                                    break
+                        if can_offer:
+                            break
+        
+        # Priority 3: Show requester's most prominent skill category
+        if not can_offer and requester_gen_skills:
+            # Get the most common skill category the requester has
+            can_offer = list(requester_gen_skills.values())[0]
+        
+        # Priority 4: Show first specific skill as general category
+        if not can_offer and requester_spec_skills:
+            # Find the category of the first specific skill
+            first_skill = requester_skills.first()
+            if first_skill and first_skill.specSkills and first_skill.specSkills.genSkills_id:
+                can_offer = first_skill.specSkills.genSkills_id.genCateg
+        
+        # Priority 5: Fallback to database skill (last resort)
+        if not can_offer:
+            any_skill = GenSkill.objects.first()
+            can_offer = any_skill.genCateg if any_skill else "Skills & Services"
+        
+        # Build the response item
+        item_data = {
+            "tradereq_id": tr.tradereq_id,
+            "requester_id": requester.id,
+            "name": display_name,
+            "rating": float(requester.avgStars or 0),
+            "ratingCount": int(requester.ratingCount or 0),
+            "level": int(requester.level or 0),
+            "need": needs,
+            "offer": can_offer,  # ✅ Will never be "—" now
+            "deadline": tr.reqdeadline.isoformat() if tr.reqdeadline else "",
+            "profilePicUrl": profile_pic_url,
+            "userId": requester.id,
+            "username": requester.username,
+        }
+        
+        # Separate items with matches from those without
+        if has_match:
+            items_with_matches.append(item_data)
+        else:
+            items_without_matches.append(item_data)
+
+    # Prioritize matches, then add others
+    all_items = items_with_matches + items_without_matches
+
+    return Response({"items": all_items}, status=200)
 
 
 @api_view(["POST"])
