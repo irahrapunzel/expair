@@ -54,9 +54,8 @@ export default function XpGainedDialog({
   const [showLevelUpFlash, setShowLevelUpFlash] = useState(false);
   const [displayLevel, setDisplayLevel] = useState(levelProp);
   const [xpGained, setXpGained] = useState(xpGainedProp);
-  const [currentTotalXp, setCurrentTotalXp] = useState(0);
+  const [currentTotalXp, setCurrentTotalXp] = useState(currentXpProp);
   const [previousTotalXp, setPreviousTotalXp] = useState(0);
-  const [level, setLevel] = useState(levelProp);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -68,7 +67,7 @@ export default function XpGainedDialog({
       setError("");
       
       try {
-        // 1) Get current user data to get current total XP
+        // 1) Get current user data
         const userResponse = await fetch(`${apiBase}/me/`, {
           headers: { Authorization: `Bearer ${authToken}` }
         });
@@ -81,8 +80,10 @@ export default function XpGainedDialog({
         const currentUserTotalXp = Number(userData?.tot_XpPts ?? 0);
         const userId = Number(userData?.user_id ?? userData?.id);
         
-        // 2) Get trade details to find XP gained for this specific trade
-        const tradeResponse = await fetch(`${apiBase}/trade-requests/${tradereqId}/details/`, {
+        console.log("[XP Dialog] Current user data:", { userId, currentUserTotalXp });
+        
+        // 2) Get trade details - ✅ FIXED ENDPOINT
+        const tradeResponse = await fetch(`${apiBase}/trade-details/${tradereqId}/`, {
           headers: { Authorization: `Bearer ${authToken}` }
         });
         
@@ -91,21 +92,31 @@ export default function XpGainedDialog({
         }
         
         const tradeData = await tradeResponse.json();
+        console.log("[XP Dialog] Trade data:", tradeData);
         
-        // Find the current user's trade detail record
-        const userTradeDetail = tradeData?.details?.find(
-          detail => Number(detail.user_id) === userId
+        // ✅ FIXED: Get PARTNER's trade detail (not your own)
+        // You receive XP from what your partner submitted
+        const partnerTradeDetail = tradeData?.details?.find(
+          detail => Number(detail.user_id) !== userId
         );
         
-        if (!userTradeDetail) {
-          throw new Error("Could not find user's trade details");
+        if (!partnerTradeDetail) {
+          console.error("[XP Dialog] Could not find partner's trade details");
+          throw new Error("Could not find partner's trade details");
         }
         
-        const tradeXpGained = Number(userTradeDetail.total_xp || 0);
+        const tradeXpGained = Number(partnerTradeDetail.total_xp || 0);
+        console.log("[XP Dialog] Partner's XP (what you gained):", tradeXpGained);
         
         // Calculate previous total XP (before this trade)
-        const previousXp = currentUserTotalXp - tradeXpGained; // Fixed: subtract XP gained to get previous
-        const afterTotal = currentUserTotalXp; // Current total is what we have now
+        const previousXp = Math.max(0, currentUserTotalXp - tradeXpGained);
+        const afterTotal = currentUserTotalXp;
+
+        console.log("[XP Dialog] XP calculation:", {
+          previousXp,
+          afterTotal,
+          gained: tradeXpGained
+        });
 
         // Set state values
         setXpGained(tradeXpGained);
@@ -114,8 +125,14 @@ export default function XpGainedDialog({
         
         // Calculate level based on previous XP for initial display
         const initialLevelData = deriveFromTotalXp(previousXp);
+        const finalLevelData = deriveFromTotalXp(afterTotal);
+        
+        console.log("[XP Dialog] Level data:", {
+          initialLevel: initialLevelData.level,
+          finalLevel: finalLevelData.level
+        });
+        
         setDisplayLevel(initialLevelData.level);
-        setLevel(levelData.level);
         
       } catch (err) {
         console.error("[XP Dialog] Error fetching XP data:", err);
@@ -123,30 +140,38 @@ export default function XpGainedDialog({
         
         // Fallback to props if API fails
         setXpGained(xpGainedProp);
-        setLevel(levelProp);
         setCurrentTotalXp(currentXpProp);
-        setPreviousTotalXp(Math.max(0, currentXpProp - xpGainedProp)); // Set reasonable fallback
+        setPreviousTotalXp(Math.max(0, currentXpProp - xpGainedProp));
+        
+        const fallbackLevelData = deriveFromTotalXp(Math.max(0, currentXpProp - xpGainedProp));
+        setDisplayLevel(fallbackLevelData.level);
       } finally {
         setLoading(false);
       }
     };
 
     fetchXpData();
-  }, [isOpen, authToken, tradereqId, apiBase, xpGainedProp, levelProp, currentXpProp]);
+  }, [isOpen, authToken, tradereqId, apiBase, xpGainedProp, currentXpProp]);
 
   // Calculate level progress using current total XP
   const levelData = deriveFromTotalXp(currentTotalXp);
   const beforeData = deriveFromTotalXp(previousTotalXp);
   
-  // Calculate progress percentages with proper carry-over logic
+  console.log("[XP Dialog] Progress calculation:", {
+    currentTotalXp,
+    previousTotalXp,
+    levelData,
+    beforeData
+  });
+  
+  // Calculate progress percentages
   let progressFrom = beforeData.levelWidth ? Math.max(0, Math.min(100, (beforeData.xpInLevel / beforeData.levelWidth) * 100)) : 0;
   let progressTo = levelData.levelWidth ? Math.max(0, Math.min(100, (levelData.xpInLevel / levelData.levelWidth) * 100)) : 0;
   
-  // If we leveled up, show the animation filling to 100% first, then reset to new level progress
+  // If we leveled up, show the animation filling to 100% first
   const didLevelUp = levelData.level > beforeData.level;
   if (didLevelUp && progressFrom !== 100) {
-    // We'll animate to 100% first, then to the actual progress in the new level
-    progressTo = 100; // First animation goes to 100%
+    progressTo = 100;
   }
 
   // Animation effects
@@ -190,14 +215,14 @@ export default function XpGainedDialog({
         
         // Step 1: Fill current level to 100%
         const fillTimeout = setTimeout(() => setAnimatedWidth(100), timeOffset);
-        timeOffset += 600; // Wait for fill animation
+        timeOffset += 600;
         
         // Step 2: Flash effect and level up
         const flashTimeout = setTimeout(() => {
           setShowLevelUpFlash(true);
           setShowBurst(true);
         }, timeOffset);
-        timeOffset += 300; // Short flash duration
+        timeOffset += 300;
         
         // Step 3: Update level and reset bar to 0
         const resetTimeout = setTimeout(() => {
@@ -205,7 +230,7 @@ export default function XpGainedDialog({
           setDisplayLevel(levelData.level);
           setAnimatedWidth(0);
         }, timeOffset);
-        timeOffset += 200; // Brief pause at 0
+        timeOffset += 200;
         
         // Step 4: Fill to final progress in new level
         const finalFillTimeout = setTimeout(() => {
@@ -222,7 +247,7 @@ export default function XpGainedDialog({
         };
       } else {
         // Normal progress animation (no level up)
-        const barTimeout = setTimeout(() => setAnimatedWidth(finalProgress), 800);
+        const barTimeout = setTimeout(() => setAnimatedWidth(progressTo), 800);
         const burstTimeout = setTimeout(() => setShowBurst(true), 1200);
 
         return () => {
@@ -241,7 +266,7 @@ export default function XpGainedDialog({
       setShowLevelUpFlash(false);
       setDisplayLevel(levelProp);
     }
-  }, [isOpen, xpGained, progressFrom, loading, levelData.level, beforeData.level, levelData.levelWidth, levelData.xpInLevel, levelProp]);
+  }, [isOpen, xpGained, progressFrom, progressTo, loading, levelData.level, beforeData.level, levelData.levelWidth, levelData.xpInLevel, levelProp]);
 
   if (!isOpen) return null;
 
@@ -268,13 +293,11 @@ export default function XpGainedDialog({
 
         <div className="flex flex-col items-center gap-[40px] w-[470px]">
           {loading ? (
-            // Loading state
             <div className="flex flex-col items-center gap-4">
               <Icon icon="lucide:loader-2" className="w-8 h-8 text-white animate-spin" />
               <p className="text-white text-center">Loading your XP...</p>
             </div>
           ) : error ? (
-            // Error state
             <div className="flex flex-col items-center gap-4">
               <Icon icon="lucide:alert-circle" className="w-8 h-8 text-red-400" />
               <p className="text-red-400 text-center">{error}</p>
@@ -341,7 +364,6 @@ export default function XpGainedDialog({
                           : "0px 0px 20px rgba(126, 89, 248, 0.6)") : "none"
                       }}
                     >
-                      {/* Inner glow effect */}
                       <div 
                         className="absolute inset-0 rounded-[100px] opacity-60"
                         style={{
@@ -349,7 +371,6 @@ export default function XpGainedDialog({
                         }}
                       />
 
-                      {/* Shimmer effect */}
                       {animatedWidth > 10 && (
                         <div className="absolute inset-0 rounded-[100px] overflow-hidden">
                           <div 
@@ -362,7 +383,6 @@ export default function XpGainedDialog({
                         </div>
                       )}
 
-                      {/* Pulse effect at the end */}
                       {animatedWidth > 5 && (
                         <div 
                           className="absolute top-1/2 right-0 w-[8px] h-[8px] rounded-full opacity-90"
@@ -378,7 +398,6 @@ export default function XpGainedDialog({
                   </div>
                   
                   <span className="text-[16px] text-white">
-                    {/* Show current level's XP during animation, final level's XP when done */}
                     {displayLevel === levelData.level ? 
                       `${levelData.xpInLevel}/${levelData.levelWidth}` : 
                       `${beforeData.xpInLevel}/${beforeData.levelWidth}`
@@ -390,7 +409,6 @@ export default function XpGainedDialog({
           )}
         </div>
 
-        {/* Add keyframes for animations */}
         <style jsx>{`
           @keyframes burst {
             0% {

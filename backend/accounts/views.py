@@ -3766,68 +3766,6 @@ def get_trade_rating_status(request, tradereq_id):
         print(f"Get rating status error: {str(e)}")
         return Response({"error": f"Failed to get rating status: {str(e)}"}, status=500)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def award_trade_xp(request, tradereq_id: int):
-    """
-    Awards XP to the current user for this trade.
-    XP comes from the PARTNER's trade detail (their complexity = your reward).
-    This endpoint is now redundant since XP is awarded during rating submission,
-    but kept for potential manual admin use or edge cases.
-    """
-    try:
-        trade_request = TradeRequest.objects.select_related('requester','responder').get(tradereq_id=tradereq_id)
-        
-        if request.user not in [trade_request.requester, trade_request.responder]:
-            return Response({"error":"Not authorized for this trade"}, status=403)
-
-        # Has current user rated?
-        rep = ReputationSystem.objects.filter(trade_request=trade_request).first()
-        if not rep:
-            return Response({"error":"No rating record yet"}, status=400)
-
-        current_user_is_requester = (request.user == trade_request.requester)
-        has_rated = (rep.requester_starcount is not None) if current_user_is_requester else (rep.responder_starcount is not None)
-        
-        if not has_rated:
-            return Response({"error":"You must submit a rating first"}, status=400)
-
-        # Determine partner
-        partner_user = trade_request.responder if current_user_is_requester else trade_request.requester
-        
-        # Get PARTNER's trade detail (their complexity = your XP)
-        partner_detail = TradeDetail.objects.filter(
-            trade_request=trade_request, 
-            user=partner_user
-        ).first()
-        
-        if not partner_detail:
-            return Response({"error":"Partner's trade detail not found"}, status=404)
-        
-        # Award XP from partner's complexity
-        gained = int(partner_detail.total_xp or 0)
-        request.user.tot_XpPts = int(request.user.tot_XpPts or 0) + gained
-        request.user.level = max(1, (request.user.tot_XpPts // 1000) + 1)
-        request.user.save()
-
-        return Response({
-            "message": "XP awarded from partner's trade complexity",
-            "updated_users": [{
-                "user_id": request.user.id, 
-                "xp_gained": gained,
-                "new_total_xp": request.user.tot_XpPts,
-                "new_level": request.user.level
-            }]
-        }, status=200)
-        
-    except TradeRequest.DoesNotExist:
-        return Response({"error":"Trade not found"}, status=404)
-    except Exception as e:
-        print(f"Award XP error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return Response({"error": f"Failed to award XP: {e}"}, status=500)
-
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def user_reviews(request, user_id: int):
