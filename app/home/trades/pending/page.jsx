@@ -955,32 +955,55 @@ export default function PendingTradesPage() {
         <h2 className="text-[20px] font-medium mb-5 text-[#FB9696]">
           Trades you're interested in
         </h2>
+
         {initiatedTrades.length === 0 ? (
           <div className="text-white/60 text-center py-8">
             You haven't expressed interest in any trades yet.
           </div>
         ) : (
-          <div className="flex flex-wrap gap-[25px]">
+          // ✅ Two cards per row, left-right aligned
+          <div className="flex flex-wrap justify-between gap-y-[25px] w-full max-w-[940px]">
+
             {initiatedTrades.map((trade, index) => (
-              <div
-                key={trade.id}
-                className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#FB9696]/80"
-                style={{
-                  background:
-                    "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
-                  boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
-                }}
-              >
-                {/* Trade Header */}
-                <div className="flex justify-between items-start w-full">
-                  <div className="flex items-start gap-[10px]">
-                    {/* Clickable Profile Picture */}
-                    {trade.requester?.username ? (
-                      <Link
-                        href={`/home/profile/${trade.requester.username}`}
-                        className="flex-shrink-0"
-                      >
-                        <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#FB9696] transition-all">
+              <div key={trade.id} className="relative">
+                <div
+                  className="w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
+                  style={{
+                    background:
+                      "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
+                    boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
+                  }}
+                >
+                  {/* Trade Header */}
+                  <div className="flex justify-between items-start w-full">
+                    <div className="flex items-start gap-[10px]">
+                      {/* Clickable Profile Picture */}
+                      {trade.requester?.username ? (
+                        <Link
+                          href={`/home/profile/${trade.requester.username}`}
+                          className="flex-shrink-0"
+                        >
+                          <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#FB9696] transition-all">
+                            <Image
+                              src={
+                                trade.requester?.profile_pic ||
+                                "/assets/defaultavatar.png"
+                              }
+                              alt={`${trade.name}'s profile picture`}
+                              width={25}
+                              height={25}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = "/assets/defaultavatar.png";
+                              }}
+                              unoptimized={trade.requester?.profile_pic?.startsWith(
+                                "http"
+                              )}
+                            />
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
                           <Image
                             src={
                               trade.requester?.profile_pic ||
@@ -998,136 +1021,117 @@ export default function PendingTradesPage() {
                             )}
                           />
                         </div>
-                      </Link>
-                    ) : (
-                      <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
-                        <Image
-                          src={
-                            trade.requester?.profile_pic ||
-                            "/assets/defaultavatar.png"
-                          }
-                          alt={`${trade.name}'s profile picture`}
-                          width={25}
-                          height={25}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = "/assets/defaultavatar.png";
-                          }}
-                          unoptimized={trade.requester?.profile_pic?.startsWith(
-                            "http"
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex flex-col items-start gap-[5px]">
-                      {/* Clickable Name */}
-                      {trade.requester?.username ? (
-                        <Link
-                          href={`/home/profile/${trade.requester.username}`}
-                          className="text-[16px] text-white hover:text-[#FB9696] transition-colors cursor-pointer"
-                        >
-                          <span>{trade.name}</span>
-                        </Link>
-                      ) : (
-                        <span className="text-[16px] text-white">
-                          {trade.name}
-                        </span>
                       )}
 
-                      <div className="flex items-center gap-[15px]">
-                        <div className="flex items-center gap-[5px]">
-                          <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
-                          <span className="text-[13px] font-bold text-white">
-                            {trade.rating} ({trade.reviews})
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-[3px]">
+                      <div className="flex flex-col items-start gap-[5px]">
+                        {/* Clickable Name */}
+                        {trade.requester?.username ? (
+                          <Link
+                            href={`/home/profile/${trade.requester.username}`}
+                            className="text-[16px] text-white hover:text-[#FB9696] transition-colors cursor-pointer"
+                          >
+                            <span>{trade.name}</span>
+                          </Link>
+                        ) : (
+                          <span className="text-[16px] text-white">{trade.name}</span>
+                        )}
+
+                        <div className="flex items-center gap-[15px]">
                           <div className="flex items-center gap-[5px]">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="12"
-                              height="13"
-                              viewBox="0 0 12 13"
-                              fill="none"
-                            >
-                              <path
-                                d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
-                                fill="url(#paint0_radial_1202_2090)"
-                                stroke="url(#paint1_linear_1202_2090)"
-                                strokeWidth="1.5"
-                              />
-                              <defs>
-                                <radialGradient
-                                  id="paint0_radial_1202_2090"
-                                  cx="0"
-                                  cy="0"
-                                  r="1"
-                                  gradientUnits="userSpaceOnUse"
-                                  gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
-                                >
-                                  <stop offset="0.4" stopColor="#933BFF" />
-                                  <stop offset="1" stopColor="#34188D" />
-                                </radialGradient>
-                                <linearGradient
-                                  id="paint1_linear_1202_2090"
-                                  x1="6.00002"
-                                  y1="0.0778344"
-                                  x2="6.00002"
-                                  y2="13.2525"
-                                  gradientUnits="userSpaceOnUse"
-                                >
-                                  <stop stopColor="white" />
-                                  <stop offset="0.5" stopColor="#999999" />
-                                  <stop offset="1" stopColor="white" />
-                                </linearGradient>
-                              </defs>
-                            </svg>
-                            <span className="text-[13px] text-white">
-                              LVL {trade.level}
+                            <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
+                            <span className="text-[13px] font-bold text-white">
+                              {trade.rating} ({trade.reviews})
                             </span>
+                          </div>
+                          <div className="flex flex-col gap-[3px]">
+                            <div className="flex items-center gap-[5px]">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="12"
+                                height="13"
+                                viewBox="0 0 12 13"
+                                fill="none"
+                              >
+                                <path
+                                  d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
+                                  fill="url(#paint0_radial_1202_2090)"
+                                  stroke="url(#paint1_linear_1202_2090)"
+                                  strokeWidth="1.5"
+                                />
+                                <defs>
+                                  <radialGradient
+                                    id="paint0_radial_1202_2090"
+                                    cx="0"
+                                    cy="0"
+                                    r="1"
+                                    gradientUnits="userSpaceOnUse"
+                                    gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
+                                  >
+                                    <stop offset="0.4" stopColor="#933BFF" />
+                                    <stop offset="1" stopColor="#34188D" />
+                                  </radialGradient>
+                                  <linearGradient
+                                    id="paint1_linear_1202_2090"
+                                    x1="6.00002"
+                                    y1="0.0778344"
+                                    x2="6.00002"
+                                    y2="13.2525"
+                                    gradientUnits="userSpaceOnUse"
+                                  >
+                                    <stop stopColor="white" />
+                                    <stop offset="0.5" stopColor="#999999" />
+                                    <stop offset="1" stopColor="white" />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+                              <span className="text-[13px] text-white">
+                                LVL {trade.level}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
+                    <div className="relative"></div>
                   </div>
-                  <div className="relative"></div>
-                </div>
 
-                {/* Needs/Offers Section */}
-                <div className="flex justify-between items-start w-full flex-wrap gap-4">
-                  {/* Needs */}
-                  <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
-                    <span className="text-sm text-white/80 font-medium">Needs</span>
-                    <div
-                      className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
-                      title={trade.needs}
-                    >
-                      {trade.needs}
+                  {/* Needs/Offers Section */}
+                  <div className="flex justify-between items-start w-full flex-wrap gap-4">
+                    {/* Needs */}
+                    <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
+                      <span className="text-sm text-white/80 font-medium">Needs</span>
+                      <div
+                        className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                        title={trade.needs}
+                      >
+                        {trade.needs}
+                      </div>
+                    </div>
+
+                    {/* Can offer */}
+                    <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
+                      <span className="text-sm text-white/80 font-medium">
+                        Can offer
+                      </span>
+                      <div
+                        className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                        title={trade.offers}
+                      >
+                        {trade.offers}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Can offer */}
-                  <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
-                    <span className="text-sm text-white/80 font-medium">Can offer</span>
-                    <div
-                      className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
-                      title={trade.offers}
-                    >
-                      {trade.offers}
-                    </div>
+                  {/* Status and Date */}
+                  <div className="flex justify-between items-center w-full">
+                    <span className="text-[13px] text-white/60">
+                      {trade.status}
+                    </span>
+                    <span className="text-[13px] text-white/60">
+                      until {trade.until}
+                    </span>
                   </div>
-                </div>
-
-                {/* Status and Date */}
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-[13px] text-white/60">
-                    {trade.status}
-                  </span>
-                  <span className="text-[13px] text-white/60">
-                    until {trade.until}
-                  </span>
-                </div>
+                </div> {/* ✅ properly closed inner card div */}
               </div>
             ))}
           </div>
