@@ -54,6 +54,15 @@ class OnboardingService:
             
             request_text = trade_request.reqname
             request_deadline = trade_request.reqdeadline
+
+            # Requester's interest categories (used to prefer shared interests)
+            requester_cats = set()
+            try:
+                for ui in trade_request.requester.userinterest_set.select_related('genSkills_id').all():
+                    if ui.genSkills_id and ui.genSkills_id.genCateg:
+                        requester_cats.add(ui.genSkills_id.genCateg)
+            except Exception:
+                requester_cats = set()
             
             logger.info(f"🎯 Generating personalized picks for request: '{request_text}'")
             
@@ -109,6 +118,13 @@ class OnboardingService:
                     user=user,
                     request_text=request_text,
                     keywords=keywords
+                )
+
+                can_offer = self._determine_offer_skill(
+                    user=user,
+                    request_text=request_text,
+                    keywords=keywords,
+                    requester_interest_cats=requester_cats
                 )
 
                 # Defensive fallback to match explore_feed behavior
@@ -285,55 +301,69 @@ class OnboardingService:
         
         return score
     
-    def _determine_offer_skill(
-        self,
-        user: User,
-        request_text: str,
-        keywords: List[str]
-    ) -> str:
-        """
-        Determine what skill category the user can offer based on request context.
-        
-        Priority:
-        1. Specific skill mentioned in request
-        2. Keyword match in user skills
-        3. First available skill category
-        4. Fallback to generic
-        """
-        user_skills = list(user.userskill_set.select_related(
-            'specSkills__genSkills_id'
-        ).all())
-        
-        if not user_skills:
-            return "Skills & Services"
-        
-        request_lower = request_text.lower()
-        
-        # Priority 1: Specific skill name mentioned in request
+def _determine_offer_skill(
+    self,
+    user: User,
+    request_text: str,
+    keywords: List[str],
+    requester_interest_cats: Optional[set] = None
+) -> str:
+    """
+    Determine what skill category the user can offer based on request context.
+    """
+    user_skills = list(user.userskill_set.select_related(
+        'specSkills__genSkills_id'
+    ).all())
+
+    if not user_skills:
+        return "Skills & Services"
+
+    request_lower = request_text.lower()
+
+    # Priority 1: Specific skill name mentioned in request
+    for skill in user_skills:
+        if skill.specSkills:
+            skill_name_lower = skill.specSkills.specName.lower()
+            if skill_name_lower in request_lower:
+                if skill.specSkills.genSkills_id:
+                    return skill.specSkills.genSkills_id.genCateg
+
+    # Priority 2: Keyword match
+    if keywords:
         for skill in user_skills:
             if skill.specSkills:
                 skill_name_lower = skill.specSkills.specName.lower()
-                if skill_name_lower in request_lower:
-                    if skill.specSkills.genSkills_id:
-                        return skill.specSkills.genSkills_id.genCateg
-        
-        # Priority 2: Keyword match
-        if keywords:
-            for skill in user_skills:
-                if skill.specSkills:
-                    skill_name_lower = skill.specSkills.specName.lower()
-                    for kw in keywords:
-                        if kw.lower() in skill_name_lower:
-                            if skill.specSkills.genSkills_id:
-                                return skill.specSkills.genSkills_id.genCateg
-        
-        # Priority 3: First available category
-        first_skill = user_skills[0]
-        if first_skill.specSkills and first_skill.specSkills.genSkills_id:
-            return first_skill.specSkills.genSkills_id.genCateg
-        
-        # Priority 4: Fallback
-        return "Skills & Services"
+                for kw in keywords:
+                    if kw.lower() in skill_name_lower:
+                        if skill.specSkills.genSkills_id:
+                            return skill.specSkills.genSkills_id.genCateg
+
+    # Priority 2.5: Shared / user interests
+    try:
+        user_interest_cats = []
+        for ui in user.userinterest_set.select_related('genSkills_id').all():
+            if ui.genSkills_id and ui.genSkills_id.genCateg:
+                user_interest_cats.append(ui.genSkills_id.genCateg)
+
+        # If both requester and user share an interest, prefer that category
+        if requester_interest_cats:
+            for cat in user_interest_cats:
+                if cat in requester_interest_cats:
+                    return cat
+
+        # Otherwise, if the user has any interest, use the first one
+        if user_interest_cats:
+            return user_interest_cats[0]
+    except Exception:
+        pass
+
+    # Priority 3: First available category
+    first_skill = user_skills[0]
+    if first_skill.specSkills and first_skill.specSkills.genSkills_id:
+        return first_skill.specSkills.genSkills_id.genCateg
+
+    # Priority 4: Fallback
+    return "Skills & Services"
 
 
 # Module-level convenience functions for views.py
