@@ -14,22 +14,23 @@ import { useRouter } from "next/navigation";
 
 export default function RegisterFlow() {
   const [step, setStep] = useState(1);
+  const [tradereqId, setTradereqId] = useState(null); // store tradereq_id from Onboarding1
   const router = useRouter();
   const { data: session, status } = useSession();
 
   const completeRegistration = async () => {
-  try {
-    setIsRegistering(false);
-    sessionStorage.removeItem('registrationComplete');
-    sessionStorage.removeItem('userEmail');
-    
-    // User is already signed in from step 6, just redirect
-    router.push("/home");
-  } catch (error) {
-    console.error("Navigation error:", error);
-    router.push("/signin?message=session_error");
-  }
-};
+    try {
+      setIsRegistering(false);
+      sessionStorage.removeItem('registrationComplete');
+      sessionStorage.removeItem('userEmail');
+
+      // User is already signed in from step 6, just redirect
+      router.push("/home");
+    } catch (error) {
+      console.error("Navigation error:", error);
+      router.push("/signin?message=session_error");
+    }
+  };
 
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -245,21 +246,21 @@ export default function RegisterFlow() {
                 ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/complete-registration/`
                 : "/api/dj/complete-registration/";
 
-                console.log("=== SUBMITTING REGISTRATION ===");
-                console.log("API URL:", apiUrl);
-                console.log("FormData contents:");
-                for (let [key, value] of formData.entries()) {
-                  if (value instanceof File) {
-                    console.log(`  ${key}: [File] ${value.name} (${value.size} bytes)`);
-                  } else {
-                    console.log(`  ${key}:`, value);
-                  }
+              console.log("=== SUBMITTING REGISTRATION ===");
+              console.log("API URL:", apiUrl);
+              console.log("FormData contents:");
+              for (let [key, value] of formData.entries()) {
+                if (value instanceof File) {
+                  console.log(`  ${key}: [File] ${value.name} (${value.size} bytes)`);
+                } else {
+                  console.log(`  ${key}:`, value);
                 }
+              }
 
-                const response = await fetch(apiUrl, {
-                  method: "POST",
-                  body: formData,
-                });
+              const response = await fetch(apiUrl, {
+                method: "POST",
+                body: formData,
+              });
 
               const data = await response.json();
 
@@ -295,8 +296,24 @@ export default function RegisterFlow() {
         />
       )}
 
-      {step === 7 && <Onboarding1 onNext={() => setStep(8)} onPrev={() => setStep(6)} />}
-      {step === 8 && <Onboarding2 onNext={completeRegistration} onPrev={() => setStep(7)} />}
+      {step === 7 && (
+        <Onboarding1
+          // Onboarding1 should return the created tradereq_id via onNext(id)
+          onNext={(id) => {
+            setTradereqId(id);
+            setStep(8);
+          }}
+          onPrev={() => setStep(6)}
+        />
+      )}
+
+      {step === 8 && (
+        <Onboarding2
+          tradereqId={tradereqId} // pass the tradereq_id so picks are personalized
+          onNext={completeRegistration}
+          onPrev={() => setStep(7)}
+        />
+      )}
     </div>
   );
 }

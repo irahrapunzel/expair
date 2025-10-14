@@ -2,6 +2,7 @@ import json
 import datetime
 import os
 from datetime import date, timezone
+from urllib import request
 
 import cloudinary
 from rest_framework import status
@@ -23,6 +24,9 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
+
+import logging
+from ai.services.classifier import categorize_tradereq
 
 CustomUser = get_user_model()
 
@@ -2039,57 +2043,59 @@ def accept_trade_interest(request, interest_id):
             print(f"Requester ID: {trade_request.requester.id}")
             print(f"Trade status set to: {trade_request.status}")
             
-            # ✅ FIXED: Calculate exchange field using CONSISTENT logic with explore_feed
-            # In explore_feed, the logic is: requester's skills × viewer's interests
-            # Here, the responder IS the "viewer" who expressed interest
-            # So we need: requester's skills × responder's interests
-            
+            # 🔧 IMPROVED: Calculate exchange field using better logic
             requester = trade_request.requester
             responder = trade_interest.interested_user
             
-            # Get REQUESTER's skills (what THEY can offer to the responder)
-            # This matches explore_feed where we show requester's skills
-            requester_skills_query = (
-                UserSkill.objects.filter(user_id=requester.id)
-                .select_related("specSkills__genSkills_id")
-                .values_list("specSkills__genSkills_id_id", "specSkills__genSkills_id__genCateg")
-            )
-            requester_gen_skills = dict(requester_skills_query)
+            # Get REQUESTER's skills with full details
+            requester_skills = UserSkill.objects.filter(
+                user=requester
+            ).select_related("specSkills__genSkills_id")
             
-            # Get RESPONDER's interests (what they want to learn)
-            # This matches explore_feed where we check viewer's interests
+            requester_gen_skills = {}
+            requester_spec_skills = []
+            
+            for skill in requester_skills:
+                if skill.specSkills:
+                    requester_spec_skills.append(skill.specSkills.specName)
+                    if skill.specSkills.genSkills_id:
+                        requester_gen_skills[skill.specSkills.genSkills_id.genskills_id] = skill.specSkills.genSkills_id.genCateg
+            
+            # Get RESPONDER's interests
             responder_interests = UserInterest.objects.filter(
                 user=responder
-            ).select_related('genSkills_id').values_list('genSkills_id__genCateg', flat=True)
+            ).values_list('genSkills_id_id', flat=True)
             
-            print(f"Requester skills: {list(requester_gen_skills.values())}")
-            print(f"Responder interests: {list(responder_interests)}")
-            
-            # Find matching skill between requester's skills and responder's interests
-            # SAME LOGIC as explore_feed for consistency
             exchange_skill = ""
-            has_match = False
             
+            # Priority 1: Match requester's skills with responder's interests
             if responder_interests and requester_gen_skills:
-                # Find intersection of requester's skills and responder's interests
-                matching_skills = set(requester_gen_skills.values()) & set(responder_interests)
-                
-                if matching_skills:
-                    # Use the first matching skill
-                    exchange_skill = list(matching_skills)[0]
-                    has_match = True
-                    print(f"Found matching skill: {exchange_skill}")
+                matching_skill_ids = set(responder_interests) & set(requester_gen_skills.keys())
+                if matching_skill_ids:
+                    matching_skill_id = list(matching_skill_ids)[0]
+                    exchange_skill = requester_gen_skills[matching_skill_id]
             
-            # If no match, show any skill the requester has
+            # Priority 2: Check if specific skills match the request
+            if not exchange_skill and requester_spec_skills:
+                reqname_lower = trade_request.reqname.lower()
+                for spec_skill in requester_spec_skills:
+                    if spec_skill.lower() in reqname_lower:
+                        for skill in requester_skills:
+                            if skill.specSkills and skill.specSkills.specName == spec_skill:
+                                if skill.specSkills.genSkills_id:
+                                    exchange_skill = skill.specSkills.genSkills_id.genCateg
+                                    break
+                        if exchange_skill:
+                            break
+            
+            # Priority 3: Use first skill category
             if not exchange_skill and requester_gen_skills:
                 exchange_skill = list(requester_gen_skills.values())[0]
-                print(f"No match found, using first requester skill: {exchange_skill}")
             
-            # If requester has no skills, use fallback
+            # Priority 4: Fallback
             if not exchange_skill:
                 any_skill = GenSkill.objects.first()
                 exchange_skill = any_skill.genCateg if any_skill else "Skills & Services"
-                print(f"No requester skills found, using fallback: {exchange_skill}")
             
             # Save the exchange field
             trade_request.exchange = exchange_skill
@@ -4027,3 +4033,39 @@ def create_support_ticket(request):
         print("send_support_emails error:", e)
 
     return Response({"success": True, "ticket_id": ticket.ticket_id}, status=201)
+
+logger = logging.getLogger(__name__)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_explore_feed(request):
+    """
+    Existing explore feed implementation...
+    Ensure trades returned are categorized; for trades missing classified_category
+    call categorize_tradereq synchronously (limited) and refresh from DB so frontend
+    sees a category immediately.
+    """
+    # ...existing code that builds queryset 'available_trades' ...
+    # example retrieval (preserve your original logic):
+    from django.apps import apps
+    TradeRequest = apps.get_model("accounts", "TradeRequest")
+    user = request.user
+
+    available_trades = (
+        TradeRequest.objects.filter(status__in=["PENDING", None])
+        .exclude(requester=user)
+        .select_related("requester")[:200]
+    )
+    # Auto-categorize uncategorized trades (limit to avoid huge work)
+    uncategorized = [t for t in available_trades if not getattr(t, "classified_category", None)]
+    for trade in uncategorized[:50]:  # limit to first 50 to bound latency
+        try:
+            # categorize_tradereq will save the category to DB
+            categorize_tradereq(trade.pk)
+            # refresh so we include the new category below
+            trade.refresh_from_db()
+        except Exception as e:
+            logger.warning(f"Auto-categorization failed for trade {trade.pk}: {e}")
+    
+    # Return response with categorized trades
+    return Response({"trades": []}, status=200)

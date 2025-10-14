@@ -775,7 +775,7 @@ useEffect(() => {
         </div>
 
         {/* Search Input */}
-        <div className="w-full max-w-[940px] mb-8">
+        <div className="w-full max-w-[945px] mb-8">
           <div className="w-full h-[50px] bg-[#120A2A] rounded-[15px] px-[14px] py-[8px] flex items-center border border-[rgba(255,255,255,0.40)]">
             <Icon icon="lucide:search" className="text-white mr-2 text-xl" />
             <input
@@ -788,7 +788,7 @@ useEffect(() => {
           </div>
         </div>
         {/* Explore Cards Grid */}
-        <div className="flex flex-wrap justify-start gap-x-[25px] gap-y-[25px] w-full max-w-[940px]">
+        <div className="flex flex-wrap justify-between gap-y-[25px] w-full max-w-[940px]">
           {exploreErr ? (
             <div className="w-full py-4 text-red-400">{exploreErr}</div>
           ) : exploreLoading ? (

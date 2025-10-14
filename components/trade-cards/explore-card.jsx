@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import ReportDialog from "../trade-cards/report-dialog";
+import ReportDialog from "./report-dialog";
 
 export default function ExploreCard({
   name,
@@ -103,7 +103,7 @@ export default function ExploreCard({
   return (
     <>
       <div
-        className="w-full max-w-[440px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative"
+        className="w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
         style={{
           background:
             "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
@@ -193,43 +193,17 @@ export default function ExploreCard({
             </div>
           </div>
 
-          {/* Menu */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              className="p-1 hover:bg-white/10 rounded-full transition-colors"
-            >
-              <Icon icon="mdi:dots-horizontal" className="text-white text-xl" />
-            </button>
-
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-20 shadow-lg overflow-hidden">
-                <button
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full transition-colors"
-                  onClick={handleReport}
-                >
-                  <Icon
-                    icon="mdi:alert-circle-outline"
-                    className="text-white text-base"
-                  />
-                  Report
-                </button>
-                <button
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full transition-colors"
-                  onClick={handleNotInterested}
-                >
-                  <Icon
-                    icon="mdi:eye-off-outline"
-                    className="text-white text-base"
-                  />
-                  Not Interested
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Report Button */}
+          <button
+            onClick={handleReport}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <Icon
+              icon="mdi:alert-circle-outline"
+              className="text-white text-base"
+            />
+            Report
+          </button>
         </div>
 
         {/* Needs + Offer */}

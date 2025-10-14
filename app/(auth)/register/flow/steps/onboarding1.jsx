@@ -45,55 +45,57 @@ export default function Onboarding1({ onNext, onPrev }) {
   };
 
   const handleConfirm = async () => {
-    if (!validate()) return;
+  if (!validate()) return;
 
-    const token = session?.access || session?.accessToken;
-    if (!token) {
-      setErrors((prev) => ({
-        ...prev,
-        serviceRequest:
-          "You must be signed in. Please log in again and try confirming.",
-      }));
-      return;
-    }
+  const token = session?.access || session?.accessToken;
+  if (!token) {
+    setErrors((prev) => ({
+      ...prev,
+      serviceRequest:
+        "You must be signed in. Please log in again and try confirming.",
+    }));
+    return;
+  }
 
-    setIsLoading(true);
-    try {
-      const resp = await fetch(`${BACKEND_URL}/trade-requests/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          reqname: serviceRequest.trim(),
-          reqdeadline: `${date}`,
-        }),
-      });
+  setIsLoading(true);
+  try {
+    const resp = await fetch(`${BACKEND_URL}/trade-requests/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        reqname: serviceRequest.trim(),
+        reqdeadline: `${date}`,
+      }),
+    });
 
-      if (resp.ok) {
-        const data = await resp.json();
-        
-        // sc1: auto-categorize the new trade
-        try {
-          await fetch(`${BACKEND_URL}/api/ai/categorize/`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              tradereq_id: data.tradereq_id,
-            }),
-          });
-        } catch (catError) {
-          console.error("Categorization failed:", catError);
-          // Don't block flow if categorization fails
-        }
-        
-        // Navigate to Best Picks page (onboarding2)
-        onNext?.();
-      } else {
+    if (resp.ok) {
+      const data = await resp.json();
+      
+      console.log("✅ Trade request created:", data);
+      
+      // Auto-categorize the new trade
+      try {
+        await fetch(`${BACKEND_URL}/api/ai/categorize/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            tradereq_id: data.tradereq_id,
+          }),
+        });
+        console.log("✅ Trade categorized");
+      } catch (catError) {
+        console.error("⚠️ Categorization failed:", catError);
+      }
+      
+      // ✅ Pass tradereq_id to next step
+      onNext?.(data.tradereq_id);
+    } else {
         let msg = `Failed to create request (HTTP ${resp.status})`;
         try {
           const err = await resp.json();
