@@ -24,6 +24,6 @@ urlpatterns = [
     path('evaluate/', api_evaluate, name='ai-evaluate'),
     path('evaluation/<int:tradereq_id>/', api_get_evaluation, name='ai-get-evaluation'),
     path('submit-rating/', api_submit_rating, name='ai-submit-rating'),
-    path('onboarding-picks/', views.onboarding_picks, name='onboarding_picks'),
+    path('onboarding-picks/', views.api_onboarding_picks, name='onboarding_picks'),
     path('onboarding-picks-for-request/', views.onboarding_picks_for_request, name='onboarding_picks_for_request'),
 ]

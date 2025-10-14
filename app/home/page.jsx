@@ -341,7 +341,7 @@ useEffect(() => {
         username: item.requester,
         userId: item.requester_id,
         need: item.reqname,
-        offer: item.exchange || "—",
+        offer: item.offer || item.exchange || item.specName || "Skills & Services",
         deadline: item.reqdeadline,
         profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
         rating: item.rating || 0,
@@ -418,7 +418,7 @@ useEffect(() => {
       username: item.requester,
       userId: item.requester_id,
       need: item.reqname,
-      offer: item.exchange || "—",
+      offer: item.offer || item.exchange || item.specName || "Skills & Services",
       deadline: item.reqdeadline,
       profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
       rating: item.rating || 0,
@@ -560,7 +560,7 @@ useEffect(() => {
       </div>
 
       {/* Active Trade Cards Grid */}
-      <div className="w-full max-w-[940px] flex flex-wrap gap-[25px] mt-6">
+      <div className="w-full max-w-[940px] justify-between flex flex-wrap mt-6">
         {homeTradesLoading ? (
           <div className="text-white/60">Loading active trades...</div>
         ) : homeActiveTrades.length === 0 ? (
