@@ -1,4 +1,8 @@
+# ...existing code...
 """Text processing utilities for AI matching."""
+import re
+from collections import Counter
+from typing import List, Iterable
 
 def _user_text(user):
     """Generate text representation of user for embedding"""
@@ -73,3 +77,38 @@ def get_first_attr(obj, field_names, default=None):
             if val is not None:
                 return val
     return default
+
+# --- New: simple keyword extractor used by onboarding ---
+_STOPWORDS = {
+    "the","and","for","with","that","this","from","have","you","your",
+    "are","was","were","will","shall","can","could","would","should",
+    "a","an","in","on","at","to","of","is","it","as","by","be","or","if",
+    "i","me","my","we","our","they","them","their","he","she","his","her",
+    "but","so","not","no","yes","do","does","did","about","into","out","up","get"
+}
+
+_TOKEN_RE = re.compile(r"[a-zA-Z0-9]+", re.UNICODE)
+
+def _tokenize(text: str) -> Iterable[str]:
+    if not text:
+        return []
+    text = text.lower()
+    return _TOKEN_RE.findall(text)
+
+def extract_keywords(text: str, top_n: int = 5) -> List[str]:
+    """
+    Extract up to top_n keyword tokens from text.
+    - Lowercases
+    - Removes very short tokens and common stopwords
+    - Ranks by frequency
+    """
+    if not text:
+        return []
+    tokens = [t for t in _tokenize(text) if len(t) > 2 and t not in _STOPWORDS and not t.isdigit()]
+    if not tokens:
+        return []
+    counts = Counter(tokens)
+    keywords = [k for k, _ in counts.most_common(top_n)]
+    return keywords
+
+__all__ = ["_user_text", "_trade_text", "get_first_attr", "extract_keywords"]
