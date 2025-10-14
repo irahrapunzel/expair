@@ -11,10 +11,13 @@ export default function UploadProofDialog({
   title = "Upload your proof",
   mode = "upload",
   tradereq_id = null,
+  showSuccess = false,
+  successData = null,
+  onSuccessClose = null,
 }) {
   const { data: session } = useSession();
   const [dragActive, setDragActive] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState([]); // Will hold file and link objects
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [linkProof, setLinkProof] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -36,14 +39,12 @@ export default function UploadProofDialog({
 
         if (response.ok) {
           const proofData = await response.json();
-          // Backend now returns an array in proof_file
           if (Array.isArray(proofData.proof_file)) {
             const existingProofs = proofData.proof_file.map(item => ({
               ...item,
-              name: item.filename, // Standardize name property
+              name: item.filename,
               isExisting: true,
               isLink: item.type === 'link',
-              // Add preview for existing images
               isImage: item.file_type?.startsWith("image/"),
               preview: item.file_type?.startsWith("image/") ? item.url : null,
             }));
@@ -65,7 +66,6 @@ export default function UploadProofDialog({
   // Reset state when dialog closes
   useEffect(() => {
     if (!isOpen) {
-        // Clean up any new object URLs
         uploadedFiles.forEach(file => {
             if (file.preview && !file.isExisting) {
                 URL.revokeObjectURL(file.preview);
@@ -87,7 +87,6 @@ export default function UploadProofDialog({
       });
     };
   }, []);
-
 
   if (!isOpen) return null;
 
@@ -120,7 +119,6 @@ export default function UploadProofDialog({
     }
   };
 
-  // Handle multiple new files
   const handleFiles = (files) => {
     const newFiles = Array.from(files).map((file) => ({
       name: file.name,
@@ -133,10 +131,8 @@ export default function UploadProofDialog({
     setUploadedFiles(prev => [...prev, ...newFiles]);
   };
   
-  // Handle adding a new link
   const handleAddLink = () => {
     if (!linkProof.trim()) return;
-     // Basic URL validation
     try {
         new URL(linkProof);
     } catch (_) {
@@ -147,7 +143,7 @@ export default function UploadProofDialog({
       name: linkProof,
       url: linkProof,
       isExisting: false,
-      isLink: true, // For UI logic
+      isLink: true,
       type: "link",
     };
     setUploadedFiles(prev => [...prev, newLink]);
@@ -167,9 +163,7 @@ export default function UploadProofDialog({
       window.open(urlToOpen, "_blank");
   };
 
-  // Handle form submission with both files and links
   const handleSubmit = () => {
-    // Filter for only NEW files and links to submit
     const newFiles = uploadedFiles.filter(item => !item.isExisting && item.type === 'file');
     const newLinks = uploadedFiles.filter(item => !item.isExisting && item.type === 'link');
 
@@ -187,6 +181,8 @@ export default function UploadProofDialog({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+
+      {/* Main Upload Dialog */}
       <div 
         className="w-[650px] max-h-[90vh] flex flex-col p-[40px] relative overflow-y-auto" 
         style={{

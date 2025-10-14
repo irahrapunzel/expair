@@ -419,7 +419,7 @@ export default function AddTradeDetailsPage() {
             {/* XP Display */}
             {xpBreakdown && (
               <div className="w-full max-w-[500px] mb-[20px] p-[20px] bg-[#120A2A] border border-white/20 rounded-[15px]">
-                <h3 className="text-[16px] font-medium text-white mb-[5px] text-center">The XP for this trade, based on the details provided, are</h3>
+                <h3 className="text-[16px] font-medium text-white mb-[5px] text-center">This trade will grant your partner</h3>
                 <div className="flex justify-center">
                   <span className="text-[24px] font-bold text-[#906EFF]">{xpBreakdown.total_xp} XP</span>
                 </div>

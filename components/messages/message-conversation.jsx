@@ -1,70 +1,131 @@
-"use client";
-
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
-import { Button } from "../ui/button";
-import { MessageBubble } from "./message-bubble";
-import { Toaster } from "../ui/toaster";
-import Link from "next/link";
-import EvaluationDialog from "../trade-cards/evaluation-dialog";
 import { Star } from "lucide-react";
-import Tooltip from "../ui/tooltip";
+import Link from "next/link";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
 export default function MessageConversation({ conversation, onSendMessage, onConversationViewed, onDeleteConversation }) {
   const { data: session } = useSession();
+
   const [newMessage, setNewMessage] = useState("");
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [messages, setMessages] = useState([]);
   const [attachedFile, setAttachedFile] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
-  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
-  const [selectedTrade, setSelectedTrade] = useState(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [tradeRequest, setTradeRequest] = useState(null);
+  const [detailsSubmitted, setDetailsSubmitted] = useState(false);
+  const [checkingDetailsStatus, setCheckingDetailsStatus] = useState(true);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
-  console.log('MessageConversation props:', { 
-    hasOnDeleteConversation: !!onDeleteConversation,
-    conversationId: conversation?.id 
-  });
+  // Fetch full trade request details to determine requester/responder
+  useEffect(() => {
+    const fetchTradeRequest = async () => {
+      if (!conversation?.id || !session?.access) return;
 
-  const handleDeleteConversation = async () => {
-    if (!conversation?.id) return;
-    
-    // Show confirmation modal instead of browser confirm
-    setShowDeleteConfirmation(true);
-  };
+      try {
+        const resp = await fetch(`${BACKEND_URL}/conversations/`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access}`,
+          },
+          credentials: 'include',
+        });
 
-  const confirmDelete = async () => {
-    console.log('Confirm delete clicked for conversation:', conversation.id);
-    try {
-      if (onDeleteConversation) {
-        await onDeleteConversation(conversation.id);
-        console.log('Delete completed successfully');
-        setShowDeleteConfirmation(false);
-      } else {
-        console.error('onDeleteConversation prop is not defined');
-        setShowDeleteConfirmation(false);
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        // Find this conversation
+        const conv = data.conversations?.find(c => c.conversation_id === conversation.id);
+        if (conv) {
+          setTradeRequest({
+            tradereq_id: conv.trade_request_id,
+            reqname: conv.reqname,
+            exchange: conv.exchange,
+            requester_id: conv.requester_id,
+            responder_id: conv.responder_id,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch trade request:', error);
       }
-    } catch (error) {
-      console.error("Failed to delete conversation:", error);
-      setShowDeleteConfirmation(false);
-      
-      // Show error message - check if it's a trade status error
-      const errorMessage = error.message || "Failed to delete conversation. Please try again.";
-      alert(errorMessage);
+    };
+
+    fetchTradeRequest();
+  }, [conversation?.id, session?.access]);
+
+  // Check if user has submitted trade details
+  useEffect(() => {
+    const checkDetailsStatus = async () => {
+      if (!tradeRequest?.tradereq_id || !session?.access) {
+        setCheckingDetailsStatus(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/trade-requests/${tradeRequest.tradereq_id}/details/status/`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access}`,
+            },
+            credentials: 'include',
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setDetailsSubmitted(data.current_user?.has_submitted || false);
+        }
+      } catch (error) {
+        console.error('Failed to check details status:', error);
+      } finally {
+        setCheckingDetailsStatus(false);
+      }
+    };
+
+    checkDetailsStatus();
+
+    // Listen for details updates
+    const handleStorageChange = (e) => {
+      if (e.key === 'trade_details_updated') {
+        checkDetailsStatus();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [tradeRequest?.tradereq_id, session?.access]);
+
+  // Determine perspective-based labels
+  // Note: Backend already handles perspective in list_conversations
+  // So reqname and exchange are already from the current user's viewpoint
+  const getPerspectiveLabels = () => {
+    if (!tradeRequest || !session?.user) {
+      // Fallback to original static labels
+      return {
+        requested: conversation?.requests?.requested || '',
+        exchange: conversation?.requests?.exchange || '',
+      };
     }
+
+    // ✅ NO SWAPPING - Backend already adjusted perspective
+    // reqname = what current user needs
+    // exchange = what current user offers
+    return {
+      requested: tradeRequest.reqname,
+      exchange: tradeRequest.exchange,
+    };
   };
 
-  const cancelDelete = () => {
-    setShowDeleteConfirmation(false);
-  };
+  const perspectiveLabels = getPerspectiveLabels();
 
-  // Initialize messages when conversation changes and mark as read (fetch from backend if thread id present)
+  // Initialize messages when conversation changes
   useEffect(() => {
     const load = async () => {
       if (!conversation?.id) return;
@@ -77,7 +138,6 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           credentials: 'include',
         });
         if (!resp.ok) {
-          // fall back to local messages if any
           if (conversation?.messages) setMessages([...conversation.messages]);
           return;
         }
@@ -102,7 +162,6 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         onConversationViewed();
       }
 
-      // Persist unread count reset for this conversation
       try {
         const key = 'unread_counts';
         const store = JSON.parse(localStorage.getItem(key) || '{}');
@@ -115,22 +174,16 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
     load();
   }, [conversation?.id, onConversationViewed]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  };
+  }, [messages]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (newMessage.trim() === "" && !attachedFile) return;
 
-    // Create new message object
     const newMessageObj = {
       sender: "You",
       content: newMessage,
@@ -145,12 +198,9 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       replyTo: replyingTo
     };
 
-    // give a local id for client-side delete-only
     const withId = { ...newMessageObj, __localId: `${Date.now()}-${Math.random().toString(16).slice(2)}` };
-    // Optimistic add to local state
     setMessages(prevMessages => [...prevMessages, withId]);
 
-    // Send to backend if we have a conversation id
     if (conversation?.id) {
       try {
         await fetch(`${BACKEND_URL}/conversations/${conversation.id}/messages/`, {
@@ -165,42 +215,28 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       } catch { }
     }
 
-    // Update parent (sidebar preview)
     if (onSendMessage) onSendMessage(withId);
 
-    // Clear form
     setNewMessage("");
     setAttachedFile(null);
     setReplyingTo(null);
   };
 
-  const handleFileUpload = () => {
-    fileInputRef.current?.click();
+  const handleDeleteConversation = async () => {
+    setShowDeleteConfirmation(true);
   };
 
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setAttachedFile({
-        file,
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        url: URL.createObjectURL(file)
-      });
+  const confirmDelete = async () => {
+    try {
+      if (onDeleteConversation) {
+        await onDeleteConversation(conversation.id);
+        setShowDeleteConfirmation(false);
+      }
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+      setShowDeleteConfirmation(false);
+      alert(error.message || "Failed to delete conversation. Please try again.");
     }
-  };
-
-  const removeAttachedFile = () => {
-    if (attachedFile?.url) {
-      URL.revokeObjectURL(attachedFile.url);
-    }
-    setAttachedFile(null);
-  };
-
-  const handleEmojiSelect = (emoji) => {
-    setNewMessage(prev => prev + emoji);
-    setShowEmojiPicker(false);
   };
 
   if (!conversation) {
@@ -217,193 +253,179 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
 
   return (
     <div className="flex-1 bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden relative">
-      <Toaster />
-      
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
         <div className="absolute inset-0 flex justify-center items-center z-50 rounded-[25px]">
-          <div
-            className="w-[420px] p-8 flex flex-col gap-6 rounded-[15px] shadow-lg"
-            style={{
-              background: "rgba(0, 0, 0, 0.9)",
-              border: "2px solid #0038FF",
-              boxShadow: "0px 4px 15px #D78DE5",
-              backdropFilter: "blur(40px)",
-              borderRadius: "15px",
-            }}
-          >
+          <div className="w-[420px] p-8 flex flex-col gap-6 rounded-[15px]" style={{
+            background: "rgba(0, 0, 0, 0.9)",
+            border: "2px solid #0038FF",
+            boxShadow: "0px 4px 15px #D78DE5",
+            backdropFilter: "blur(40px)",
+          }}>
             <h3 className="text-center text-[18px] font-semibold text-white">
               Are you sure you want to delete this conversation? You can no longer see the messages but the other person still can.
             </h3>
-
             <div className="flex justify-center gap-4 mt-2">
-              <button
-                onClick={cancelDelete}
-                className="w-[150px] h-[38px] py-2 rounded-[10px] text-white border-2 border-[#0038FF] bg-transparent text-[15px] hover:bg-white/10 transition duration-300"
-              >
-                <span className="text-[15px]">Cancel</span>
+              <button onClick={() => setShowDeleteConfirmation(false)} className="w-[150px] h-[38px] py-2 rounded-[10px] text-white border-2 border-[#0038FF] bg-transparent">
+                Cancel
               </button>
-
-              <button
-                onClick={confirmDelete}
-                className="w-[150px] h-[38px] py-2 rounded-[10px] text-white bg-[#0038FF] text-[15px] shadow-[0px_0px_10px_#284CCC] hover:bg-[#1a4dff] transition duration-300"
-              >
-                <span className="text-[15px]">Confirm</span>
+              <button onClick={confirmDelete} className="w-[150px] h-[38px] py-2 rounded-[10px] text-white bg-[#0038FF] shadow-[0px_0px_10px_#284CCC]">
+                Confirm
               </button>
             </div>
           </div>
         </div>
       )}
-      
-      {/* Conversation header */}
+
+      {/* Header with name and avatar */}
       <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Image
-            src={conversation.avatar}
-            alt={conversation.name}
-            width={45}
-            height={45}
-            className="rounded-full"
-            onError={(e) => {
-              e.target.src = "/assets/defaultavatar.png";
-            }}
-            unoptimized
-          />
-          <div>
-            <h3 className="text-[16px] text-white flex items-center gap-2">
-              {conversation.name}
-            </h3>
-            <div className="flex items-center gap-5 mt-1">
-              {/* Group 1: LVL */}
-              <div className="flex items-center">
-                <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">
-                  LVL {conversation.level}
-                </span>
+          {/* Profile Picture Link */}
+          {conversation.otherUsername ? (
+            <Link href={`/home/profile/${conversation.otherUsername}`} className="flex-shrink-0">
+              <div className="w-[45px] h-[45px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
+                <Image
+                  src={conversation.avatar || "/assets/defaultavatar.png"}
+                  alt={conversation.name}
+                  width={45}
+                  height={45}
+                  className="w-full h-full object-cover"
+                  unoptimized={conversation.avatar?.startsWith("http")}
+                  onError={(e) => {
+                    e.target.src = "/assets/defaultavatar.png";
+                  }}
+                />
               </div>
+            </Link>
+          ) : (
+            <div className="w-[45px] h-[45px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
+              <Image
+                src={conversation.avatar || "/assets/defaultavatar.png"}
+                alt={conversation.name}
+                width={45}
+                height={45}
+                className="w-full h-full object-cover"
+                unoptimized={conversation.avatar?.startsWith("http")}
+                onError={(e) => {
+                  e.target.src = "/assets/defaultavatar.png";
+                }}
+              />
+            </div>
+          )}
 
-              {/* Group 2: Star + Rating */}
+          <div>
+            {/* Name Link */}
+            {conversation.otherUsername ? (
+              <Link href={`/home/profile/${conversation.otherUsername}`}>
+                <h3 className="text-[16px] text-white hover:text-[#906EFF] transition-colors cursor-pointer">
+                  {conversation.name}
+                </h3>
+              </Link>
+            ) : (
+              <h3 className="text-[16px] text-white">
+                {conversation.name}
+              </h3>
+            )}
+
+            <div className="flex items-center gap-5 mt-1">
+              <span className="text-[13px] text-[rgba(255,255,255,0.60)]">
+                LVL {conversation.level}
+              </span>
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
-                <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">
-                  {conversation.rating}
-                </span>
+                <span className="text-[13px] text-[rgba(255,255,255,0.60)]">{conversation.rating}</span>
               </div>
             </div>
           </div>
         </div>
-
         <div className="flex items-center gap-2">
-          <Tooltip content="Delete this conversation. You can no longer see the messages but the other person still can." position="left">
-            <button 
-              onClick={handleDeleteConversation}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-            >
-              <Icon icon="lucide:trash-2" className="text-red-400 text-base" />
-              Delete
-            </button>
-          </Tooltip>
-          
+          <button onClick={handleDeleteConversation} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+            <Icon icon="lucide:trash-2" className="text-base" />
+            Delete
+          </button>
           <Link href="/home/help">
             <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
-              <Icon icon="lucide:flag" className="text-white text-base" />
+              <Icon icon="lucide:flag" className="text-base" />
               Report
             </button>
           </Link>
         </div>
       </div>
 
-      {/* Request/Exchange info */}
-      {conversation.requests && (
+      {/* Request/Exchange Section */}
+      {perspectiveLabels.requested && perspectiveLabels.exchange && (
         <div className="px-5 py-3 bg-[#0A0519]">
-          <div className="flex justify-between">
-            <div className="flex items-start gap-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-0">
+            {/* Requested / Exchange */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+              {/* Requested */}
               <div className="flex flex-col">
-                <span className="text-[16px] text-white">Requested</span>
+                <span className="text-[15px] sm:text-[16px] text-white">Requested</span>
                 <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                  <span className="text-[13px] text-white">{conversation.requests.requested}</span>
+                  <span className="text-[13px] text-white break-words">
+                    {perspectiveLabels.requested}
+                  </span>
                 </div>
               </div>
+
+              {/* Exchange */}
               <div className="flex flex-col">
-                <span className="text-[16px] text-white">In exchange for</span>
+                <span className="text-[15px] sm:text-[16px] text-white">In exchange for</span>
                 <div className="px-[10px] py-[5px] mt-1 bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                  <span className="text-[13px] text-white">{conversation.requests.exchange}</span>
+                  <span className="text-[13px] text-white break-words">
+                    {perspectiveLabels.exchange}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-end gap-3 pb-1">
-              <Link href={`/home/trades/add-details?requested=${encodeURIComponent(conversation.requests.requested)}&exchange=${encodeURIComponent(conversation.requests.exchange)}`}>
-                <button className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors">
-                  <span className="text-[13px] text-white">Add details</span>
-                </button>
-              </Link>
-
-              <Tooltip content="Expair's evaluation system will assess your trade using predefined criteria for task difficulty, time, and skills. Make sure to add all details before you can run the evaluation." position="left">
+            {/* Buttons */}
+            <div className="flex sm:items-end gap-3 pb-1 sm:pb-0">
+              {checkingDetailsStatus ? (
                 <button
+                  disabled
+                  className="w-full sm:w-[120px] h-[35px] sm:h-[30px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
+                >
+                  <span className="text-[13px] text-white">Loading...</span>
+                </button>
+              ) : detailsSubmitted ? (
+                <button
+                  disabled
+                  className="w-full sm:w-[140px] h-[35px] sm:h-[30px] bg-[#6DDFFF] rounded-[10px] cursor-default"
+                >
+                  <span className="text-[13px] text-black font-bold">Details Submitted</span>
+                </button>
+              ) : (
+                <Link
+                  href={`/home/trades/add-details?tradereq_id=${
+                    tradeRequest?.tradereq_id || ''
+                  }&requested=${encodeURIComponent(tradeRequest?.reqname || '')}&exchange=${encodeURIComponent(
+                    tradeRequest?.exchange || ''
+                  )}`}
                   onClick={() => {
-                    setSelectedTrade({
-                      requestTitle: conversation.requests.requested,
-                      offerTitle: conversation.requests.exchange,
-                      taskComplexity: 60,
-                      timeCommitment: 50,
-                      skillLevel: 80,
-                      feedback: `${conversation.name}'s trade for ${conversation.requests.requested} in exchange for ${conversation.requests.exchange} is well-balanced, with a high skill level required and moderate time commitment. The task complexity is fairly challenging, which makes this a valuable and rewarding exchange for both parties. Overall, it's a great match that promises meaningful growth and results.`
-                    });
-                    setShowEvaluationDialog(true);
-                  }}
-                  className="relative w-[120px] h-[30px] rounded-[15px] p-[2px] cursor-pointer group"
-                  style={{
-                    background: "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"
+                    sessionStorage.setItem('trade_details_updated', Date.now().toString());
                   }}
                 >
-                  {/* Inner dark-blue background */}
-                  <div className="w-full h-full rounded-[13px] flex justify-center items-center bg-[#120A2A] group-hover:bg-[#1A0F3E] transition-colors">
-                    <svg
-                      width="17"
-                      height="17"
-                      viewBox="0 0 17 17"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-4 h-4"
-                    >
-                      <path d="M8.49991 16.5L9.95148 8.5L8.49991 0.5L7.04834 8.5L8.49991 16.5Z" fill="#FFFFFF" />
-                      <path d="M2.03425 3.56167L8.31776 9.75624L10.1393 7.21373L2.03425 3.56167Z" fill="#FFFFFF" />
-                      <path d="M14.9618 13.4129L8.67834 7.21837L6.85676 9.76088L14.9618 13.4129Z" fill="#FFFFFF" />
-                      <path d="M14.9657 3.56167L8.68224 9.75624L6.86067 7.21373L14.9657 3.56167Z" fill="#FFFFFF" />
-                      <path d="M2.03816 13.4129L8.32166 7.21837L10.1432 9.76088L2.03816 13.4129Z" fill="#FFFFFF" />
-                    </svg>
-                    <span className="text-[13px] text-white ml-1">Evaluate</span>
-                  </div>
-                </button>
-              </Tooltip>
+                  <button className="w-full sm:w-[120px] h-[35px] sm:h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
+                    <span className="text-[13px] text-white">Add details</span>
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Messages */}
-      <div
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-5 custom-scrollbar"
-      >
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-5 custom-scrollbar">
         <div className="space-y-4">
           {messages.map((message, index) => (
-            <MessageBubble
-              key={index}
-              message={message}
-              bubbleIndex={index}
-              showAvatar={index === 0 || messages[index - 1].isUser !== message.isUser}
-              showTime={index === messages.length - 1 ||
-                messages[index + 1]?.isUser !== message.isUser}
-              userAvatar={conversation.avatar}
-              onReply={(msg) => setReplyingTo(msg)}
-              onDelete={(i) => {
-                setMessages(prev => prev.filter((_, idx) => idx !== i));
-              }}
-              onHeart={(i) => {
-                setMessages(prev => prev.map((m, idx) => idx === i ? { ...m, reactions: { ...(m.reactions || {}), heart: !m.reactions?.heart } } : m));
-              }}
-            />
+            <div key={index} className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[70%] ${message.isUser ? 'bg-[#0038FF]' : 'bg-[#120A2A]'} px-4 py-2.5 rounded-[20px]`}>
+                <p className="text-sm text-white">{message.content}</p>
+              </div>
+            </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -411,130 +433,19 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
 
       {/* Message input */}
       <form onSubmit={handleSendMessage} className="p-5 border-t border-[#1A0F3E]">
-        {/* Reply preview */}
-        {replyingTo && (
-          <div className="mb-3 p-3 bg-[#120A2A] rounded-[15px] flex items-center justify-between">
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-1 h-10 bg-[#906EFF] rounded-full"></div>
-              <div className="overflow-hidden">
-                <p className="text-xs text-[#906EFF] mb-1">Replying to {replyingTo.sender}</p>
-                <p className="text-sm text-white truncate">{replyingTo.content}</p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setReplyingTo(null)}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#1A0F3E]"
-            >
-              <Icon icon="lucide:x" className="w-4 h-4 text-[#8E7EB3]" />
-            </button>
-          </div>
-        )}
-
-        {/* File attachment preview */}
-        {attachedFile && (
-          <div className="mb-3 p-3 bg-[#120A2A] rounded-[15px] flex items-center justify-between">
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-10 h-10 rounded-md bg-[#15042C] flex items-center justify-center flex-shrink-0">
-                <Icon
-                  icon={
-                    attachedFile.type.startsWith('image/')
-                      ? "lucide:image"
-                      : attachedFile.type.includes('pdf')
-                        ? "lucide:file-text"
-                        : "lucide:file"
-                  }
-                  className="w-5 h-5 text-[#906EFF]"
-                />
-              </div>
-
-              <div className="overflow-hidden">
-                <p className="text-sm text-white truncate">{attachedFile.name}</p>
-                <p className="text-xs text-[#8E7EB3]">
-                  {attachedFile.type.split('/')[1].toUpperCase()} • {(attachedFile.size / 1024).toFixed(1)} KB
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={removeAttachedFile}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#1A0F3E]"
-            >
-              <Icon icon="lucide:x" className="w-4 h-4 text-[#8E7EB3]" />
-            </button>
-          </div>
-        )}
-
         <div className="relative flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleFileUpload}
-            className="w-[40px] h-[40px] flex items-center justify-center rounded-full hover:bg-[#120A2A] transition"
-          >
-            <Icon icon="lucide:paperclip" className="w-5 h-5 text-[#8E7EB3]" />
-          </button>
-
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Message..."
-              className="w-full h-[50px] bg-[#120A2A] rounded-[15px] pl-4 pr-10 text-white placeholder:text-[#413663] focus:outline-none focus:ring-1 focus:ring-[#906EFF]/50"
-            />
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#8E7EB3] hover:text-white"
-            >
-              <Icon icon="lucide:smile" className="w-5 h-5" />
-            </button>
-
-            {showEmojiPicker && (
-              <div className="absolute bottom-full right-0 mb-2 p-2 bg-[#15042C] rounded-[10px] border border-[#2B124C] shadow-md">
-                <div className="grid grid-cols-8 gap-1">
-                  {["😊", "😂", "❤️", "👍", "🙌", "🔥", "✨", "⭐",
-                    "🎉", "🤔", "😍", "👋", "🙏", "💯", "🌟", "💪"].map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => handleEmojiSelect(emoji)}
-                        className="w-8 h-8 flex items-center justify-center hover:bg-[#1A0F3E] rounded-md"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={newMessage.trim() === "" && !attachedFile}
-            className="w-[50px] h-[50px] bg-[#0038FF] rounded-[15px] flex items-center justify-center text-white shadow-[0px_0px_15px_rgba(40,76,204,0.3)] hover:bg-[#1a4dff] transition disabled:opacity-50 disabled:hover:bg-[#0038FF]"
-          >
-            <Icon icon="lucide:send" className="w-5 h-5" />
-          </button>
-
           <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileChange}
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Message..."
+            className="flex-1 h-[50px] bg-[#120A2A] rounded-[15px] px-4 text-white placeholder:text-[#413663] focus:outline-none"
           />
+          <button type="submit" disabled={!newMessage.trim()} className="w-[50px] h-[50px] bg-[#0038FF] rounded-[15px] flex items-center justify-center disabled:opacity-50 hover:bg-[#1a4dff] transition-colors">
+            <Icon icon="lucide:send" className="w-5 h-5 text-white" />
+          </button>
         </div>
       </form>
-
-      {/* Evaluation Dialog */}
-      <EvaluationDialog
-        isOpen={showEvaluationDialog}
-        onClose={() => setShowEvaluationDialog(false)}
-        tradeData={selectedTrade}
-      />
     </div>
   );
 }

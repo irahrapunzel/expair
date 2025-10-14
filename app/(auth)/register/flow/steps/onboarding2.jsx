@@ -478,7 +478,10 @@ export default function Onboarding2({ onNext, onPrev }) {
                                 }
                                 className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full text-left"
                               >
-                                <X className="w-4 h-4 text-white" />
+                                <Icon
+                                  icon="mdi:alert-circle-outline"
+                                  className="text-white text-base"
+                                />
                                 Report
                               </button>
                             </div>
@@ -486,25 +489,27 @@ export default function Onboarding2({ onNext, onPrev }) {
                         </div>
                       </div>
 
-                      {/* Needs/Offers Section */}
-                      <div className="flex justify-between w-full">
-                        <div className="flex flex-col gap-[5px] items-start">
-                          <span className="text-[13px] text-white">Needs</span>
-                          <div className="inline-flex px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
-                            <span className="text-[12px] text-white leading-tight">
-                              {item.need}
-                            </span>
+                      {/* Needs + Offer Section */}
+                      <div className="flex justify-between items-start gap-4 flex-wrap w-full">
+                        {/* Needs */}
+                        <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
+                          <span className="text-[13px] text-white/80 font-medium">Needs</span>
+                          <div
+                            className="inline-block px-[15px] py-[7px] rounded-[15px] border-[1.5px] border-[#0038FF] bg-[rgba(40,76,204,0.2)] text-[12px] text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                            title={item.need}
+                          >
+                            {item.need}
                           </div>
                         </div>
 
-                        <div className="flex flex-col gap-[5px] items-end">
-                          <span className="text-[13px] text-white">
-                            Can offer
-                          </span>
-                          <div className="inline-flex px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
-                            <span className="text-[12px] text-white leading-tight">
-                              {item.offer || "—"}
-                            </span>
+                        {/* Can offer */}
+                        <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
+                          <span className="text-[13px] text-white/80 font-medium">Can offer</span>
+                          <div
+                            className="inline-block px-[15px] py-[7px] rounded-[15px] border-[1.5px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] text-[12px] text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                            title={item.offer || "—"}
+                          >
+                            {item.offer || "—"}
                           </div>
                         </div>
                       </div>
@@ -521,12 +526,10 @@ export default function Onboarding2({ onNext, onPrev }) {
 
                     {/* Bottom Button */}
                     <button
-                      className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors self-center"
+                      className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium cursor-pointer transition-colors"
                       onClick={() => handleInterested(item)}
                     >
-                      <span className="text-[13px] text-white">
-                        I'm interested
-                      </span>
+                      I'm interested
                     </button>
                   </div>
                 ))

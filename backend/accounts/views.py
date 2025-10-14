@@ -68,7 +68,6 @@ def get_or_create_conversation(request, tradereq_id):
 @permission_classes([IsAuthenticated])
 def list_conversations(request):
     try:
-       
         # Get conversations where user is participant
         qs = Conversation.objects.filter(
             Q(requester=request.user) | Q(responder=request.user)
@@ -85,7 +84,6 @@ def list_conversations(request):
         print(f"=== LIST CONVERSATIONS DEBUG ===")
         print(f"User: {request.user.id} ({request.user.username})")
         print(f"Found {qs.count()} conversations (after excluding deleted)")
-        print(f"Deleted conversation IDs for this user: {list(deleted_conversation_ids)}")
         
         data = []
         for c in qs:
@@ -129,6 +127,9 @@ def list_conversations(request):
                 'trade_request_id': c.trade_request_id,
                 'reqname': getattr(c.trade_request, 'reqname', None),
                 'exchange': getattr(c.trade_request, 'exchange', None),
+                # ✅ ADD requester_id and responder_id for frontend perspective logic
+                'requester_id': getattr(c.trade_request, 'requester_id', None),
+                'responder_id': getattr(c.trade_request, 'responder_id', None),
                 'other_user_id': other_user_id,
                 'other_user_username': other_user_username,
                 'other_user_name': other_user_name,
@@ -1348,6 +1349,7 @@ def get_home_active_trades(request):
     ✅ FILTERS OUT trades where current user has already rated (using requester_rated/responder_rated flags).
     Shows the OTHER user's information and what they're offering.
     ✅ USES database fields directly (reqname and exchange)
+    ✅ FIXED: Now swaps needs/offers based on perspective
     """
     user = request.user
     
@@ -1428,6 +1430,24 @@ def get_home_active_trades(request):
             # Get profile picture URL
             profile_pic_url = other_user.profilePic if other_user.profilePic else None
 
+             # REQUESTER perspective: I posted reqname (my need), I offer exchange (my skill)
+            # RESPONDER perspective: I need to deliver reqname (what they asked for), I get exchange (their skill)
+            if is_requester:
+                needs = trade.reqname      # What YOU (requester) posted/need
+                offers = trade.exchange    # What YOU (requester) offer in return
+            else:
+                # Responder sees it from their work perspective
+                needs = trade.exchange     # What YOU (responder) need/want (what you'll get)
+                offers = trade.reqname     # What YOU (responder) are offering (what you'll deliver)
+            
+            print(f"  Current user ID: {user.id}")
+            print(f"  Trade requester ID: {trade.requester.id}")
+            print(f"  Trade responder ID: {trade.responder.id}")
+            print(f"  is_requester: {is_requester}")
+            print(f"  needs (what current user needs): {needs}")
+            print(f"  offers (what current user offers): {offers}")
+            print(f"  ---")
+
             home_trades_data.append({
                 "tradereq_id": trade.tradereq_id,
                 "other_user": {
@@ -1438,8 +1458,8 @@ def get_home_active_trades(request):
                     "level": other_user.level,
                     "rating": float(other_user.avgStars or 0)
                 },
-                "reqname": trade.reqname,  # ✅ Direct from database
-                "exchange": trade.exchange,  # ✅ Direct from database
+                "reqname": needs,       # ✅ Now perspective-aware
+                "exchange": offers,     # ✅ Now perspective-aware
                 "total_xp": other_user_detail.total_xp if other_user_detail else 0,
                 "deadline": trade.reqdeadline.isoformat() if trade.reqdeadline else None,
                 "deadline_formatted": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
@@ -1463,6 +1483,7 @@ def get_home_active_trades(request):
             "home_active_trades": [],
             "count": 0
         }, status=500)
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -1520,12 +1541,12 @@ def explore_feed(request):
 
         # Get all skills that the REQUESTER has (what they can offer in exchange)
         requester_skills_query = (
-            UserSkill.objects.filter(user_id=requester.id)
+            UserSkill.objects.filter(user_id=tr.requester.id)
             .select_related("specSkills__genSkills_id")
             .values_list("specSkills__genSkills_id_id", "specSkills__genSkills_id__genCateg")
         )
         requester_gen_skills = dict(requester_skills_query)
-        
+                
         # Determine what the requester "can offer"
         can_offer = ""
         has_match = False
@@ -1738,14 +1759,9 @@ def get_trade_interests(request, tradereq_id):
 def get_posted_trades(request):
     """
     Get all trades posted by the authenticated user with interested users.
-    These are trades where the user is the requester.
-    Shows: NULL (available), CANCELLED (can accept new), and PENDING (locked but visible)
-    Hides: Hides: Only ACTIVE and COMPLETED trades
     """
     user = request.user
     
-    # Get trades where user is the requester
-    # Show everything except ACTIVE and COMPLETED
     posted_trades = TradeRequest.objects.filter(
         requester=user
     ).exclude(
@@ -1754,7 +1770,7 @@ def get_posted_trades(request):
         'interests__interested_user'
     ).order_by('-tradereq_id')
     
-    # Get requester's skills (Francis's skills)
+    # Get requester's skills
     requester_skills = {}
     user_skills = UserSkill.objects.filter(user=user).select_related('specSkills__genSkills_id')
     for skill in user_skills:
@@ -1766,35 +1782,38 @@ def get_posted_trades(request):
     trades_data = []
     
     for trade in posted_trades:
-        # Get all interested users for this trade
+        # Get PENDING interested users (for display)
         interested_users = []
+        accepted_user = None  # Store the accepted user separately
+        
         for interest in trade.interests.all():
             interested_user = interest.interested_user
             
-            # Get this interested user's interests (what they want to learn/get)
-            user_interests = UserInterest.objects.filter(
-                user=interested_user
-            ).select_related('genSkills_id').values_list('genSkills_id__genCateg', flat=True)
+            # ✅ Convert to list immediately
+            user_interests_list = list(
+                UserInterest.objects.filter(
+                    user=interested_user
+                ).select_related('genSkills_id').values_list('genSkills_id__genCateg', flat=True)
+            )
             
-            # Find matching skill between requester's skills and interested user's interests
             matching_skill = None
             for gen_category, spec_skills in requester_skills.items():
-                if gen_category in user_interests:
-                    matching_skill = gen_category  # Use the general category
+                if gen_category in user_interests_list:
+                    matching_skill = gen_category
                     break
 
             if not matching_skill and requester_skills:
-                matching_skill = list(requester_skills.keys())[0]  # Show any skill from requester
+                matching_skill = list(requester_skills.keys())[0]
             elif not matching_skill:
                 any_skill = GenSkill.objects.first()
                 matching_skill = any_skill.genCateg if any_skill else "Skills & Services"
             
             profile_pic_url = interested_user.profilePic if interested_user.profilePic else None
 
-            interested_users.append({
+            user_data = {
                 "id": interested_user.id,
                 "interest_id": interest.trade_interests_id,
-                "status": interest.status,  # ✅ Include the status field
+                "status": interest.status,
                 "name": f"{interested_user.first_name} {interested_user.last_name}".strip() or interested_user.username,
                 "username": interested_user.username,
                 "level": interested_user.level,
@@ -1802,16 +1821,23 @@ def get_posted_trades(request):
                 "rating_count": interested_user.ratingCount,
                 "profilePic": profile_pic_url,
                 "created_at": interest.created_at.isoformat(),
-                "interests": list(user_interests),  # What this user wants to learn
+                "interests": user_interests_list,  # ✅ Now a list, not QuerySet
                 "matching_skill": matching_skill, 
-            })
+            }
+            
+            # Separate PENDING and ACCEPTED users
+            if interest.status == TradeInterest.InterestStatus.ACCEPTED:
+                accepted_user = user_data
+            elif interest.status == TradeInterest.InterestStatus.PENDING:
+                interested_users.append(user_data)
         
         trades_data.append({
             "tradereq_id": trade.tradereq_id,
             "reqname": trade.reqname,
             "deadline": trade.reqdeadline.isoformat() if trade.reqdeadline else "",
             "status": trade.status,
-            "interested_users": interested_users,
+            "interested_users": interested_users,  # Only PENDING users
+            "accepted_user": accepted_user,  # The accepted user (if any)
             "interest_count": len(interested_users),
             "created_at": trade.created_at if hasattr(trade, 'created_at') else None,
             "requester_skills": requester_skills,  
@@ -1975,7 +2001,7 @@ def accept_trade_interest(request, interest_id):
     print(f"User: {request.user.id}")
     
     try:
-        with transaction.atomic():  # Use transaction to ensure consistency
+        with transaction.atomic():
             # Get the trade interest with related objects
             trade_interest = TradeInterest.objects.select_related(
                 'trade_request__requester',
@@ -2013,33 +2039,40 @@ def accept_trade_interest(request, interest_id):
             print(f"Requester ID: {trade_request.requester.id}")
             print(f"Trade status set to: {trade_request.status}")
             
-            # Calculate and save the exchange field using CONSISTENT logic with explore_feed
+            # ✅ FIXED: Calculate exchange field using CONSISTENT logic with explore_feed
+            # In explore_feed, the logic is: requester's skills × viewer's interests
+            # Here, the responder IS the "viewer" who expressed interest
+            # So we need: requester's skills × responder's interests
+            
+            requester = trade_request.requester
             responder = trade_interest.interested_user
             
-            # Get responder's skills (what they can offer) - same logic as explore_feed
-            responder_skills_query = (
-                UserSkill.objects.filter(user_id=responder.id)
+            # Get REQUESTER's skills (what THEY can offer to the responder)
+            # This matches explore_feed where we show requester's skills
+            requester_skills_query = (
+                UserSkill.objects.filter(user_id=requester.id)
                 .select_related("specSkills__genSkills_id")
                 .values_list("specSkills__genSkills_id_id", "specSkills__genSkills_id__genCateg")
             )
-            responder_gen_skills = dict(responder_skills_query)
+            requester_gen_skills = dict(requester_skills_query)
             
-            # Get requester's interests (what they want to learn)
-            requester_interests = UserInterest.objects.filter(
-                user=trade_request.requester
+            # Get RESPONDER's interests (what they want to learn)
+            # This matches explore_feed where we check viewer's interests
+            responder_interests = UserInterest.objects.filter(
+                user=responder
             ).select_related('genSkills_id').values_list('genSkills_id__genCateg', flat=True)
             
-            print(f"Responder skills: {list(responder_gen_skills.values())}")
-            print(f"Requester interests: {list(requester_interests)}")
+            print(f"Requester skills: {list(requester_gen_skills.values())}")
+            print(f"Responder interests: {list(responder_interests)}")
             
-            # Find matching skill between responder's skills and requester's interests
+            # Find matching skill between requester's skills and responder's interests
             # SAME LOGIC as explore_feed for consistency
             exchange_skill = ""
             has_match = False
             
-            if requester_interests and responder_gen_skills:
-                # Find intersection of responder's skills and requester's interests
-                matching_skills = set(responder_gen_skills.values()) & set(requester_interests)
+            if responder_interests and requester_gen_skills:
+                # Find intersection of requester's skills and responder's interests
+                matching_skills = set(requester_gen_skills.values()) & set(responder_interests)
                 
                 if matching_skills:
                     # Use the first matching skill
@@ -2047,16 +2080,16 @@ def accept_trade_interest(request, interest_id):
                     has_match = True
                     print(f"Found matching skill: {exchange_skill}")
             
-            # If no match, show any skill the responder has
-            if not exchange_skill and responder_gen_skills:
-                exchange_skill = list(responder_gen_skills.values())[0]
-                print(f"No match found, using first responder skill: {exchange_skill}")
+            # If no match, show any skill the requester has
+            if not exchange_skill and requester_gen_skills:
+                exchange_skill = list(requester_gen_skills.values())[0]
+                print(f"No match found, using first requester skill: {exchange_skill}")
             
-            # If responder has no skills, use fallback
+            # If requester has no skills, use fallback
             if not exchange_skill:
                 any_skill = GenSkill.objects.first()
                 exchange_skill = any_skill.genCateg if any_skill else "Skills & Services"
-                print(f"No responder skills found, using fallback: {exchange_skill}")
+                print(f"No requester skills found, using fallback: {exchange_skill}")
             
             # Save the exchange field
             trade_request.exchange = exchange_skill
@@ -2093,7 +2126,7 @@ def accept_trade_interest(request, interest_id):
                 "trade_request": {
                     "tradereq_id": trade_request.tradereq_id,
                     "reqname": trade_request.reqname,
-                    "status": trade_request.status,  # Will be PENDING, not ACTIVE
+                    "status": trade_request.status,
                     "exchange": trade_request.exchange,
                     "requester_id": trade_request.requester.id,
                     "responder_id": trade_request.responder.id if trade_request.responder else None,
@@ -2101,7 +2134,7 @@ def accept_trade_interest(request, interest_id):
                         "id": trade_request.responder.id,
                         "name": f"{trade_request.responder.first_name} {trade_request.responder.last_name}".strip() or trade_request.responder.username
                     },
-                    "requires_evaluation": True  # Indicate that evaluation is needed
+                    "requires_evaluation": True
                 },
                 "conversation_id": getattr(convo, 'conversation_id', None),
             }, status=200)
@@ -3852,13 +3885,13 @@ def user_reviews(request, user_id: int):
                 "reviewer_first_name": reviewer.first_name,
                 "reviewer_last_name": reviewer.last_name,
                 "reviewer_username": reviewer.username,
+                "reviewer_profilepic": reviewer.profilePic if reviewer.profilePic else None,
                 "request_title": trade_request.reqname,
                 "offer_title": trade_request.exchange or "Service Exchange",
                 "rating": rating,
                 "review_description": review_description,
                 "completed_at": completed_at.isoformat() if completed_at else None,
                 "rated_at": rated_at.isoformat() if rated_at else None,
-                "likes_count": 0,  # You can implement likes later if needed
             })
         
         return Response({

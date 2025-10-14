@@ -237,10 +237,10 @@ export default function ProfilePage() {
       user.verification_status
         ? user.verification_status
         : user.is_verified
-        ? "VERIFIED"
-        : user.userVerifyId
-        ? "PENDING"
-        : "UNVERIFIED"
+          ? "VERIFIED"
+          : user.userVerifyId
+            ? "PENDING"
+            : "UNVERIFIED"
     ).toLowerCase();
     setVerificationStatus(s);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
@@ -375,8 +375,7 @@ export default function ProfilePage() {
         tradereq_id: trade.tradereq_id,
         name:
           (isOwnProfile
-            ? `${session?.user?.first_name || ""} ${
-                session?.user?.last_name || ""
+            ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
               }`.trim()
             : `${user?.firstname || ""} ${user?.lastname || ""}`.trim()) ||
           session?.user?.username ||
@@ -414,9 +413,9 @@ export default function ProfilePage() {
             })) || [],
         until: trade.deadline
           ? new Date(trade.deadline).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-            })
+            month: "long",
+            day: "numeric",
+          })
           : "No deadline",
       }));
       console.log("🧩 Transformed trades:", transformed);
@@ -785,8 +784,12 @@ export default function ProfilePage() {
           requester:
             `${review.reviewer_first_name} ${review.reviewer_last_name}`.trim() ||
             review.reviewer_username,
+          requesterUsername: review.reviewer_username,
+          requesterAvatar: review.reviewer_profilepic || "/assets/defaultavatar.png",
           tradePartner:
             `${user.firstname} ${user.lastname}`.trim() || user.username,
+          tradePartnerUsername: user.username,
+          tradePartnerAvatar: user.profilePic || "/assets/defaultavatar.png",
           tradeCompletionDate: new Date(review.completed_at).toLocaleDateString(
             "en-US",
             {
@@ -798,7 +801,6 @@ export default function ProfilePage() {
           offerTitle: review.offer_title,
           rating: review.rating,
           reviewDescription: review.review_description,
-          likes: review.likes_count || 0,
           trade_id: review.trade_id,
         }));
 
@@ -2349,13 +2351,16 @@ export default function ProfilePage() {
   const ReviewCard = ({ review }) => {
     const {
       requester,
+      requesterUsername,
+      requesterAvatar,
       tradePartner,
+      tradePartnerUsername,
+      tradePartnerAvatar,
       tradeCompletionDate,
       requestTitle,
       offerTitle,
       rating,
       reviewDescription,
-      likes,
     } = review;
     const [isLiked, setIsLiked] = useState(false);
 
@@ -2417,25 +2422,41 @@ export default function ProfilePage() {
           <div className="flex items-start gap-[15px]">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                {/* Use the defaultavatar.png for the review cards */}
-                <Image
-                  src="/assets/defaultavatar.png"
-                  alt={`${tradePartner}'s avatar`}
-                  width={35}
-                  height={35}
-                  className="rounded-full object-cover"
-                />
+                {/* Trade Partner Avatar - Clickable */}
+                <Link href={`/home/profile/${tradePartnerUsername}`} className="flex-shrink-0">
+                  <div className="w-[35px] h-[35px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
+                    <Image
+                      src={tradePartnerAvatar}
+                      alt={`${tradePartner}'s avatar`}
+                      width={35}
+                      height={35}
+                      className="rounded-full object-cover"
+                    />
+                  </div>
+                </Link>
                 <Icon icon="ic:baseline-close" className="w-4 h-4 text-white" />
-                {/* Use the defaultavatar.png for the review cards */}
-                <Image
-                  src="/assets/defaultavatar.png"
-                  alt={`${requester}'s avatar`}
-                  width={35}
-                  height={35}
-                  className="rounded-full object-cover"
-                />
+                {/* Requester Avatar - Clickable */}
+                <Link href={`/home/profile/${requesterUsername}`} className="flex-shrink-0">
+                  <div className="w-[35px] h-[35px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
+                    <Image
+                      src={requesterAvatar}
+                      alt={`${requester}'s avatar`}
+                      width={35}
+                      height={35}
+                      className="rounded-full object-cover"
+                    />
+                  </div>
+                </Link>
                 <div className="flex flex-col justify-start">
-                  <span className="font-semibold text-white text-base">{`${tradePartner} & ${requester}`}</span>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/home/profile/${tradePartnerUsername}`} className="hover:text-[#906EFF] transition-colors">
+                      <span className="font-semibold text-white text-base cursor-pointer">{tradePartner}</span>
+                    </Link>
+                    <span className="text-white text-base">&</span>
+                    <Link href={`/home/profile/${requesterUsername}`} className="hover:text-[#906EFF] transition-colors">
+                      <span className="font-semibold text-white text-base cursor-pointer">{requester}</span>
+                    </Link>
+                  </div>
                   <span className="text-white/50 text-base">
                     {tradeCompletionDate}
                   </span>
@@ -2446,7 +2467,7 @@ export default function ProfilePage() {
 
           <div className="relative flex items-center gap-5 text-white text-sm">
             {/* Rating number on the left */}
-            <span className="text-lg">{safeFixed(user.rating, 1)}</span>
+            <span className="text-lg">{safeFixed(rating, 1)}</span>
             <div className="flex items-center gap-[5px]">
               {renderStars(rating)}
             </div>
@@ -2464,8 +2485,13 @@ export default function ProfilePage() {
           {/* Trade Details Section */}
           <div className="flex-1 flex flex-col gap-[25px]">
             <div className="flex items-center gap-[15px] w-full">
+              <Link href={`/home/profile/${requesterUsername}`} className="hover:text-[#906EFF] transition-colors">
+                <h6 className="text-white text-base text-white/50 whitespace-nowrap cursor-pointer">
+                  {requester}
+                </h6>
+              </Link>
               <h6 className="text-white text-base text-white/50 whitespace-nowrap">
-                Name requested
+              requested
               </h6>
               <div className="inline-flex items-center px-[15px] py-[8px] text-[13px] rounded-full border-2 text-white bg-[#284CCC]/20 border-[#284CCC]/80 text-[#C1C9E1]">
                 <span className="whitespace-nowrap">{requestTitle}</span>
@@ -2487,21 +2513,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center mt-2">
-          <div className="flex items-center gap-1.5 text-white text-sm">
-            <button
-              onClick={() => setIsLiked(!isLiked)}
-              className="transition-transform transform hover:scale-110"
-            >
-              <Heart
-                className={clsx(
-                  "w-5 h-5 transition-colors duration-300",
-                  isLiked ? "fill-[#906EFF] stroke-[#906EFF]" : "stroke-white"
-                )}
-              />
-            </button>
-            <span>{likes + (isLiked ? 1 : 0)}</span>
-          </div>
+        <div className="flex justify-end items-center mt-2">
           <div className="flex gap-4">
             <Button
               className="bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm rounded-[15px] px-5 py-2 shadow-[0px_0px_15px_#284CCC]"
@@ -2746,12 +2758,7 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="absolute top-0 right-0">
-              <Link href="/home/messages">
-                <Button className="bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[16px] rounded-[15px] px-5 py-2 shadow-[0px_0px_15px_#284CCC] flex items-center gap-2">
-                  <Icon icon="mdi:email-outline" className="w-4 h-4" />
-                  Message
-                </Button>
-              </Link>
+              
             </div>
           )}
           {/* Rating + Level */}
@@ -3462,7 +3469,7 @@ export default function ProfilePage() {
                       {isOwnProfile ? (
                         // ✅ OWNER VIEW CARD (delete + offers)
                         <div
-                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+                          className="transition-all duration-300 hover:scale-[1.01] max-w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
                           style={{
                             background:
                               "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -3481,10 +3488,7 @@ export default function ProfilePage() {
                               >
                                 <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#D78DE5] transition-all">
                                   <Image
-                                    src={
-                                      session?.user?.image ||
-                                      "/assets/defaultavatar.png"
-                                    }
+                                    src={session?.user?.image || "/assets/defaultavatar.png"}
                                     alt="Your profile picture"
                                     width={25}
                                     height={25}
@@ -3495,7 +3499,8 @@ export default function ProfilePage() {
                               <div className="flex flex-col items-start gap-[5px]">
                                 <Link
                                   href={`/home/profile/${session.user.username}`}
-                                  className="text-[16px] text-white hover:text-[#D78DE5] transition-colors cursor-pointer"
+                                  className="text-[16px] text-white hover:text-[#D78DE5] transition-colors cursor-pointer truncate max-w-[160px]"
+                                  title={trade.name}
                                 >
                                   <span>{trade.name}</span>
                                 </Link>
@@ -3505,9 +3510,7 @@ export default function ProfilePage() {
                                     <span className="text-[13px] font-bold text-white">
                                       {trade.rating}
                                     </span>
-                                    <span className="text-[13px] text-white">
-                                      ({trade.reviews})
-                                    </span>
+                                    <span className="text-[13px] text-white">({trade.reviews})</span>
                                   </div>
                                   <div className="flex items-center gap-[5px]">
                                     <svg
@@ -3532,14 +3535,8 @@ export default function ProfilePage() {
                                           gradientUnits="userSpaceOnUse"
                                           gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
                                         >
-                                          <stop
-                                            offset="0.4"
-                                            stopColor="#933BFF"
-                                          />
-                                          <stop
-                                            offset="1"
-                                            stopColor="#34188D"
-                                          />
+                                          <stop offset="0.4" stopColor="#933BFF" />
+                                          <stop offset="1" stopColor="#34188D" />
                                         </radialGradient>
                                         <linearGradient
                                           id="paint1_linear_1202_2090"
@@ -3550,65 +3547,53 @@ export default function ProfilePage() {
                                           gradientUnits="userSpaceOnUse"
                                         >
                                           <stop stopColor="white" />
-                                          <stop
-                                            offset="0.5"
-                                            stopColor="#999999"
-                                          />
+                                          <stop offset="0.5" stopColor="#999999" />
                                           <stop offset="1" stopColor="white" />
                                         </linearGradient>
                                       </defs>
                                     </svg>
-                                    <span className="text-[13px] text-white">
-                                      LVL {trade.level}
-                                    </span>
+                                    <span className="text-[13px] text-white">LVL {trade.level}</span>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                            {/* Right: 🗑 Delete Icon */}
+
+                            {/* 🗑 Delete Icon */}
                             <button
-                              onClick={() =>
-                                setShowDeleteModalForCard(trade.id)
-                              }
-                              className="p-1 hover:bg-white/10 rounded-full transition"
+                              onClick={() => setShowDeleteModalForCard(trade.id)}
+                              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                               title="Delete trade"
                             >
                               <Icon
                                 icon="lucide:trash-2"
-                                className="w-5 h-5 text-red-500 hover:text-red-600 transition"
+                                className="w-5 h-5 text-white hover:text-red-400 transition-colors"
                               />
                             </button>
                           </div>
 
                           {/* Needs + Interested */}
-                          <div className="flex justify-between items-start w-full">
+                          <div className="flex justify-between items-start w-full mt-2">
                             <div className="flex flex-col items-start gap-[10px]">
-                              <span className="text-[13px] text-white">
-                                Needs
-                              </span>
-                              <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
-                                <span className="text-[12px] text-white leading-tight">
-                                  {trade.needs || trade.reqname || "N/A"}
-                                </span>
+                              <span className="text-sm text-white/80 font-medium">Needs</span>
+                              <div
+                                className="px-[15px] py-[7px] bg-[#5A5AFF33] border-[2px] border-[#5A5AFF] rounded-[15px] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                                title={trade.needs || trade.reqname}
+                              >
+                                {trade.needs || trade.reqname || "N/A"}
                               </div>
                             </div>
+
                             <div className="flex flex-col items-end gap-[10px]">
-                              <span className="text-[13px] text-white">
-                                Look who's interested
-                              </span>
+                              <span className="text-[13px] text-white">Look who's interested</span>
                               <div className="flex -space-x-2">
-                                {trade.interested &&
-                                  trade.interested.length > 0 ? (
+                                {trade.interested && trade.interested.length > 0 ? (
                                   trade.interested.map((person) => (
                                     <div
                                       key={person.id}
-                                      className="w-[25px] h-[25px] rounded-full border border-white overflow-hidden"
+                                      className="w-[25px] h-[25px] rounded-full border border-white overflow-hidden hover:ring-2 hover:ring-[#D78DE5] transition-all"
                                     >
                                       <Image
-                                        src={
-                                          person.avatar ||
-                                          "/assets/defaultavatar.png"
-                                        }
+                                        src={person.avatar || "/assets/defaultavatar.png"}
                                         alt={`${person.name}'s profile picture`}
                                         width={25}
                                         height={25}
@@ -3617,48 +3602,42 @@ export default function ProfilePage() {
                                     </div>
                                   ))
                                 ) : (
-                                  <div className="text-[12px] text-white/60">
-                                    No requests yet
-                                  </div>
+                                  <div className="text-[12px] text-white/60">No requests yet</div>
                                 )}
                               </div>
                             </div>
                           </div>
 
-                          {/* Date + View button */}
-                          <div className="flex justify-between items-center w-full">
+                          {/* Date + View Button */}
+                          <div className="flex justify-between items-center w-full mt-2">
                             <span className="text-[13px] text-white/60">
-                              until{" "}
-                              {trade.until || trade.deadline || "No deadline"}
+                              until {trade.until || trade.deadline || "No deadline"}
                             </span>
+
                             <button
                               className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors"
                               onClick={() => console.log("View trade", trade)}
-                              disabled={
-                                !trade.interested ||
-                                trade.interested.length === 0
-                              }
+                              disabled={!trade.interested || trade.interested.length === 0}
                             >
                               <span className="text-[13px] text-white">
-                                {!trade.interested ||
-                                  trade.interested.length === 0
+                                {!trade.interested || trade.interested.length === 0
                                   ? "No offers"
                                   : "View"}
                               </span>
                             </button>
-                            {showDeleteModalForCard === trade.tradereq_id && (
-                              <InlineConfirmationModal
-                                message="Are you sure you want to delete this trade request? This action cannot be undone."
-                                onConfirm={() => handleDeleteTrade(trade)}
-                                onCancel={() => setShowDeleteModalForCard(null)}
-                              />
-                            )}
                           </div>
+
+                          {showDeleteModalForCard === trade.id && (
+                            <InlineConfirmationModal
+                              message="Are you sure you want to delete this trade request? This action cannot be undone."
+                              onConfirm={() => handleDeleteTrade(trade)}
+                              onCancel={() => setShowDeleteModalForCard(null)}
+                            />
+                          )}
                         </div>
                       ) : (
-                        // 🌐 PUBLIC VIEW CARD (Explore-style)
                         <div
-                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
+                          className="transition-all duration-300 hover:scale-[1.01] w-full w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
                           style={{
                             background:
                               "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -3674,10 +3653,7 @@ export default function ProfilePage() {
                               >
                                 <div className="relative w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#0038FF] transition-all">
                                   <Image
-                                    src={
-                                      trade.profilePic ||
-                                      "/assets/defaultavatar.png"
-                                    }
+                                    src={trade.profilePic || "/assets/defaultavatar.png"}
                                     alt={`${trade.name}'s avatar`}
                                     width={25}
                                     height={25}
@@ -3685,6 +3661,7 @@ export default function ProfilePage() {
                                   />
                                 </div>
                               </Link>
+
                               <div className="flex flex-col gap-[5px]">
                                 <Link
                                   href={`/home/profile/${trade.username}`}
@@ -3694,6 +3671,7 @@ export default function ProfilePage() {
                                     {trade.name}
                                   </span>
                                 </Link>
+
                                 <div className="flex gap-[15px] items-center text-sm text-white/90">
                                   <div className="flex gap-1 items-center">
                                     <Icon
@@ -3702,13 +3680,10 @@ export default function ProfilePage() {
                                       width={14}
                                       height={14}
                                     />
-                                    <span className="font-bold">
-                                      {trade.rating.toFixed(1)}
-                                    </span>
-                                    <span className="text-white/70">
-                                      ({trade.reviews})
-                                    </span>
+                                    <span className="font-bold">{trade.rating.toFixed(1)}</span>
+                                    <span className="text-white/70">({trade.reviews})</span>
                                   </div>
+
                                   <div className="flex gap-1 items-center">
                                     <Image
                                       src="/assets/lvlrank_icon.png"
@@ -3716,9 +3691,7 @@ export default function ProfilePage() {
                                       width={12}
                                       height={12}
                                     />
-                                    <span className="text-white/80">
-                                      LVL {trade.level}
-                                    </span>
+                                    <span className="text-white/80">LVL {trade.level}</span>
                                   </div>
                                 </div>
                               </div>
@@ -3726,20 +3699,25 @@ export default function ProfilePage() {
                           </div>
 
                           {/* Needs + Offer */}
-                          <div className="flex justify-between items-start gap-4 flex-wrap mb-3">
-                            <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
-                              <span className="text-sm text-white/80 font-medium">
-                                Needs
-                              </span>
-                              <div className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 w-fit">
+                          <div className="flex justify-between items-start gap-4 mb-3 w-full">
+                            {/* Needs */}
+                            <div className="flex flex-col gap-2 w-1/2">
+                              <span className="text-sm text-white/80 font-medium">Needs</span>
+                              <div
+                                className="px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                                title={trade.reqname}
+                              >
                                 {trade.reqname}
                               </div>
                             </div>
-                            <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
-                              <span className="text-sm text-white/80 font-medium">
-                                Can offer
-                              </span>
-                              <div className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 w-fit text-right">
+
+                            {/* Can offer */}
+                            <div className="flex flex-col gap-2 w-1/2 items-end">
+                              <span className="text-sm text-white/80 font-medium">Can offer</span>
+                              <div
+                                className="px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 w-full overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                                title={trade.offer || trade.matching_skill}
+                              >
                                 {trade.offer || trade.matching_skill}
                               </div>
                             </div>
@@ -3747,17 +3725,15 @@ export default function ProfilePage() {
 
                           {/* Deadline */}
                           <div className="mt-[0px] flex justify-end mb-3">
-                            <p className="text-[13px] text-white/70">
-                              {fmtUntil(trade.deadline)}
-                            </p>
+                            <p className="text-[13px] text-white/70">{fmtUntil(trade.deadline)}</p>
                           </div>
 
                           {/* CTA */}
                           <div className="mt-[0px] flex justify-center">
                             {(() => {
                               const hasInterest = userInterestStatus[trade.tradereq_id];
-                              const isPending = hasInterest === 'PENDING';
-                              const isAccepted = hasInterest === 'ACCEPTED';
+                              const isPending = hasInterest === "PENDING";
+                              const isAccepted = hasInterest === "ACCEPTED";
 
                               if (isPending) {
                                 return (
