@@ -2303,9 +2303,21 @@ def get_active_trades(request):
                 print(f"Skipping trade {trade.tradereq_id} - no responder")
                 continue
             
-            # Determine which user is the "other" user
+            # Determine which user is the "other" user and if current user is the requester
             is_requester = (trade.requester.id == user.id)
             other_user = trade.responder if is_requester else trade.requester
+            
+            # Determine the correct 'needs' and 'offers' from the current user's point of view.
+            if is_requester:
+                # As the requester, I NEED the original request .
+                # The OFFER is what I give in exchange.
+                user_perspective_needs = trade.reqname
+                user_perspective_offers = trade.exchange
+            else:
+                # As the responder, I NEED the exchange.
+                # The OFFER I am providing is the original request.
+                user_perspective_needs = trade.exchange
+                user_perspective_offers = trade.reqname
             
             print(f"Trade {trade.tradereq_id}:")
             print(f"  Reqname from DB: {trade.reqname}")
@@ -2322,8 +2334,8 @@ def get_active_trades(request):
                 "rating": float(other_user.avgStars or 0),
                 "reviews": str(other_user.ratingCount or 0),
                 "level": str(other_user.level or 1),
-                "needs": trade.reqname,  # ✅ Direct from database - what requester needs
-                "offers": trade.exchange,  # ✅ Direct from database - what's offered in exchange
+                "needs": user_perspective_needs,  # ✅ Direct from database - what requester needs
+                "offers": user_perspective_offers,  # ✅ Direct from database - what's offered in exchange
                 "until": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
                 "status": "PENDING",
                 "other_user_profile_pic": profile_pic_url,  
@@ -3771,67 +3783,89 @@ def get_trade_rating_status(request, tradereq_id):
         print(f"Get rating status error: {str(e)}")
         return Response({"error": f"Failed to get rating status: {str(e)}"}, status=500)
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def award_trade_xp(request, tradereq_id: int):
+def get_completed_trades(request):
     """
-    Awards XP to the current user for this trade.
-    XP comes from the PARTNER's trade detail (their complexity = your reward).
-    This endpoint is now redundant since XP is awarded during rating submission,
-    but kept for potential manual admin use or edge cases.
+    Get all COMPLETED trades where the user was a participant (requester or responder).
+    This is specifically for the completed trades history page.
+    ✅ CORRECTED: Now swaps 'reqname' and 'exchange' based on user's perspective.
     """
+    user = request.user
+    print(f"=== GET_COMPLETED_TRADES (Corrected) DEBUG ===")
+    print(f"User ID: {user.id}")
+
     try:
-        trade_request = TradeRequest.objects.select_related('requester','responder').get(tradereq_id=tradereq_id)
-        
-        if request.user not in [trade_request.requester, trade_request.responder]:
-            return Response({"error":"Not authorized for this trade"}, status=403)
+        completed_trades_query = TradeRequest.objects.filter(
+            status=TradeRequest.Status.COMPLETED,
+            requester__isnull=False,
+            responder__isnull=False
+        ).filter(
+            Q(requester=user) | Q(responder=user)
+        ).select_related('requester', 'responder').order_by('-tradereq_id')
 
-        # Has current user rated?
-        rep = ReputationSystem.objects.filter(trade_request=trade_request).first()
-        if not rep:
-            return Response({"error":"No rating record yet"}, status=400)
+        print(f"Found {completed_trades_query.count()} completed trades for user {user.id}")
 
-        current_user_is_requester = (request.user == trade_request.requester)
-        has_rated = (rep.requester_starcount is not None) if current_user_is_requester else (rep.responder_starcount is not None)
-        
-        if not has_rated:
-            return Response({"error":"You must submit a rating first"}, status=400)
+        trades_data = []
+        for trade in completed_trades_query:
+            is_requester = (trade.requester.id == user.id)
+            other_user = trade.responder if is_requester else trade.requester
 
-        # Determine partner
-        partner_user = trade_request.responder if current_user_is_requester else trade_request.requester
-        
-        # Get PARTNER's trade detail (their complexity = your XP)
-        partner_detail = TradeDetail.objects.filter(
-            trade_request=trade_request, 
-            user=partner_user
-        ).first()
-        
-        if not partner_detail:
-            return Response({"error":"Partner's trade detail not found"}, status=404)
-        
-        # Award XP from partner's complexity
-        gained = int(partner_detail.total_xp or 0)
-        request.user.tot_XpPts = int(request.user.tot_XpPts or 0) + gained
-        request.user.level = max(1, (request.user.tot_XpPts // 1000) + 1)
-        request.user.save()
+            if not other_user:
+                print(f"Skipping trade {trade.tradereq_id} due to missing other_user")
+                continue
+
+            if is_requester:
+                user_perspective_needed = trade.reqname
+                user_perspective_offered = trade.exchange
+            else:
+                user_perspective_needed = trade.exchange
+                user_perspective_offered = trade.reqname
+
+            profile_pic_url = other_user.profilePic if other_user.profilePic else None
+
+            user_trade_detail = TradeDetail.objects.filter(trade_request=trade, user=user).first()
+            total_xp = user_trade_detail.total_xp if user_trade_detail else 0
+
+            trade_history = TradeHistory.objects.filter(trade_request=trade).first()
+            completed_at = trade_history.completed_at if trade_history and trade_history.completed_at else None
+            
+            deadline_formatted = completed_at.strftime('%B %d, %Y') if completed_at else "Date not available"
+
+            trades_data.append({
+                "tradereq_id": trade.tradereq_id,
+                "other_user": {
+                    "id": other_user.id,
+                    "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username,
+                    "username": other_user.username,
+                    "profilePic": profile_pic_url,
+                    "level": other_user.level,
+                    "rating": float(other_user.avgStars or 0)
+                },
+                # ✅ Gagamitin na natin ang mga bago at tamang variables
+                "reqname": user_perspective_needed,
+                "exchange": user_perspective_offered,
+                "total_xp": total_xp,
+                "deadline": completed_at.isoformat() if completed_at else None,
+                "deadline_formatted": deadline_formatted,
+                "is_requester": is_requester,
+                "status": trade.status,
+            })
 
         return Response({
-            "message": "XP awarded from partner's trade complexity",
-            "updated_users": [{
-                "user_id": request.user.id, 
-                "xp_gained": gained,
-                "new_total_xp": request.user.tot_XpPts,
-                "new_level": request.user.level
-            }]
+            "completed_trades": trades_data,
+            "count": len(trades_data)
         }, status=200)
-        
-    except TradeRequest.DoesNotExist:
-        return Response({"error":"Trade not found"}, status=404)
+
     except Exception as e:
-        print(f"Award XP error: {str(e)}")
+        print(f"ERROR in get_completed_trades: {str(e)}")
         import traceback
         traceback.print_exc()
-        return Response({"error": f"Failed to award XP: {e}"}, status=500)
+        return Response({
+            "error": f"Failed to get completed trades: {str(e)}",
+            "completed_trades": [],
+            "count": 0
+        }, status=500)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

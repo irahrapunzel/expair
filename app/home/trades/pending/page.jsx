@@ -1108,7 +1108,7 @@ export default function PendingTradesPage() {
 
                   {/* Can offer */}
                   <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
-                    <span className="text-sm text-white/80 font-medium">Can offer</span>
+                    <span className="text-sm text-white/80 font-medium">In exchange for</span>
                     <div
                       className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
                       title={trade.offers}
@@ -1673,7 +1673,7 @@ export default function PendingTradesPage() {
 
                           {/* Can offer */}
                           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
-                            <span className="text-[13px] text-white/90 font-medium">Can offer</span>
+                            <span className="text-[13px] text-white/90 font-medium">In exchange for</span>
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] 
                                         text-[13px] text-white leading-tight max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
