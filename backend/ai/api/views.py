@@ -172,7 +172,7 @@ def api_explore_feed(request):
     cached_data = cache.get(cache_key)
     if cached_data:
         return Response(cached_data)
-
+    
     try:
         trades = rank_explore_trades(for_user_id=user_id, top_k=top_k)
         response_data = {

@@ -309,6 +309,13 @@ useEffect(() => {
       }
       
       const data = await resp.json();
+      console.log("✅ AI-ranked trades received:", data.ranked_trades?.length || 0);
+      console.log("🔍 Full response:", data);
+      if (data.ranked_trades) {
+        data.ranked_trades.slice(0, 5).forEach((trade, i) => {
+          console.log(`  ${i+1}. ${trade.reqname} by ${trade.requester}`);
+        });
+      }
       console.log("✅ API Response:", data);
       
       // Handle both possible response formats

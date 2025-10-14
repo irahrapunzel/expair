@@ -184,6 +184,11 @@ def rank_explore_trades(for_user_id: int, top_k: int = 20) -> list:
         status__in=['COMPLETED', 'CANCELLED']
     ).select_related('requester')[:200]
 
+    print(f"🔍 DEBUG: Found {available_trades.count()} available trades")
+    print(f"🔍 DEBUG: Requesting user: {user.username} (ID: {user.pk})")
+    for t in available_trades[:5]:
+        print(f"  - Trade {t.tradereq_id}: {t.reqname} by {t.requester.username} (status: {repr(t.status)})")
+
     if not available_trades.exists():
         return []
     
