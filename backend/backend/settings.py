@@ -303,6 +303,9 @@ CSRF_TRUSTED_ORIGINS = [
 
 ]
 
+# Gemini / Google AI key (used by backend/ai)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+
 # OTP Email Configuration
 OTP_EMAIL_SENDER = 'noreply@expair.com'
 OTP_EMAIL_SUBJECT = 'Your Expair Verification Code'
