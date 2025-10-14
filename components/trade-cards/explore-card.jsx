@@ -196,13 +196,10 @@ export default function ExploreCard({
           {/* Report Button */}
           <button
             onClick={handleReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="flex items-center justify-center w-8 h-8 text-white hover:text-red-500 rounded-lg transition-colors"
+            title="Report user"
           >
-            <Icon
-              icon="mdi:alert-circle-outline"
-              className="text-white text-base"
-            />
-            Report
+            <Icon icon="mdi:alert-circle-outline" className="text-lg" />
           </button>
         </div>
 

@@ -2400,15 +2400,6 @@ export default function ProfilePage() {
       return stars;
     };
 
-    // Function to handle the report action
-    const handleReport = () => {
-      // In a real app, this would be a client-side navigation or a more complex interaction
-      console.log(
-        `Navigating to help form for reporting review by ${requester}`
-      );
-      window.location.href = "/help#help-form";
-    };
-
     return (
       <div
         className="flex flex-col gap-[20px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] relative transition-all duration-300 hover:scale-[1.01]"
@@ -2471,12 +2462,6 @@ export default function ProfilePage() {
             <div className="flex items-center gap-[5px]">
               {renderStars(rating)}
             </div>
-            <button
-              onClick={handleReport}
-              className="p-1 rounded-full hover:bg-white/10 transition"
-            >
-              <Flag className="w-5 h-5 cursor-pointer text-white/50" />
-            </button>
           </div>
         </div>
 
