@@ -48,7 +48,7 @@ export default function Navbar() {
   const settingsHref = `/home/profile/${profileSlug}/settings`;
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event) {
       if (bellRef.current && !bellRef.current.contains(event.target)) {
         const notificationPortal = document.querySelector(
           "[data-notification-portal]"
