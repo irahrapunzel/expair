@@ -946,7 +946,7 @@ export default function ActiveTradesPage() {
                       <div className="flex items-center gap-[20px]">
                         <div className="flex flex-col gap-[15px]">
                           <div className="flex items-center gap-[10px]">
-                            <span className="text-[16px] text-white">Requested</span>
+                            <span className="text-[16px] text-white">Needs</span>
                           </div>
                           <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
                             <span className="text-[15px] text-white">{trade.requested}</span>

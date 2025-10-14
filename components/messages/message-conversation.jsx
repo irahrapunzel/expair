@@ -280,7 +280,7 @@ const perspectiveLabels = useMemo(() => {
           <div className="flex justify-between">
             <div className="flex items-start gap-4">
               <div className="flex flex-col">
-                <span className="text-[16px] text-white">Requested</span>
+                <span className="text-[16px] text-white">Needs</span>
                 <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
                   <span className="text-[13px] text-white">{perspectiveLabels.requested}</span>
                 </div>
