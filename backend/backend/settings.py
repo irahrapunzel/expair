@@ -52,6 +52,9 @@ INSTALLED_APPS = [
     'cloudinary_storage',  
     'cloudinary', 
     'django.contrib.staticfiles',
+    'django_otp',
+    'django_otp.plugins.otp_static',
+    'django_otp.plugins.otp_email',
     'accounts',
     'rest_framework',
     'corsheaders',
@@ -68,6 +71,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -109,7 +113,9 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            BASE_DIR / 'accounts' / 'templates',
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -297,5 +303,9 @@ CSRF_TRUSTED_ORIGINS = [
 
 ]
 
+# OTP Email Configuration
+OTP_EMAIL_SENDER = 'noreply@expair.com'
+OTP_EMAIL_SUBJECT = 'Your Expair Verification Code'
+OTP_EMAIL_TOKEN_VALIDITY = 600  # 10 minutes
 
 
