@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Code</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #4F46E5;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .otp-code {
+            background-color: #F3F4F6;
+            border: 2px dashed #4F46E5;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .otp-code h2 {
+            margin: 0;
+            font-size: 36px;
+            color: #4F46E5;
+            letter-spacing: 8px;
+        }
+        .footer {
+            background-color: #F9FAFB;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6B7280;
+            font-size: 14px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #4F46E5;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>🔐 Expair Verification</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hi <strong>{{ user.first_name }}</strong>,</p>
+            
+            <p>You requested a verification code for your Expair account.</p>
+            
+            <div class="otp-code">
+                <p style="margin: 0; color: #6B7280; font-size: 14px;">Your verification code is:</p>
+                <h2>{{ token }}</h2>
+            </div>
+            
+            <p style="color: #6B7280;">
+                <strong>This code will expire in 10 minutes.</strong>
+            </p>
+            
+            <p style="color: #6B7280; margin-top: 30px;">
+                If you didn't request this code, please ignore this email or contact support if you have concerns.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>© 2024 Expair. All rights reserved.</p>
+            <p>This is an automated message, please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>

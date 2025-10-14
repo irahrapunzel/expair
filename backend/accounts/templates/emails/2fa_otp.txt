@@ -1,0 +1,21 @@
+Hi {{ user_name }},
+
+{% if action == 'enable' %}
+You're enabling Two-Factor Authentication on your Expair account.
+{% elif action == 'disable' %}
+You're disabling Two-Factor Authentication on your Expair account.
+{% else %}
+Someone is trying to log in to your Expair account.
+{% endif %}
+
+Your verification code is: {{ token }}
+
+This code will expire in {{ validity_minutes }} minutes.
+
+If you didn't request this, please secure your account immediately.
+
+Best regards,
+Expair Team
+
+---
+This is an automated message. Please do not reply to this email.

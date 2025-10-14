@@ -28,6 +28,7 @@ urlpatterns = [
     path('posted-trades/<str:username>/', views.get_user_posted_trades, name='get_user_posted_trades'),
     path('active-trades/', views.get_active_trades, name='get_active_trades'),
     path('home/active-trades/', views.get_home_active_trades, name='home_active_trades'),
+    path('completed-trades/', views.get_completed_trades, name='get_completed_trades'),
 
     # Trade interest management endpoints
     path('trade-requests/<int:tradereq_id>/interests/', views.get_trade_interests, name='get_trade_interests'),
@@ -55,8 +56,6 @@ urlpatterns = [
     # Trade rating endpoints
     path('trade-rating/submit/', views.submit_trade_rating, name='submit_trade_rating'),
     path('trade-rating/status/<int:tradereq_id>/', views.get_trade_rating_status, name='get_trade_rating_status'),
-
-    path('trade-xp/award/<int:tradereq_id>/', views.award_trade_xp, name='award_trade_xp'),
 
     path('users/<int:user_id>/reviews/', views.user_reviews, name='user_reviews'),
 

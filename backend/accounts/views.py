@@ -4,6 +4,7 @@ import os
 from datetime import date, timezone
 from urllib import request
 
+import requests
 import cloudinary
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes, permission_classes
@@ -406,50 +407,190 @@ def get_user_posted_trades(request, username):
         status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED]
     ).prefetch_related('interests__interested_user').order_by('-tradereq_id')
 
-    # Get requester's skills to determine what they can offer
+    # Build mapping of requester's skills grouped by gen category
     requester_skills = {}
-    user_skills = UserSkill.objects.filter(user=user).select_related('specSkills__genSkills_id')
-    for skill in user_skills:
-        gen_category = skill.specSkills.genSkills_id.genCateg
-        if gen_category not in requester_skills:
-            requester_skills[gen_category] = []
-        requester_skills[gen_category].append(skill.specSkills.specName)
+    user_skills_qs = UserSkill.objects.filter(user=user).select_related('specSkills__genSkills_id')
+    for us in user_skills_qs:
+        gen = us.specSkills.genSkills_id
+        gen_categ = gen.genCateg if gen else None
+        spec_name = us.specSkills.specName if us.specSkills else None
+        if gen_categ:
+            requester_skills.setdefault(gen_categ, []).append(spec_name or gen_categ)
 
-    # Fallback skill if user has no skills
+    # Fallback general category name if no skills exist
     fallback_skill = GenSkill.objects.first()
-    fallback_skill_name = fallback_skill.genCateg if fallback_skill else "Skills & Services"
-
-    profile_pic_url = user.profilePic if user.profilePic else None
-
+    fallback_skill_name = fallback_skill.genCateg if fallback_skill else ""
 
     trades_data = []
     for t in posted_trades:
-        # Determine what the requester can offer
         offer = ""
-        if requester_skills:
-            offer = list(requester_skills.keys())[0]  # Show first general skill category
-        else:
-            offer = fallback_skill_name
+        try:
+            first_us = UserSkill.objects.filter(user_id=user.id).select_related("specSkills__genSkills_id").first()
+            if first_us and first_us.specSkills:
+                spec_name = getattr(first_us.specSkills, "specName", None)
+                if spec_name:
+                    offer = spec_name
+                else:
+                    gen = getattr(first_us.specSkills, "genSkills_id", None)
+                    if gen and getattr(gen, "genCateg", None):
+                        offer = gen.genCateg
+        except Exception:
+            offer = ""
+
+        # fallback: if still empty, use any gen category from requester_skills
+        if not offer and requester_skills:
+            first_cat, specs = next(iter(requester_skills.items()))
+            offer = specs[0] if specs else first_cat
+
+        # last resort: any specific skill in DB
+        if not offer:
+            any_spec = SpecSkill.objects.first()
+            offer = any_spec.specName if any_spec else ""
 
         trades_data.append({
             "tradereq_id": t.tradereq_id,
             "reqname": t.reqname,
             "deadline": t.reqdeadline.isoformat() if t.reqdeadline else "",
             "status": t.status,
-            "interest_count": t.interests.count(),
             "offer": offer,
-            "username": user.username,
-            "profilePic": profile_pic_url, 
-            "name": f"{user.first_name} {user.last_name}".strip() or user.username, 
-            "rating": float(user.avgStars or 0), 
-            "reviews": int(user.ratingCount or 0), 
-            "level": int(user.level or 1), 
+            "requester_skills": requester_skills,
+            "created_at": t.created_at,
+            "offer": offer,
         })
 
     return Response({
         "posted_trades": trades_data,
         "count": len(trades_data)
     }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def explore_feed(request):
+    """
+    Explore feed: ensure 'offer' prefers a specific specName and include 'specName' in the response.
+    """
+    viewer = request.user if getattr(request.user, "id", None) else None
+
+    qs = (TradeRequest.objects
+          .select_related("requester")
+          .filter(
+              Q(status__isnull=True) | Q(status=TradeRequest.Status.CANCELLED)
+          )
+          .order_by("-tradereq_id"))[:50]
+
+    # Preload viewer's interest genSkill ids
+    viewer_gen_interests = []
+    if viewer:
+        viewer_gen_interests = list(
+            UserInterest.objects.filter(user_id=viewer.id)
+            .values_list("genSkills_id_id", flat=True)
+        )
+
+    items_with_matches = []
+    items_without_matches = []
+
+    # Global fallback to any specific skill name (never a generic "Skills & Services")
+    any_spec = SpecSkill.objects.first()
+    global_spec_fallback = getattr(any_spec, "specName", "") if any_spec else ""
+
+    for tr in qs:
+        requester = tr.requester
+        
+        # ✅ Build proper display name - prioritize first_name + last_name
+        first_name = (requester.first_name or "").strip()
+        last_name = (requester.last_name or "").strip()
+        
+        if first_name or last_name:
+            display_name = f"{first_name} {last_name}".strip()
+        else:
+            display_name = requester.username
+        
+        needs = tr.reqname
+        
+        # ✅ Handle profile picture - ensure valid URL or None
+        profile_pic_url = None
+        if requester.profilePic:
+            pic = str(requester.profilePic).strip()
+            if pic and (pic.startswith('http://') or pic.startswith('https://')):
+                profile_pic_url = pic
+
+        # Load requester user skills (specific names + general id/category)
+        req_user_skills = list(
+            UserSkill.objects.filter(user_id=requester.id).select_related("specSkills__genSkills_id")
+        )
+
+        # collect specNames and mapping
+        genid_to_specs = {}
+        spec_names = []
+        genid_to_gencat = {}
+        for us in req_user_skills:
+            spec = getattr(us, "specSkills", None)
+            if not spec:
+                continue
+            spec_name = getattr(spec, "specName", None)
+            gen = getattr(spec, "genSkills_id", None)
+            gen_id = getattr(gen, "genSkills_id", None) if gen else None
+            gen_cat = getattr(gen, "genCateg", None) if gen else None
+            if gen_id:
+                genid_to_specs.setdefault(gen_id, []).append(spec_name or gen_cat)
+                genid_to_gencat[gen_id] = gen_cat
+            if spec_name:
+                spec_names.append(spec_name)
+
+        can_offer = ""
+        has_match = False
+
+        # Priority 1: Find skills that the requester has AND the viewer is interested in
+        if viewer and viewer_gen_interests and genid_to_specs:
+            matching_skills = set(viewer_gen_interests) & set(genid_to_specs.keys())
+            
+            if matching_skills:
+                matching_skill_id = list(matching_skills)[0]
+                can_offer = genid_to_specs[matching_skill_id][0] if genid_to_specs[matching_skill_id] else genid_to_gencat.get(matching_skill_id, "")
+                has_match = True
+        
+        # Priority 2: If no match, show any skill the requester has
+        if not can_offer and genid_to_specs:
+            first_category_skills = list(genid_to_specs.values())[0]
+            can_offer = first_category_skills[0] if first_category_skills else ""
+        
+        # Priority 3: If requester has no skills, use fallback
+        if not can_offer:
+            any_spec = SpecSkill.objects.first()
+            can_offer = any_spec.specName if any_spec else ""
+        
+        item_data = {
+            "tradereq_id": tr.tradereq_id,
+            "requester_id": requester.id,
+            "name": display_name,  # ✅ Now properly shows first_name + last_name
+            "rating": float(requester.avgStars or 0),
+            "ratingCount": int(requester.ratingCount or 0),
+            "level": int(requester.level or 0),
+            "need": needs,
+            "offer": can_offer,
+            "deadline": tr.reqdeadline.isoformat() if tr.reqdeadline else "",
+            "profilePicUrl": profile_pic_url,  # ✅ Now properly validated
+            "userId": requester.id,
+            "username": requester.username, 
+        }
+
+        if has_match:
+            items_with_matches.append(item_data)
+        else:
+            items_without_matches.append(item_data)
+
+    def unique_by_tradereq(items):
+        seen = set()
+        unique = []
+        for item in items:
+            if item["tradereq_id"] not in seen:
+                seen.add(item["tradereq_id"])
+                unique.append(item)
+        return unique
+
+    items = unique_by_tradereq(items_with_matches) + unique_by_tradereq(items_without_matches)
+    return Response({"items": items}, status=200)
     
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
@@ -1205,7 +1346,6 @@ def complete_registration(request):
             google_image_url = request.data.get("google_image_url")
             if google_image_url:
                 try:
-                    import requests
                     
                     # Download the Google profile picture
                     response = requests.get(google_image_url, timeout=10)
@@ -1570,8 +1710,8 @@ def explore_feed(request):
         
         # Priority 3: If requester has no skills, use fallback
         if not can_offer:
-            any_skill = GenSkill.objects.first()
-            can_offer = any_skill.genCateg if any_skill else "Skills & Services"
+            any_spec = SpecSkill.objects.first()
+            can_offer = any_spec.specName if any_spec else ""
         
         item_data = {
             "tradereq_id": tr.tradereq_id,
@@ -2059,8 +2199,9 @@ def accept_trade_interest(request, interest_id):
                 if skill.specSkills:
                     requester_spec_skills.append(skill.specSkills.specName)
                     if skill.specSkills.genSkills_id:
-                        requester_gen_skills[skill.specSkills.genSkills_id.genskills_id] = skill.specSkills.genSkills_id.genCateg
-            
+                        gen_skill_obj = skill.specSkills.genSkills_id
+                        requester_gen_skills[gen_skill_obj.genSkills_id] = gen_skill_obj.genCateg
+
             # Get RESPONDER's interests
             responder_interests = UserInterest.objects.filter(
                 user=responder
@@ -2094,8 +2235,8 @@ def accept_trade_interest(request, interest_id):
             
             # Priority 4: Fallback
             if not exchange_skill:
-                any_skill = GenSkill.objects.first()
-                exchange_skill = any_skill.genCateg if any_skill else "Skills & Services"
+                any_spec = SpecSkill.objects.first()
+                can_offer = any_spec.specName if any_spec else ""
             
             # Save the exchange field
             trade_request.exchange = exchange_skill
@@ -2188,96 +2329,55 @@ def check_user_interests(request):
     return Response({"interests": result}, status=200)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_user_interested_trades(request):
+@permission_classes([IsAuthenticated])  
+def get_user_posted_trades(request, username):
     """
-    Get all trades the authenticated user has expressed interest in (PENDING status)
+    Ensure posted_trades returns offer as a specific specName if available.
     """
-    user = request.user
-    
-    # Get all PENDING interests for this user
-    user_interests = TradeInterest.objects.filter(
-        interested_user=user,
-        status=TradeInterest.InterestStatus.PENDING
-    ).select_related(
-        'trade_request__requester'
-    ).order_by('-created_at')
-    
+    try:
+        user = CustomUser.objects.get(username=username)
+    except CustomUser.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    posted_trades = TradeRequest.objects.filter(requester=user).order_by('-tradereq_id')
+
+    # Precompute a fallback specific skill (never generic text)
+    any_spec = SpecSkill.objects.first()
+    fallback_spec_name = getattr(any_spec, "specName", "") if any_spec else ""
+
     trades_data = []
-    
-    for interest in user_interests:
-        trade_request = interest.trade_request
-        requester = trade_request.requester
-        
-        # Get what the user can offer (their skills)
-        user_gen_skills = UserSkill.objects.filter(
-            user=user
-        ).select_related('specSkills__genSkills_id').values_list(
-            'specSkills__genSkills_id__genCateg', flat=True
-        ).distinct()
-        
-        # Pick the first skill they can offer, or any skill if they have none
-        if user_gen_skills:
-            can_offer = list(user_gen_skills)[0]
-        else:
-            # ✅ Get any skill from database instead of "General Skills"
-            any_skill = GenSkill.objects.first()
-            can_offer = any_skill.genCateg if any_skill else "Skills & Services"
-        
-        profile_pic_url = requester.profilePic if requester.profilePic else None
+    for t in posted_trades:
+        # Prefer a specific user skill name from userskills_tbl
+        offer = ""
+        spec_name = ""
+        try:
+            first_us = UserSkill.objects.filter(user_id=user.id).select_related("specSkills__genSkills_id").first()
+            if first_us and getattr(first_us, "specSkills", None):
+                spec = first_us.specSkills
+                spec_name = getattr(spec, "specName", None) or ""
+                gen = getattr(spec, "genSkills_id", None)
+                gen_categ = getattr(gen, "genCateg", None) if gen else ""
+                offer = spec_name or gen_categ or ""
+        except Exception:
+            offer = ""
 
-        # With this logic that matches explore_feed:
-        # Get what the REQUESTER can offer (their skills that matched your interests)
-        requester_skills = UserSkill.objects.filter(
-            user=requester
-        ).select_related('specSkills__genSkills_id')
+        # Fallback to any spec skill in DB
+        if not offer:
+            offer = fallback_spec_name
+            spec_name = spec_name or fallback_spec_name
 
-        # Get your interests
-        your_interests = UserInterest.objects.filter(
-            user=user
-        ).values_list('genSkills_id__genCateg', flat=True)
-
-        # Find the matching skill (same logic as explore feed)
-        matching_skill = None
-        for skill in requester_skills:
-            skill_category = skill.specSkills.genSkills_id.genCateg
-            if skill_category in your_interests:
-                matching_skill = skill_category
-                break
-
-        # Use matching skill or fallback
-        if matching_skill:
-            can_offer = matching_skill
-        elif requester_skills:
-            can_offer = requester_skills.first().specSkills.genSkills_id.genCateg
-        else:
-            any_skill = GenSkill.objects.first()
-            can_offer = any_skill.genCateg if any_skill else "Skills & Services"
-        
         trades_data.append({
-            "id": interest.trade_interests_id,
-            "trade_request_id": trade_request.tradereq_id,
-            "interest_id": interest.trade_interests_id,
-            "name": f"{requester.first_name} {requester.last_name}".strip() or requester.username,
-            "rating": float(requester.avgStars or 0),
-            "reviews": str(requester.ratingCount or 0),
-            "level": str(requester.level or 1),
-            "needs": trade_request.reqname,  # What they need
-            "offers": can_offer,  # What the current user can offer
-            "until": trade_request.reqdeadline.strftime('%B %d') if trade_request.reqdeadline else "No deadline",
-            "status": "Waiting for approval",
-            "profile_pic": profile_pic_url, 
-            "created_at": interest.created_at.isoformat(),
-            "requester": {
-                "id": requester.id,
-                "username": requester.username,
-                "name": f"{requester.first_name} {requester.last_name}".strip() or requester.username,
-                "profile_pic": profile_pic_url
-            }
+            "tradereq_id": t.tradereq_id,
+            "reqname": t.reqname,
+            "deadline": t.reqdeadline.isoformat() if t.reqdeadline else "",
+            "status": t.status,
+            "offer": offer,
+            "specName": spec_name,
+            "created_at": t.created_at,
         })
-    
+
     return Response({
-        "interested_trades": trades_data,
+        "posted_trades": trades_data,
         "count": len(trades_data)
     }, status=200)
 
@@ -2309,9 +2409,21 @@ def get_active_trades(request):
                 print(f"Skipping trade {trade.tradereq_id} - no responder")
                 continue
             
-            # Determine which user is the "other" user
+            # Determine which user is the "other" user and if current user is the requester
             is_requester = (trade.requester.id == user.id)
             other_user = trade.responder if is_requester else trade.requester
+            
+            # Determine the correct 'needs' and 'offers' from the current user's point of view.
+            if is_requester:
+                # As the requester, I NEED the original request .
+                # The OFFER is what I give in exchange.
+                user_perspective_needs = trade.reqname
+                user_perspective_offers = trade.exchange
+            else:
+                # As the responder, I NEED the exchange.
+                # The OFFER I am providing is the original request.
+                user_perspective_needs = trade.exchange
+                user_perspective_offers = trade.reqname
             
             print(f"Trade {trade.tradereq_id}:")
             print(f"  Reqname from DB: {trade.reqname}")
@@ -2328,8 +2440,8 @@ def get_active_trades(request):
                 "rating": float(other_user.avgStars or 0),
                 "reviews": str(other_user.ratingCount or 0),
                 "level": str(other_user.level or 1),
-                "needs": trade.reqname,  # ✅ Direct from database - what requester needs
-                "offers": trade.exchange,  # ✅ Direct from database - what's offered in exchange
+                "needs": user_perspective_needs,  # ✅ Direct from database - what requester needs
+                "offers": user_perspective_offers,  # ✅ Direct from database - what's offered in exchange
                 "until": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
                 "status": "PENDING",
                 "other_user_profile_pic": profile_pic_url,  
@@ -3777,67 +3889,89 @@ def get_trade_rating_status(request, tradereq_id):
         print(f"Get rating status error: {str(e)}")
         return Response({"error": f"Failed to get rating status: {str(e)}"}, status=500)
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def award_trade_xp(request, tradereq_id: int):
+def get_completed_trades(request):
     """
-    Awards XP to the current user for this trade.
-    XP comes from the PARTNER's trade detail (their complexity = your reward).
-    This endpoint is now redundant since XP is awarded during rating submission,
-    but kept for potential manual admin use or edge cases.
+    Get all COMPLETED trades where the user was a participant (requester or responder).
+    This is specifically for the completed trades history page.
+    ✅ CORRECTED: Now swaps 'reqname' and 'exchange' based on user's perspective.
     """
+    user = request.user
+    print(f"=== GET_COMPLETED_TRADES (Corrected) DEBUG ===")
+    print(f"User ID: {user.id}")
+
     try:
-        trade_request = TradeRequest.objects.select_related('requester','responder').get(tradereq_id=tradereq_id)
-        
-        if request.user not in [trade_request.requester, trade_request.responder]:
-            return Response({"error":"Not authorized for this trade"}, status=403)
+        completed_trades_query = TradeRequest.objects.filter(
+            status=TradeRequest.Status.COMPLETED,
+            requester__isnull=False,
+            responder__isnull=False
+        ).filter(
+            Q(requester=user) | Q(responder=user)
+        ).select_related('requester', 'responder').order_by('-tradereq_id')
 
-        # Has current user rated?
-        rep = ReputationSystem.objects.filter(trade_request=trade_request).first()
-        if not rep:
-            return Response({"error":"No rating record yet"}, status=400)
+        print(f"Found {completed_trades_query.count()} completed trades for user {user.id}")
 
-        current_user_is_requester = (request.user == trade_request.requester)
-        has_rated = (rep.requester_starcount is not None) if current_user_is_requester else (rep.responder_starcount is not None)
-        
-        if not has_rated:
-            return Response({"error":"You must submit a rating first"}, status=400)
+        trades_data = []
+        for trade in completed_trades_query:
+            is_requester = (trade.requester.id == user.id)
+            other_user = trade.responder if is_requester else trade.requester
 
-        # Determine partner
-        partner_user = trade_request.responder if current_user_is_requester else trade_request.requester
-        
-        # Get PARTNER's trade detail (their complexity = your XP)
-        partner_detail = TradeDetail.objects.filter(
-            trade_request=trade_request, 
-            user=partner_user
-        ).first()
-        
-        if not partner_detail:
-            return Response({"error":"Partner's trade detail not found"}, status=404)
-        
-        # Award XP from partner's complexity
-        gained = int(partner_detail.total_xp or 0)
-        request.user.tot_XpPts = int(request.user.tot_XpPts or 0) + gained
-        request.user.level = max(1, (request.user.tot_XpPts // 1000) + 1)
-        request.user.save()
+            if not other_user:
+                print(f"Skipping trade {trade.tradereq_id} due to missing other_user")
+                continue
+
+            if is_requester:
+                user_perspective_needed = trade.reqname
+                user_perspective_offered = trade.exchange
+            else:
+                user_perspective_needed = trade.exchange
+                user_perspective_offered = trade.reqname
+
+            profile_pic_url = other_user.profilePic if other_user.profilePic else None
+
+            user_trade_detail = TradeDetail.objects.filter(trade_request=trade, user=user).first()
+            total_xp = user_trade_detail.total_xp if user_trade_detail else 0
+
+            trade_history = TradeHistory.objects.filter(trade_request=trade).first()
+            completed_at = trade_history.completed_at if trade_history and trade_history.completed_at else None
+            
+            deadline_formatted = completed_at.strftime('%B %d, %Y') if completed_at else "Date not available"
+
+            trades_data.append({
+                "tradereq_id": trade.tradereq_id,
+                "other_user": {
+                    "id": other_user.id,
+                    "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username,
+                    "username": other_user.username,
+                    "profilePic": profile_pic_url,
+                    "level": other_user.level,
+                    "rating": float(other_user.avgStars or 0)
+                },
+                # ✅ Gagamitin na natin ang mga bago at tamang variables
+                "reqname": user_perspective_needed,
+                "exchange": user_perspective_offered,
+                "total_xp": total_xp,
+                "deadline": completed_at.isoformat() if completed_at else None,
+                "deadline_formatted": deadline_formatted,
+                "is_requester": is_requester,
+                "status": trade.status,
+            })
 
         return Response({
-            "message": "XP awarded from partner's trade complexity",
-            "updated_users": [{
-                "user_id": request.user.id, 
-                "xp_gained": gained,
-                "new_total_xp": request.user.tot_XpPts,
-                "new_level": request.user.level
-            }]
+            "completed_trades": trades_data,
+            "count": len(trades_data)
         }, status=200)
-        
-    except TradeRequest.DoesNotExist:
-        return Response({"error":"Trade not found"}, status=404)
+
     except Exception as e:
-        print(f"Award XP error: {str(e)}")
+        print(f"ERROR in get_completed_trades: {str(e)}")
         import traceback
         traceback.print_exc()
-        return Response({"error": f"Failed to award XP: {e}"}, status=500)
+        return Response({
+            "error": f"Failed to get completed trades: {str(e)}",
+            "completed_trades": [],
+            "count": 0
+        }, status=500)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -4035,3 +4169,67 @@ def api_explore_feed(request):
     
     # Return response with categorized trades
     return Response({"trades": []}, status=200)
+
+    # ...existing code...
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_interested_trades(request):
+    """
+    Returns trades the authenticated user has expressed interest in.
+    Each item includes a reliable 'offer' value preferring a specific specName,
+    then genCateg, then a global SpecSkill fallback (never a hyphen).
+    """
+    user = request.user
+
+    # Get all TradeInterest records for this user with related trade and requester
+    interests_qs = TradeInterest.objects.filter(
+        interested_user=user
+    ).select_related('trade_request__requester').order_by('-created_at')
+
+    # Global fallback (specific skill from DB)
+    any_spec = SpecSkill.objects.first()
+    fallback_spec_name = getattr(any_spec, "specName", "") if any_spec else ""
+
+    result = []
+    for interest in interests_qs:
+        tr = interest.trade_request
+        requester = tr.requester
+
+        # Determine offer: prefer requester's specific skill name -> genCateg -> fallback
+        offer = ""
+        spec_name = ""
+        try:
+            first_us = UserSkill.objects.filter(user=requester).select_related("specSkills__genSkills_id").first()
+            if first_us and getattr(first_us, "specSkills", None):
+                spec = first_us.specSkills
+                spec_name = getattr(spec, "specName", "") or ""
+                gen = getattr(spec, "genSkills_id", None)
+                gen_categ = getattr(gen, "genCateg", "") if gen else ""
+                offer = spec_name or gen_categ or ""
+        except Exception:
+            offer = ""
+
+        if not offer:
+            offer = fallback_spec_name
+            spec_name = spec_name or fallback_spec_name
+
+        result.append({
+            "interest_id": interest.trade_interests_id,
+            "interest_status": interest.status,
+            "tradereq_id": tr.tradereq_id,
+            "reqname": tr.reqname,
+            "deadline": tr.reqdeadline.isoformat() if tr.reqdeadline else "",
+            "trade_status": tr.status,
+            "requester_id": requester.id,
+            "requester_username": requester.username,
+            "requester_name": f"{requester.first_name} {requester.last_name}".strip() or requester.username,
+            "rating": float(requester.avgStars or 0),
+            "ratingCount": int(requester.ratingCount or 0),
+            "level": int(requester.level or 0),
+            "profilePicUrl": requester.profilePic if requester.profilePic else None,
+            "offer": offer,
+            "specName": spec_name,
+            "created_at": interest.created_at.isoformat() if getattr(interest, "created_at", None) else None,
+        })
+
+    return Response({"interested_trades": result, "count": len(result)}, status=200)

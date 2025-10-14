@@ -200,8 +200,8 @@ def api_onboarding_picks(request):
         
         # Priority 5: Fallback to database skill (last resort)
         if not can_offer:
-            any_skill = GenSkill.objects.first()
-            can_offer = any_skill.genCateg if any_skill else "Skills & Services"
+            any_spec = SpecSkill.objects.first()
+            can_offer = any_spec.specName if any_spec else ""
         
         # Build the response item
         item_data = {
@@ -275,7 +275,7 @@ def api_explore_feed(request):
         return error_response
     
     user_id = request.user.pk
-    top_k = int(request.GET.get('top_k', 20))
+    top_k = int(request.GET.get('top_k', 50))   
     cache_key = f"explore_feed_{user_id}_{top_k}"
     
     cached_data = cache.get(cache_key)
@@ -291,6 +291,16 @@ def api_explore_feed(request):
                     "reqname": t['trade'].reqname,
                     "requester": t['trade'].requester.username,
                     "requester_id": t['trade'].requester.pk,
+                    # ✅ ADD THESE FIELDS:
+                    "name": (f"{t['trade'].requester.first_name} {t['trade'].requester.last_name}").strip() or t['trade'].requester.username,
+                    "username": t['trade'].requester.username,
+                    "profilePicUrl": t['trade'].requester.profilePic if t['trade'].requester.profilePic else None,
+                    "rating": float(t['trade'].requester.avgStars or 0),
+                    "ratingCount": int(t['trade'].requester.ratingCount or 0),
+                    "level": int(t['trade'].requester.level or 0),
+                    "offer": t['trade'].exchange or "Skills & Services",
+                    "deadline": t['trade'].reqdeadline.isoformat() if t['trade'].reqdeadline else "",
+                    # Keep existing fields:
                     "score": t['score'],
                     "category": getattr(t['trade'], 'classified_category', None),
                     "exchange": getattr(t['trade'], 'exchange', None),
@@ -309,7 +319,6 @@ def api_explore_feed(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
