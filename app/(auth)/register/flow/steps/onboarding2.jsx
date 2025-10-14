@@ -589,9 +589,9 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                           <span className="text-[13px] text-white/80 font-medium">Can offer</span>
                           <div
                             className="inline-block px-[15px] py-[7px] rounded-[15px] border-[1.5px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] text-[12px] text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
-                            title={item.offer || "—"}
+                            title={item.offer || "Skills & Services"}
                           >
-                            {item.offer || "—"}
+                            {item.offer || "Skills & Services"}
                           </div>
                         </div>
                       </div>
