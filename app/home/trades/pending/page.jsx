@@ -675,7 +675,7 @@ export default function PendingTradesPage() {
             You haven't posted any trades yet.
           </div>
         ) : (
-          <div className="flex flex-wrap gap-[25px]">
+          <div className="flex flex-wrap justify-between">
 
 
             {postedTrades.map((trade, index) => {
