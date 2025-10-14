@@ -2199,8 +2199,9 @@ def accept_trade_interest(request, interest_id):
                 if skill.specSkills:
                     requester_spec_skills.append(skill.specSkills.specName)
                     if skill.specSkills.genSkills_id:
-                        requester_gen_skills[skill.specSkills.genSkills_id.genskills_id] = skill.specSkills.genSkills_id.genCateg
-            
+                        gen_skill_obj = skill.specSkills.genSkills_id
+                        requester_gen_skills[gen_skill_obj.genSkills_id] = gen_skill_obj.genCateg
+
             # Get RESPONDER's interests
             responder_interests = UserInterest.objects.filter(
                 user=responder
