@@ -119,11 +119,14 @@ export default function SettingsPage() {
   const [details, setDetails] = useState("");
   const [charCount, setCharCount] = useState(0);
 
+<<<<<<< Updated upstream
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const [twoFACode, setTwoFACode] = useState("");
 
+=======
+>>>>>>> Stashed changes
   const handleDetailsChange = (e) => {
     const text = e.target.value;
     setDetails(text);

@@ -104,7 +104,11 @@ export default function Navbar() {
 
   return (
     <header
+<<<<<<< Updated upstream
       className={`${inter.className} w-full py-4 lg:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
+=======
+      className={`${inter.className} w-full py-6 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300 ${inter.className}`}
+>>>>>>> Stashed changes
     >
       <div className="flex items-center justify-between max-w-[1440px] mx-auto px-4 lg:px-[250px]">
         {/* Logo and Button */}

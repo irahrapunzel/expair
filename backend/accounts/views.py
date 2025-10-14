@@ -25,9 +25,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
 
+<<<<<<< Updated upstream
 import logging
 from ai.services.classifier import categorize_tradereq
 
+=======
+>>>>>>> Stashed changes
 CustomUser = get_user_model()
 
 from .models import (
@@ -406,6 +409,7 @@ def get_user_posted_trades(request, username):
         status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED]
     ).prefetch_related('interests__interested_user').order_by('-tradereq_id')
 
+<<<<<<< Updated upstream
     # Build mapping of requester's skills grouped by gen category
     requester_skills = {}
     user_skills_qs = UserSkill.objects.filter(user=user).select_related('specSkills__genSkills_id')
@@ -447,20 +451,33 @@ def get_user_posted_trades(request, username):
             offer = any_spec.specName if any_spec else ""
 
         trades_data.append({
+=======
+    # map the same way as in get_posted_trades
+    trades_data = [
+        {
+>>>>>>> Stashed changes
             "tradereq_id": t.tradereq_id,
             "reqname": t.reqname,
             "deadline": t.reqdeadline.isoformat() if t.reqdeadline else "",
             "status": t.status,
+<<<<<<< Updated upstream
             "offer": offer,
             "requester_skills": requester_skills,
             "created_at": t.created_at,
             "offer": offer,
         })
+=======
+            "interest_count": t.interests.count(),
+        }
+        for t in posted_trades
+    ]
+>>>>>>> Stashed changes
 
     return Response({
         "posted_trades": trades_data,
         "count": len(trades_data)
     }, status=200)
+<<<<<<< Updated upstream
 
 
 @api_view(['GET'])
@@ -579,6 +596,9 @@ def explore_feed(request):
     items = unique_by_tradereq(items_with_matches) + unique_by_tradereq(items_without_matches)
     return Response({"items": items}, status=200)
     
+=======
+   
+>>>>>>> Stashed changes
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -1789,8 +1809,12 @@ def express_trade_interest(request):
             declined_interest.status = TradeInterest.InterestStatus.PENDING
             declined_interest.save()
             trade_interest = declined_interest
+<<<<<<< Updated upstream
             reactivated = True
             print(f"Reactivated declined/cancelled interest for user {request.user.id}.")
+=======
+            print(f"Reactivated declined interest for user {request.user.id}.")
+>>>>>>> Stashed changes
         else:
             # Create new interest record
             trade_interest = TradeInterest.objects.create(
@@ -1798,10 +1822,21 @@ def express_trade_interest(request):
                 interested_user=request.user,
                 status=TradeInterest.InterestStatus.PENDING
             )
+<<<<<<< Updated upstream
             reactivated = False
             print(f"Created new trade interest for user {request.user.id}.")
                 
         # Get total PENDING interest count (exclude declined/cancelled)
+=======
+            print(f"Created new trade interest for user {request.user.id}.")
+        
+        # Update trade request status to PENDING if it's the first interest (NULL -> PENDING)
+        if not trade_request.status:  # If status is NULL/empty
+            trade_request.status = TradeRequest.Status.PENDING
+            trade_request.save()
+        
+        # Get total PENDING interest count (exclude declined)
+>>>>>>> Stashed changes
         interest_count = TradeInterest.objects.filter(
             trade_request=trade_request,
             status=TradeInterest.InterestStatus.PENDING
