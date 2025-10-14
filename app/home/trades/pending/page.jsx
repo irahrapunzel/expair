@@ -889,7 +889,7 @@ export default function PendingTradesPage() {
                     </div>
 
                     {/* Date */}
-                    <div className="flex justify-end items-center w-full">
+                    <div className="flex justify-end items-center w-full mb-[15px]">
                       <span className="text-[13px] text-white/60">
                         until {trade.until}
                       </span>
