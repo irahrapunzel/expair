@@ -670,13 +670,14 @@ export default function PendingTradesPage() {
         <h2 className="text-[20px] font-[500] mb-5 text-[#D78DE5]">
           Trades you posted
         </h2>
+
         {postedTrades.length === 0 ? (
           <div className="text-white/60 text-center py-8">
             You haven't posted any trades yet.
           </div>
         ) : (
-          <div className="flex flex-wrap justify-between">
-
+          // ✅ Layout container (two cards per row, left-right)
+          <div className="flex flex-wrap justify-between gap-y-[25px] w-full max-w-[940px]">
 
             {postedTrades.map((trade, index) => {
               console.log(`=== Trade ${trade.tradereq_id} Debug ===`);
@@ -685,10 +686,10 @@ export default function PendingTradesPage() {
               console.log('interested_users:', trade.interested_users);
               console.log('interested:', trade.interested);
 
-              // Check each array for ACCEPTED status
               if (trade.all_interested_users) {
-                console.log('all_interested_users with ACCEPTED:',
-                  trade.all_interested_users.filter(u => u.status === 'ACCEPTED')
+                console.log(
+                  'all_interested_users with ACCEPTED:',
+                  trade.all_interested_users.filter((u) => u.status === 'ACCEPTED')
                 );
               }
 
@@ -698,10 +699,10 @@ export default function PendingTradesPage() {
               return (
                 <div key={trade.id} className="relative">
                   <div
-                    className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+                    className="w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
                     style={{
                       background:
-                        "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
+                        "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
                       boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
                     }}
                   >
