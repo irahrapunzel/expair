@@ -1433,7 +1433,7 @@ export default function PendingTradesPage() {
                     ) : (
                       // Collapsed View
                       <div
-                        className="p-[25px] flex flex-col justify-between h-full"
+                        className="flex flex-col justify-between h-full"
                         onClick={(e) => {
                           // Don't expand if not clickable
                           if (!isClickable) {
