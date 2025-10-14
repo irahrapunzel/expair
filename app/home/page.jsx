@@ -579,14 +579,12 @@ export default function HomePage() {
       <div className="flex justify-between items-center mb-8">
         <h4 className="text-[22px] font-bold">Active trades</h4>
 
-        <div className="flex items-center gap-4">
-          {/* Sort Dropdown */}
+        {/* <div className="flex items-center gap-4">
           <SortDropdown
             selected={selectedActiveSort}
             onChange={setSelectedActiveSort}
           />
 
-          {/* Asc/Desc Toggle */}
           <button
             onClick={() => setSortAsc((prev) => !prev)}
             className="w-9 h-9 bg-[#120A2A] rounded-full flex items-center justify-center hover:bg-[#1A0F3E] transition"
@@ -595,8 +593,8 @@ export default function HomePage() {
               icon={sortAsc ? "mdi:arrow-up" : "mdi:arrow-down"}
               className="text-lg"
             />
-          </button>
-        </div>
+          </button> 
+        </div>*/}
       </div>
 
       {/* Active Trade Cards Grid */}
@@ -751,7 +749,7 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Skill Category Filter */}
+                    {/* Skill Category Filter
                     <div className="mb-4">
                       <h4 className="text-white/70 text-sm mb-2">
                         Skill Category
@@ -773,7 +771,7 @@ export default function HomePage() {
                           </option>
                         ))}
                       </select>
-                    </div>
+                    </div> */}
 
                     {/* Level Filter */}
                     <div className="mb-4">

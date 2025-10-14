@@ -769,11 +769,11 @@ export default function ActiveTradesPage() {
         <h1 className="text-[25px] font-semibold">Active trades</h1>
 
         <div className="flex items-center gap-4">
-          {/* Sort Button */}
+          {/* Sort Button
           <div className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer">
             <span>Sort</span>
-            <Icon icon="lucide:arrow-up-down" className="text-lg" />
-          </div>
+            <Icon icon="lucide:arrow-up-down" className="text-lg" /> 
+          </div>*/}
 
           
         </div>
