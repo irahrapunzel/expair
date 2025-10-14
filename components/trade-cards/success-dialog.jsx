@@ -39,19 +39,28 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
         const data = await response.json();
         setRatingStatus(data);
         
-        // If user already rated, show the rating
+        // If user already rated, skip directly to XP display
         if (data.current_user_rated) {
           setSubmissionResult({
-            user_rating_submitted: data.user_rating || 4,
-            both_users_rated: data.both_users_rated,
+            ...data,
+            xp_awarded: trade?.total_xp || 0,
+            new_total_xp: trade?.user_new_total_xp,
+            new_level: trade?.user_new_level,
+            new_rating: trade?.user_new_rating
           });
-          setShowRating(true);
+          setShowXpGained(true);
         }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to fetch rating status');
       }
     } catch (error) {
-      console.error("Failed to fetch rating status:", error);
+      console.error('Error fetching rating status:', error);
+      setError('Failed to connect to server');
     }
   };
+
+  if (!isOpen) return null;
 
   const handleSubmit = async () => {
     if (!feedback.trim()) {
