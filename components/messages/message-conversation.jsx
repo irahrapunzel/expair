@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
@@ -102,28 +102,42 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [tradeRequest?.tradereq_id, session?.access]);
 
-  // Determine perspective-based labels
-  // Note: Backend already handles perspective in list_conversations
-  // So reqname and exchange are already from the current user's viewpoint
-  const getPerspectiveLabels = () => {
-    if (!tradeRequest || !session?.user) {
-      // Fallback to original static labels
-      return {
-        requested: conversation?.requests?.requested || '',
-        exchange: conversation?.requests?.exchange || '',
-      };
-    }
-
-    // ✅ NO SWAPPING - Backend already adjusted perspective
-    // reqname = what current user needs
-    // exchange = what current user offers
+  // Determine perspective-based labels - use useMemo to recalculate when tradeRequest changes
+const perspectiveLabels = useMemo(() => {
+  if (!tradeRequest) {
     return {
-      requested: tradeRequest.reqname,
-      exchange: tradeRequest.exchange,
+      requested: conversation?.requests?.requested || '',
+      exchange: conversation?.requests?.exchange || '',
     };
-  };
+  }
 
-  const perspectiveLabels = getPerspectiveLabels();
+  const currentUserId = Number(session?.user?.user_id ?? session?.user?.id);
+  const isRequester = currentUserId === Number(tradeRequest.requester_id);
+
+  console.log('🎯 Perspective Check:', {
+    currentUserId,
+    requester_id: tradeRequest.requester_id,
+    isRequester,
+    reqname: tradeRequest.reqname,
+    exchange: tradeRequest.exchange,
+  });
+
+  if (!isRequester) {
+    // Requester perspective: What I need and what I'm offering
+    console.log('✅ REQUESTER VIEW');
+    return {
+      requested: tradeRequest.reqname,      // What I (requester) need
+      exchange: tradeRequest.exchange,       // What I (requester) offer
+    };
+  } else {
+    // Responder perspective: SWAP - What I want to get and what I'll deliver
+    console.log('✅ RESPONDER VIEW - SWAPPING!');
+    return {
+      requested: tradeRequest.exchange,      // What I (responder) need/want (from requester)
+      exchange: tradeRequest.reqname,        // What I (responder) will deliver (to requester)
+    };
+  }
+}, [tradeRequest, session?.user?.user_id, session?.user?.id, conversation?.requests]);
 
   // Initialize messages when conversation changes
   useEffect(() => {
@@ -277,8 +291,8 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
       )}
-
-      {/* Header with name and avatar */}
+      
+      {/* Header */}
       <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Profile Picture Link */}
@@ -364,7 +378,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             <div className="flex flex-col sm:flex-row sm:items-center gap-[20px]">
               {/* Requested */}
               <div className="flex flex-col">
-                <span className="text-[15px] sm:text-[16px] text-white">Requested</span>
+                <span className="text-[16px] text-white">Needs</span>
                 <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
                   <span className="text-[13px] text-white break-words">
                     {perspectiveLabels.requested}
