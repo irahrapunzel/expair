@@ -788,7 +788,7 @@ useEffect(() => {
           </div>
         </div>
         {/* Explore Cards Grid */}
-        <div className="flex flex-wrap justify-start gap-x-[30px] gap-y-[30px] w-full max-w-[940px]">
+        <div className="flex flex-wrap justify-start gap-x-[35px] gap-y-[25px] w-full max-w-[940px]">
           {exploreErr ? (
             <div className="w-full py-4 text-red-400">{exploreErr}</div>
           ) : exploreLoading ? (
