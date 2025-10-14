@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
@@ -23,7 +23,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   useEffect(() => {
     const fetchTradeRequest = async () => {
       if (!conversation?.id || !session?.access) return;
-      
+
       try {
         const resp = await fetch(`${BACKEND_URL}/conversations/`, {
           headers: {
@@ -32,10 +32,10 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           },
           credentials: 'include',
         });
-        
+
         if (!resp.ok) return;
         const data = await resp.json();
-        
+
         // Find this conversation
         const conv = data.conversations?.find(c => c.conversation_id === conversation.id);
         if (conv) {
@@ -51,43 +51,46 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         console.error('Failed to fetch trade request:', error);
       }
     };
-    
+
     fetchTradeRequest();
   }, [conversation?.id, session?.access]);
 
-  // Determine perspective-based labels
-  const getPerspectiveLabels = () => {
-    if (!tradeRequest || !session?.user) {
-      // Fallback to original static labels
-      return {
-        requested: conversation?.requests?.requested || '',
-        exchange: conversation?.requests?.exchange || '',
-      };
-    }
+  // Determine perspective-based labels - use useMemo to recalculate when tradeRequest changes
+const perspectiveLabels = useMemo(() => {
+  if (!tradeRequest) {
+    return {
+      requested: conversation?.requests?.requested || '',
+      exchange: conversation?.requests?.exchange || '',
+    };
+  }
 
-    const currentUserId = session.user.user_id || session.user.id;
-    const isRequester = tradeRequest.requester_id === currentUserId;
+  const currentUserId = Number(session?.user?.user_id ?? session?.user?.id);
+  const isRequester = currentUserId === Number(tradeRequest.requester_id);
 
-    if (isRequester) {
-      // Requester's perspective: 
-      // "Requested" = what I need (reqname)
-      // "In exchange for" = what I'm offering (exchange)
-      return {
-        requested: tradeRequest.reqname,
-        exchange: tradeRequest.exchange,
-      };
-    } else {
-      // Responder's perspective:
-      // "Requested" = what I need (exchange - the requester's offer)
-      // "In exchange for" = what I'm offering (reqname - what requester asked for)
-      return {
-        requested: tradeRequest.exchange,
-        exchange: tradeRequest.reqname,
-      };
-    }
-  };
+  console.log('🎯 Perspective Check:', {
+    currentUserId,
+    requester_id: tradeRequest.requester_id,
+    isRequester,
+    reqname: tradeRequest.reqname,
+    exchange: tradeRequest.exchange,
+  });
 
-  const perspectiveLabels = getPerspectiveLabels();
+  if (!isRequester) {
+    // Requester perspective: What I need and what I'm offering
+    console.log('✅ REQUESTER VIEW');
+    return {
+      requested: tradeRequest.reqname,      // What I (requester) need
+      exchange: tradeRequest.exchange,       // What I (requester) offer
+    };
+  } else {
+    // Responder perspective: SWAP - What I want to get and what I'll deliver
+    console.log('✅ RESPONDER VIEW - SWAPPING!');
+    return {
+      requested: tradeRequest.exchange,      // What I (responder) need/want (from requester)
+      exchange: tradeRequest.reqname,        // What I (responder) will deliver (to requester)
+    };
+  }
+}, [tradeRequest, session?.user?.user_id, session?.user?.id, conversation?.requests]);
 
   // Initialize messages when conversation changes
   useEffect(() => {
@@ -217,7 +220,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
 
   return (
     <div className="flex-1 bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden relative">
-      
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
         <div className="absolute inset-0 flex justify-center items-center z-50 rounded-[25px]">
@@ -241,7 +244,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
       )}
-      
+
       {/* Header */}
       <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -296,7 +299,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                   <span className="text-[13px] text-white">Add details</span>
                 </button>
               </Link>
-              <button className="w-[120px] h-[30px] rounded-[15px] p-[2px]" style={{background: "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"}}>
+              <button className="w-[120px] h-[30px] rounded-[15px] p-[2px]" style={{ background: "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)" }}>
                 <div className="w-full h-full rounded-[13px] bg-[#120A2A] hover:bg-[#1A0F3E] flex items-center justify-center">
                   <span className="text-[13px] text-white">Evaluate</span>
                 </div>
