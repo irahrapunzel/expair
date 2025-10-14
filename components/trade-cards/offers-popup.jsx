@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import Image from "next/image";
-import { Icon } from "@iconify/react";
 import { StarIcon } from "../icons/star-icon";
 import { Star } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -84,9 +83,14 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
           console.log("User status:", user.status);
           console.log("User profilePic:", user.profilePic); // Debug profile pic
 
+          // FIX: Use trade_interests_id as a fallback for interest_id
+          const current_interest_id = user.interest_id || user.trade_interests_id;
+          console.log("Using interest ID:", current_interest_id);
+
+
           return {
             id: user.id,
-            interest_id: user.interest_id,
+            interest_id: current_interest_id,
             name: user.name,
             username: user.username,
             rating: user.rating?.toFixed(1) || "0.0",
@@ -242,13 +246,14 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
     } catch (error) {
       console.error('Error declining offer:', error);
       // ✅ Show user-friendly error message
-      alert('Failed to decline offer. Please try again.');
+      alert(`Failed to decline offer: ${error.message}`);
     }
   };
 
   const handleConfirmAccept = async () => {
     if (!selectedOffer || !selectedOffer.interest_id) {
       console.error('No selected offer or interest_id');
+      alert('Cannot accept offer: Missing offer ID.');
       return;
     }
 
@@ -291,7 +296,7 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
     } catch (error) {
       console.error('Error accepting offer:', error);
       setShowConfirmModal(false);
-      alert('Failed to accept offer. Please try again.');
+      alert(`Failed to accept offer: ${error.message}`);
     }
   };
 
@@ -439,7 +444,7 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
                         <span className="text-[13px] text-white/60">until {offer.until}</span>
                       </div>
 
-                      <div className="flex gap-[15px]">
+                      <div className="flex justify-end gap-[15px]">
                         <button
                           className={`w-[120px] h-[30px] flex justify-center items-center border-2 rounded-[10px] transition-colors ${trade?.status === 'PENDING'
                               ? 'border-gray-500 text-gray-500 cursor-not-allowed opacity-50'
