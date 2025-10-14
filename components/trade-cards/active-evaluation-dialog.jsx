@@ -354,14 +354,14 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
                   <div className="absolute top-[2px] left-[2px] right-[2px] bottom-[2px] bg-white opacity-35 z-[1] rounded-[30px]"></div>
                 </div>
                 
-                <div className="flex flex-col items-center gap-[5px] w-[110px] h-[48px]">
+                <div className="flex flex-col items-center gap-[5px]">
                   <h4 className="w-[110px] h-[24px] font-bold text-[20px] leading-[120%] text-center text-white">
                     {evaluation.tradeScore >= 8 ? "Excellent" : 
-                     evaluation.tradeScore >= 6 ? "Great" : 
-                     evaluation.tradeScore >= 4 ? "Good" : 
-                     evaluation.tradeScore >= 2 ? "Fair" : "Poor"}
+                    evaluation.tradeScore >= 6 ? "Great" : 
+                    evaluation.tradeScore >= 4 ? "Good" : 
+                    evaluation.tradeScore >= 2 ? "Fair" : "Poor"}
                   </h4>
-                  <p className="w-[81px] h-[19px] text-[16px] leading-[120%] text-center text-white">
+                  <p className="text-[16px] leading-[120%] text-center text-white whitespace-nowrap">
                     {evaluation.tradeScore.toFixed(1)} out of 10
                   </p>
                 </div>
