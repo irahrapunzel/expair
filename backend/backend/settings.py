@@ -297,5 +297,8 @@ CSRF_TRUSTED_ORIGINS = [
 
 ]
 
+# Gemini / Google AI key (used by backend/ai)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+
 
 

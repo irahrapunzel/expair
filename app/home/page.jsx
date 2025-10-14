@@ -280,6 +280,8 @@ useEffect(() => {
   }
 
   let isMounted = true;
+  let timeoutId = null;
+  const controller = new AbortController();
 
   (async () => {
     if (!isMounted) return;
@@ -292,10 +294,16 @@ useEffect(() => {
       
       console.log("🔍 Fetching explore feed at:", new Date().toISOString());
       const startTime = Date.now();
-      
+
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        console.error("⏰ API request timed out");
+      }, 15000);
+
       const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, { 
         method: 'GET',
         headers,
+        signal: controller.signal
       });
 
       const endTime = Date.now();
@@ -358,18 +366,31 @@ useEffect(() => {
         setExploreErr(""); // Clear any previous errors
       }
     } catch (e) {
-      clearTimeout(timeoutId);
-      console.error("💥 Network error:", e);
-      if (isMounted) setExploreErr(e?.message || "Network error");
-    } finally {
-      if (isMounted) setExploreLoading(false);
-    }
-  })();
+        if (e.name === 'AbortError') {
+          console.error("💥 Fetch aborted / timed out");
+          if (isMounted) setExploreErr("Request timed out");
+        } else {
+          console.error("💥 Network error:", e);
+          if (isMounted) setExploreErr(e?.message || "Network error");
+        }
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (isMounted) setExploreLoading(false);
+      }
+    })();
 
-  return () => {
-    isMounted = false; // Stop state updates after unmount
+    return () => {
+      isMounted = false;
+      controller.abort();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
     };
-}, [session?.access, session?.accessToken]);
+  }, [session?.access, session?.accessToken]);
 
   // Listen for hide updates from cards and refetch
   const refreshExplore = async () => {
