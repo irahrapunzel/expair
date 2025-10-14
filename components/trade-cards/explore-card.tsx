@@ -103,7 +103,7 @@ export default function ExploreCard({
   return (
     <>
       <div
-        className="w-full max-w-[440px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative"
+        className="w-full max-w-[440px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
         style={{
           background:
             "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
