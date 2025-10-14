@@ -9,6 +9,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:800
 
 export default function MessageConversation({ conversation, onSendMessage, onConversationViewed, onDeleteConversation }) {
   const { data: session } = useSession();
+
   const [newMessage, setNewMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [attachedFile, setAttachedFile] = useState(null);
@@ -25,7 +26,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
   useEffect(() => {
     const fetchTradeRequest = async () => {
       if (!conversation?.id || !session?.access) return;
-      
+
       try {
         const resp = await fetch(`${BACKEND_URL}/conversations/`, {
           headers: {
@@ -34,10 +35,10 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           },
           credentials: 'include',
         });
-        
+
         if (!resp.ok) return;
         const data = await resp.json();
-        
+
         // Find this conversation
         const conv = data.conversations?.find(c => c.conversation_id === conversation.id);
         if (conv) {
@@ -53,7 +54,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
         console.error('Failed to fetch trade request:', error);
       }
     };
-    
+
     fetchTradeRequest();
   }, [conversation?.id, session?.access]);
 
@@ -252,7 +253,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
 
   return (
     <div className="flex-1 bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden relative">
-      
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
         <div className="absolute inset-0 flex justify-center items-center z-50 rounded-[25px]">
@@ -276,26 +277,57 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
           </div>
         </div>
       )}
-      
+
       {/* Header with name and avatar */}
       <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href={`/home/profile/${conversation.username || conversation.userId}`}>
-            <Image 
-              src={conversation.avatar} 
-              alt={conversation.name} 
-              width={45} 
-              height={45} 
-              className="rounded-full cursor-pointer hover:opacity-80 transition-opacity" 
-              unoptimized 
-            />
-          </Link>
+          {/* Profile Picture Link */}
+          {conversation.otherUsername ? (
+            <Link href={`/home/profile/${conversation.otherUsername}`} className="flex-shrink-0">
+              <div className="w-[45px] h-[45px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
+                <Image
+                  src={conversation.avatar || "/assets/defaultavatar.png"}
+                  alt={conversation.name}
+                  width={45}
+                  height={45}
+                  className="w-full h-full object-cover"
+                  unoptimized={conversation.avatar?.startsWith("http")}
+                  onError={(e) => {
+                    e.target.src = "/assets/defaultavatar.png";
+                  }}
+                />
+              </div>
+            </Link>
+          ) : (
+            <div className="w-[45px] h-[45px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
+              <Image
+                src={conversation.avatar || "/assets/defaultavatar.png"}
+                alt={conversation.name}
+                width={45}
+                height={45}
+                className="w-full h-full object-cover"
+                unoptimized={conversation.avatar?.startsWith("http")}
+                onError={(e) => {
+                  e.target.src = "/assets/defaultavatar.png";
+                }}
+              />
+            </div>
+          )}
+
           <div>
-            <Link href={`/home/profile/${conversation.username || conversation.userId}`}>
-              <h3 className="text-[16px] text-white hover:text-[#906EFF] transition-colors cursor-pointer">
+            {/* Name Link */}
+            {conversation.otherUsername ? (
+              <Link href={`/home/profile/${conversation.otherUsername}`}>
+                <h3 className="text-[16px] text-white hover:text-[#906EFF] transition-colors cursor-pointer">
+                  {conversation.name}
+                </h3>
+              </Link>
+            ) : (
+              <h3 className="text-[16px] text-white">
                 {conversation.name}
               </h3>
-            </Link>
+            )}
+
             <div className="flex items-center gap-5 mt-1">
               <span className="text-[13px] text-[rgba(255,255,255,0.60)]">
                 LVL {conversation.level}
@@ -324,45 +356,58 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
       {/* Request/Exchange Section */}
       {perspectiveLabels.requested && perspectiveLabels.exchange && (
         <div className="px-5 py-3 bg-[#0A0519]">
-          <div className="flex justify-between">
-            <div className="flex items-start gap-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-0">
+            {/* Requested / Exchange */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+              {/* Requested */}
               <div className="flex flex-col">
-                <span className="text-[16px] text-white">Requested</span>
+                <span className="text-[15px] sm:text-[16px] text-white">Requested</span>
                 <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                  <span className="text-[13px] text-white">{perspectiveLabels.requested}</span>
+                  <span className="text-[13px] text-white break-words">
+                    {perspectiveLabels.requested}
+                  </span>
                 </div>
               </div>
+
+              {/* Exchange */}
               <div className="flex flex-col">
-                <span className="text-[16px] text-white">In exchange for</span>
+                <span className="text-[15px] sm:text-[16px] text-white">In exchange for</span>
                 <div className="px-[10px] py-[5px] mt-1 bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                  <span className="text-[13px] text-white">{perspectiveLabels.exchange}</span>
+                  <span className="text-[13px] text-white break-words">
+                    {perspectiveLabels.exchange}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-end gap-3 pb-1">
+            {/* Buttons */}
+            <div className="flex sm:items-end gap-3 pb-1 sm:pb-0">
               {checkingDetailsStatus ? (
-                <button 
-                  disabled 
-                  className="w-[120px] h-[30px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
+                <button
+                  disabled
+                  className="w-full sm:w-[120px] h-[35px] sm:h-[30px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
                 >
                   <span className="text-[13px] text-white">Loading...</span>
                 </button>
               ) : detailsSubmitted ? (
-                <button 
-                  disabled 
-                  className="w-[140px] h-[30px] bg-[#6DDFFF] rounded-[10px] cursor-default"
+                <button
+                  disabled
+                  className="w-full sm:w-[140px] h-[35px] sm:h-[30px] bg-[#6DDFFF] rounded-[10px] cursor-default"
                 >
                   <span className="text-[13px] text-black font-bold">Details Submitted</span>
                 </button>
               ) : (
-                <Link 
-                  href={`/home/trades/add-details?tradereq_id=${tradeRequest?.tradereq_id || ''}&requested=${encodeURIComponent(tradeRequest?.reqname || '')}&exchange=${encodeURIComponent(tradeRequest?.exchange || '')}`}
+                <Link
+                  href={`/home/trades/add-details?tradereq_id=${
+                    tradeRequest?.tradereq_id || ''
+                  }&requested=${encodeURIComponent(tradeRequest?.reqname || '')}&exchange=${encodeURIComponent(
+                    tradeRequest?.exchange || ''
+                  )}`}
                   onClick={() => {
                     sessionStorage.setItem('trade_details_updated', Date.now().toString());
                   }}
                 >
-                  <button className="w-[120px] h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
+                  <button className="w-full sm:w-[120px] h-[35px] sm:h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
                     <span className="text-[13px] text-white">Add details</span>
                   </button>
                 </Link>
