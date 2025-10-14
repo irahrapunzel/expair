@@ -920,7 +920,7 @@ export default function PendingTradesPage() {
                     ) : (
                       <div className="w-full flex justify-start mt-[15px]">
                         <button
-                          className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors mt-[-30px]"
+                          className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors"
                           onClick={() => handleViewClick(trade)}
                           disabled={!trade.interested || trade.interested.length === 0}
                         >
