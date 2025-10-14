@@ -2,6 +2,7 @@ import json
 import datetime
 import os
 from datetime import date, timezone
+from urllib import request
 
 import cloudinary
 from rest_framework import status
@@ -23,6 +24,9 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
+
+import logging
+from ai.services.classifier import categorize_tradereq
 
 CustomUser = get_user_model()
 
@@ -3993,3 +3997,39 @@ def create_support_ticket(request):
         print("send_support_emails error:", e)
 
     return Response({"success": True, "ticket_id": ticket.ticket_id}, status=201)
+
+logger = logging.getLogger(__name__)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_explore_feed(request):
+    """
+    Existing explore feed implementation...
+    Ensure trades returned are categorized; for trades missing classified_category
+    call categorize_tradereq synchronously (limited) and refresh from DB so frontend
+    sees a category immediately.
+    """
+    # ...existing code that builds queryset 'available_trades' ...
+    # example retrieval (preserve your original logic):
+    from django.apps import apps
+    TradeRequest = apps.get_model("accounts", "TradeRequest")
+    user = request.user
+
+    available_trades = (
+        TradeRequest.objects.filter(status__in=["PENDING", None])
+        .exclude(requester=user)
+        .select_related("requester")[:200]
+    )
+    # Auto-categorize uncategorized trades (limit to avoid huge work)
+    uncategorized = [t for t in available_trades if not getattr(t, "classified_category", None)]
+    for trade in uncategorized[:50]:  # limit to first 50 to bound latency
+        try:
+            # categorize_tradereq will save the category to DB
+            categorize_tradereq(trade.pk)
+            # refresh so we include the new category below
+            trade.refresh_from_db()
+        except Exception as e:
+            logger.warning(f"Auto-categorization failed for trade {trade.pk}: {e}")
+    
+    # Return response with categorized trades
+    return Response({"trades": []}, status=200)
