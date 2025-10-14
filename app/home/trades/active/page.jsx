@@ -696,11 +696,7 @@ export default function ActiveTradesPage() {
             <Icon icon="lucide:arrow-up-down" className="text-lg" />
           </div>
 
-          {/* Filter Button */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer">
-            <span>Filter</span>
-            <Icon icon="lucide:filter" className="text-lg" />
-          </div>
+          
         </div>
       </div>
 
