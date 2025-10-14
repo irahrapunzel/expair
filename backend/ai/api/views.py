@@ -16,6 +16,7 @@ from accounts.models import ReputationSystem, TradeRequest
 from django.utils import timezone
 from django.db.models import Avg
 from django.core.cache import cache
+from ..services.onboarding import OnboardingService
 
 
 def check_ai_available():
@@ -606,4 +607,82 @@ def api_submit_rating(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+# ...existing imports...
+from ..services.onboarding import OnboardingService
 
+# ...existing code...
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def onboarding_picks_for_request(request):
+    """
+    Get personalized best picks based on user's first trade request.
+    
+    This endpoint is used in the onboarding flow (Onboarding2) to show
+    highly relevant matches based on the actual request they just made.
+    
+    Query params:
+    - tradereq_id: The trade request ID (required)
+    
+    Returns:
+        {
+            "best_picks": [
+                {
+                    "tradereq_id": 123,
+                    "requester_id": 456,
+                    "name": "John Doe",
+                    "username": "johndoe",
+                    "need": "I need plumbing help",
+                    "offer": "Home Services",
+                    "deadline": "2025-12-31",
+                    "profilePicUrl": "...",
+                    "rating": 4.5,
+                    "ratingCount": 10,
+                    "level": 5,
+                    "match_score": 85.3
+                },
+                ...
+            ],
+            "count": 6,
+            "request_text": "I need plumbing help"
+        }
+    """
+    tradereq_id = request.GET.get('tradereq_id')
+    
+    if not tradereq_id:
+        return Response(
+            {'error': 'tradereq_id is required'},
+            status=400
+        )
+    
+    try:
+        tradereq_id = int(tradereq_id)
+    except ValueError:
+        return Response(
+            {'error': 'tradereq_id must be an integer'},
+            status=400
+        )
+    
+    # Generate personalized picks
+    service = OnboardingService()
+    best_picks = service.get_best_picks_for_request(
+        tradereq_id=tradereq_id,
+        requester_id=request.user.id,
+        limit=6
+    )
+    
+    # Get request text for context
+    try:
+        trade_request = TradeRequest.objects.get(
+            tradereq_id=tradereq_id,
+            requester_id=request.user.id
+        )
+        request_text = trade_request.reqname
+    except TradeRequest.DoesNotExist:
+        request_text = ""
+    
+    return Response({
+        'best_picks': best_picks,
+        'count': len(best_picks),
+        'request_text': request_text
+    })

@@ -21,7 +21,7 @@ const inter = Inter({ subsets: ["latin"] });
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
-export default function Onboarding2({ onNext, onPrev }) {
+export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
   const { data: session } = useSession();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,49 +48,110 @@ export default function Onboarding2({ onNext, onPrev }) {
   const filterMenuRef = useRef(null);
   const menuRefs = useRef([]);
 
-  // Load explore data from backend
+  // ✅ Load personalized picks based on the trade request
   useEffect(() => {
     (async () => {
+      // Validate tradereq_id is provided
+      if (!tradereqId) {
+        console.warn("⚠️ No tradereq_id provided, falling back to generic picks");
+        // Fall back to generic onboarding picks
+        try {
+          setLoading(true);
+          const headers = { "Content-Type": "application/json" };
+          const token = session?.access || session?.accessToken;
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+
+          const resp = await fetch(`${BACKEND_URL}/api/ai/onboarding-picks/`, { 
+            method: "GET",
+            headers,
+          });
+          
+          if (!resp.ok) {
+            setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
+            return;
+          }
+          
+          const data = await resp.json();
+
+          const mappedPicks = (data.best_picks || []).map(item => ({
+            tradereq_id: item.tradereq_id,
+            name: item.name || item.requester,
+            username: item.username || item.requester,
+            userId: item.requester_id || item.userId,
+            need: item.need || item.reqname,
+            offer: item.offer || item.exchange || "—",
+            deadline: item.deadline || item.reqdeadline,
+            profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+            rating: item.rating || 0,
+            ratingCount: item.ratingCount || 0,
+            level: item.level || 1,
+          }));
+          
+          setExploreItems(mappedPicks);
+        } catch (e) {
+          setExploreErr(e?.message || "Network error");
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // ✅ Fetch PERSONALIZED picks based on the specific request
       try {
         setLoading(true);
         const headers = { "Content-Type": "application/json" };
         const token = session?.access || session?.accessToken;
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const resp = await fetch(`${BACKEND_URL}/api/ai/onboarding-picks/`, { 
-          method: "GET",
-          headers,
-          });
+        console.log(`🎯 Fetching personalized picks for request ${tradereqId}...`);
+
+        const resp = await fetch(
+          `${BACKEND_URL}/api/ai/onboarding-picks-for-request/?tradereq_id=${tradereqId}`,
+          { 
+            method: "GET",
+            headers,
+          }
+        );
         
         if (!resp.ok) {
-          setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
+          console.error(`❌ Failed to load personalized picks (HTTP ${resp.status})`);
+          setExploreErr(`Failed to load personalized picks (HTTP ${resp.status})`);
           return;
         }
         
         const data = await resp.json();
+        console.log("✅ Personalized picks loaded:", data);
 
         const mappedPicks = (data.best_picks || []).map(item => ({
-        tradereq_id: item.tradereq_id,
-        name: item.name || item.requester,
-        username: item.username || item.requester,
-        userId: item.requester_id || item.userId,
-        need: item.need || item.reqname,
-        offer: item.offer || item.exchange || "—",
-        deadline: item.deadline || item.reqdeadline,
-        profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
-        rating: item.rating || 0,
-        ratingCount: item.ratingCount || 0,
-        level: item.level || 1,
-      }));
-      
-      setExploreItems(mappedPicks);
+          tradereq_id: item.tradereq_id,
+          name: item.name || item.requester,
+          username: item.username || item.requester,
+          userId: item.requester_id || item.userId,
+          need: item.need || item.reqname,
+          offer: item.offer || item.exchange || "—",
+          deadline: item.deadline || item.reqdeadline,
+          profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+          rating: item.rating || 0,
+          ratingCount: item.ratingCount || 0,
+          level: item.level || 1,
+          match_score: item.match_score || 0,  // ✅ Include match score
+        }));
+        
+        setExploreItems(mappedPicks);
+        
+        // Optional: Show the request text in UI
+        if (data.request_text) {
+          console.log(`📝 Your request: "${data.request_text}"`);
+        }
+        
       } catch (e) {
-      setExploreErr(e?.message || "Network error");
+        console.error("❌ Error fetching personalized picks:", e);
+        setExploreErr(e?.message || "Network error");
       } finally {
-      setLoading(false);
-    }
+        setLoading(false);
+      }
     })();
-  }, [session]);
+  }, [session, tradereqId]);  // ✅ Re-run when tradereqId changes
 
   // Date formatting function
   const fmtUntil = (iso) => {
