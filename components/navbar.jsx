@@ -145,15 +145,23 @@ export default function Navbar() {
                 Trades <ChevronDown className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+            <DropdownMenuContent
+              className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C]`}
+            >
               <Link href="/home/trades/pending">
-                <DropdownMenuItem>Pending</DropdownMenuItem>
+                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                  Pending
+                </DropdownMenuItem>
               </Link>
               <Link href="/home/trades/active">
-                <DropdownMenuItem>Active</DropdownMenuItem>
+                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                  Active
+                </DropdownMenuItem>
               </Link>
               <Link href="/home/trades/completed">
-                <DropdownMenuItem>Completed</DropdownMenuItem>
+                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                  Completed
+                </DropdownMenuItem>
               </Link>
             </DropdownMenuContent>
           </DropdownMenu>
