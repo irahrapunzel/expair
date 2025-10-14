@@ -110,6 +110,15 @@ class OnboardingService:
                     request_text=request_text,
                     keywords=keywords
                 )
+
+                # Defensive fallback to match explore_feed behavior
+                if not can_offer:
+                # try first gen skill or final fallback
+                    first_skill = user.userskill_set.select_related('specSkills__genSkills_id').first()
+                    if first_skill and first_skill.specSkills and first_skill.specSkills.genSkills_id:
+                        can_offer = first_skill.specSkills.genSkills_id.genCateg
+                    else:
+                        can_offer = "Skills & Services"
                 
                 results.append({
                     'tradereq_id': tradereq_id,
