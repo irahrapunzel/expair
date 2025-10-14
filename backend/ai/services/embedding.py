@@ -1,8 +1,9 @@
 """
-Embedding generation for users and trades
+Embedding generation for users and trades using Gemini API
 """
+from google import genai
+from django.conf import settings
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from ai.cache import (
     get_user_embedding,
@@ -11,15 +12,33 @@ from ai.cache import (
     set_trade_embedding
 )
 
-# Load model once globally
-_model = None
+# Global client instance
+_client = None
 
-def _get_model():
-    """Lazy load the embedding model"""
-    global _model
-    if _model is None:
-        _model = SentenceTransformer('all-MiniLM-L6-v2')
-    return _model
+def _get_client():
+    """Lazy load the Gemini client"""
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return _client
+
+
+def _generate_embedding(text):
+    """
+    Generate embedding using Gemini API
+    
+    Args:
+        text: Text to embed
+        
+    Returns:
+        numpy array embedding vector
+    """
+    client = _get_client()
+    result = client.models.embed_content(
+        model='models/text-embedding-004',
+        content=text
+    )
+    return np.array(result['embedding'])
 
 
 def get_user_vec(user_id: int, text_fn):
@@ -47,8 +66,7 @@ def get_user_vec(user_id: int, text_fn):
     
     print(f"🔄 Generating embedding for user {user_id}: '{text[:50]}...'")
     
-    model = _get_model()
-    embedding = model.encode(text)
+    embedding = _generate_embedding(text)
     
     # Cache it
     set_user_embedding(user_id, embedding)
@@ -82,8 +100,7 @@ def get_trade_vec(trade_id: int, text_fn):
     
     print(f"🔄 Generating embedding for trade {trade_id}: '{text[:50]}...'")
     
-    model = _get_model()
-    embedding = model.encode(text)
+    embedding = _generate_embedding(text)
     
     # Cache it
     set_trade_embedding(trade_id, embedding)
