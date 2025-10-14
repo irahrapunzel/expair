@@ -3891,7 +3891,7 @@ def get_trade_rating_status(request, tradereq_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_completed_trades(request):
+def     ted_trades(request):
     """
     Get all COMPLETED trades where the user was a participant (requester or responder).
     This is specifically for the completed trades history page.
@@ -4233,3 +4233,175 @@ def get_user_interested_trades(request):
         })
 
     return Response({"interested_trades": result, "count": len(result)}, status=200)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trade_again(request):
+    """
+    Create a new trade between users who previously traded.
+    Automatically creates a PENDING trade without details.
+    Both users will need to add trade details in "Trades for confirmation".
+    """
+    partner_username = request.data.get('trade_partner_username')
+    
+    if not partner_username:
+        return Response({"error": "Partner username is required"}, status=400)
+    
+    try:
+        # Find the partner user
+        partner = User.objects.get(username=partner_username)
+        
+        # Prevent trading with yourself
+        if partner.id == request.user.id:
+            return Response({"error": "Cannot trade with yourself"}, status=400)
+        
+        # Check if there's already an ACTIVE or PENDING trade between these users
+        existing_active_trade = TradeRequest.objects.filter(
+            Q(requester=request.user, responder=partner) |
+            Q(requester=partner, responder=request.user),
+            status__in=[TradeRequest.Status.PENDING, TradeRequest.Status.ACTIVE]
+        ).first()
+        
+        if existing_active_trade:
+            return Response({
+                "error": "You already have an active or pending trade with this user",
+                "tradereq_id": existing_active_trade.tradereq_id
+            }, status=400)
+        
+        # Get the most recent COMPLETED trade for context
+        previous_trade = TradeRequest.objects.filter(
+            Q(requester=request.user, responder=partner) |
+            Q(requester=partner, responder=request.user),
+            status=TradeRequest.Status.COMPLETED
+        ).order_by('-created_at').first()
+        
+        if not previous_trade:
+            return Response({
+                "error": "No previous trade found with this user"
+            }, status=404)
+        
+        # ✅ CREATE NEW TRADE REQUEST
+        # Use previous trade info as reference
+        new_trade = TradeRequest.objects.create(
+            requester=request.user,
+            responder=partner,
+            reqname=f"Trade with {partner.first_name or partner.username}",
+            reqdeadline=None,  # They can set this later
+            status=TradeRequest.Status.PENDING,  # ✅ Goes straight to "Trades for confirmation"
+            exchange=None  # Will be set after details are added
+        )
+        
+        print(f"✅ Created new trade request {new_trade.tradereq_id} between {request.user.username} and {partner.username}")
+        
+        # ✅ CREATE CONVERSATION
+        conversation, _ = Conversation.objects.get_or_create(
+            trade_request=new_trade,
+            defaults={
+                'requester': new_trade.requester,
+                'responder': new_trade.responder,
+            }
+        )
+        
+        print(f"✅ Created conversation {conversation.conversation_id} for trade {new_trade.tradereq_id}")
+        
+        return Response({
+            "message": "Trade request created successfully! Add your trade details.",
+            "tradereq_id": new_trade.tradereq_id,
+            "status": "PENDING",
+            "requires_details": True,
+            "redirect": "pending_trades"
+        }, status=201)
+            
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+    except Exception as e:
+        print(f"❌ Trade again error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "error": f"Failed to create trade request: {str(e)}"
+        }, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_completed_trades(request):
+    """
+    Get all COMPLETED trades where the user was a participant (requester or responder).
+    This is specifically for the completed trades history page.
+    ✅ CORRECTED: Now swaps 'reqname' and 'exchange' based on user's perspective.
+    """
+    user = request.user
+    print(f"=== GET_COMPLETED_TRADES (Corrected) DEBUG ===")
+    print(f"User ID: {user.id}")
+
+    try:
+        completed_trades_query = TradeRequest.objects.filter(
+            status=TradeRequest.Status.COMPLETED,
+            requester__isnull=False,
+            responder__isnull=False
+        ).filter(
+            Q(requester=user) | Q(responder=user)
+        ).select_related('requester', 'responder').order_by('-tradereq_id')
+
+        print(f"Found {completed_trades_query.count()} completed trades for user {user.id}")
+
+        trades_data = []
+        for trade in completed_trades_query:
+            is_requester = (trade.requester.id == user.id)
+            other_user = trade.responder if is_requester else trade.requester
+
+            if not other_user:
+                print(f"Skipping trade {trade.tradereq_id} due to missing other_user")
+                continue
+
+            if is_requester:
+                user_perspective_needed = trade.reqname
+                user_perspective_offered = trade.exchange
+            else:
+                user_perspective_needed = trade.exchange
+                user_perspective_offered = trade.reqname
+
+            profile_pic_url = other_user.profilePic if other_user.profilePic else None
+
+            user_trade_detail = TradeDetail.objects.filter(trade_request=trade, user=user).first()
+            total_xp = user_trade_detail.total_xp if user_trade_detail else 0
+
+            trade_history = TradeHistory.objects.filter(trade_request=trade).first()
+            completed_at = trade_history.completed_at if trade_history and trade_history.completed_at else None
+            
+            deadline_formatted = completed_at.strftime('%B %d, %Y') if completed_at else "Date not available"
+
+            trades_data.append({
+                "tradereq_id": trade.tradereq_id,
+                "other_user": {
+                    "id": other_user.id,
+                    "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username,
+                    "username": other_user.username,
+                    "profilePic": profile_pic_url,
+                    "level": other_user.level,
+                    "rating": float(other_user.avgStars or 0)
+                },
+                # ✅ Gagamitin na natin ang mga bago at tamang variables
+                "reqname": user_perspective_needed,
+                "exchange": user_perspective_offered,
+                "total_xp": total_xp,
+                "deadline": completed_at.isoformat() if completed_at else None,
+                "deadline_formatted": deadline_formatted,
+                "is_requester": is_requester,
+                "status": trade.status,
+            })
+
+        return Response({
+            "completed_trades": trades_data,
+            "count": len(trades_data)
+        }, status=200)
+
+    except Exception as e:
+        print(f"ERROR in get_completed_trades: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "error": f"Failed to get completed trades: {str(e)}",
+            "completed_trades": [],
+            "count": 0
+        }, status=500)

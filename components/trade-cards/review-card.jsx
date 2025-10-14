@@ -54,6 +54,7 @@ const renderStars = (rating) => {
  * @param {string} props.offerTitle The title of the offered skill.
  * @param {number} props.rating The numerical rating given in the review.
  * @param {string} props.reviewDescription The main body of the review.
+ * @param {function} props.onTradeAgain Callback when "Trade again" is clicked. // ✅ NEW
  * @returns {JSX.Element} The rendered ReviewCard component.
  */
 const ReviewCard = ({
@@ -66,6 +67,7 @@ const ReviewCard = ({
   offerTitle,
   rating,
   reviewDescription,
+  onTradeAgain, // ✅ NEW PROP
 }) => {
   const reviewerFullName = `${reviewerFirstName} ${reviewerLastName}`.trim();
   const avatarUrl = reviewerAvatar || "/assets/defaultavatar.png";
@@ -119,6 +121,18 @@ const ReviewCard = ({
       <div className="flex flex-col gap-2">
         <p className="text-[15px] leading-[1.6] text-white/80">{reviewDescription}</p>
       </div>
+
+      {/* ✅ Trade Again Button */}
+      {onTradeAgain && (
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={() => onTradeAgain({ reviewerUsername, reviewerFirstName, reviewerLastName })}
+            className="px-5 py-2 bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm rounded-[15px] shadow-[0px_0px_15px_#284CCC] transition-colors"
+          >
+            Trade again
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -30,6 +30,8 @@ urlpatterns = [
     path('home/active-trades/', views.get_home_active_trades, name='home_active_trades'),
     path('completed-trades/', views.get_completed_trades, name='get_completed_trades'),
 
+    path('trade-again/', views.trade_again, name='trade-again'),
+
     # Trade interest management endpoints
     path('trade-requests/<int:tradereq_id>/interests/', views.get_trade_interests, name='get_trade_interests'),
     path('trade-interests/<int:interest_id>/accept/', views.accept_trade_interest, name='accept_trade_interest'),

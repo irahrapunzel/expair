@@ -1762,7 +1762,7 @@ export default function PendingTradesPage() {
                                         text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
                               title={trade.offers}
                             >
-                              {trade.offers}
+                              {trade.offers}  
                             </div>
                           </div>
 
