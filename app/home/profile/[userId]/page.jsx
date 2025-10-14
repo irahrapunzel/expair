@@ -3469,7 +3469,7 @@ export default function ProfilePage() {
                       {isOwnProfile ? (
                         // ✅ OWNER VIEW CARD (delete + offers)
                         <div
-                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+                          className="transition-all duration-300 hover:scale-[1.01] max-w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
                           style={{
                             background:
                               "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -3637,7 +3637,7 @@ export default function ProfilePage() {
                         </div>
                       ) : (
                         <div
-                          className="transition-all duration-300 hover:scale-[1.01] w-full max-w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
+                          className="transition-all duration-300 hover:scale-[1.01] w-full w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
                           style={{
                             background:
                               "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",

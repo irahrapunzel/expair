@@ -526,12 +526,10 @@ export default function Onboarding2({ onNext, onPrev }) {
 
                     {/* Bottom Button */}
                     <button
-                      className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors self-center"
+                      className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium cursor-pointer transition-colors"
                       onClick={() => handleInterested(item)}
                     >
-                      <span className="text-[13px] text-white">
-                        I'm interested
-                      </span>
+                      I'm interested
                     </button>
                   </div>
                 ))
