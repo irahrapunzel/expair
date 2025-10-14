@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import ReportDialog from "../trade-cards/report-dialog";
+import ReportDialog from "./report-dialog";
 
 export default function ExploreCard({
   name,
@@ -103,7 +103,7 @@ export default function ExploreCard({
   return (
     <>
       <div
-        className="w-full max-w-[440px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
+        className="w-full max-w-[450px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
         style={{
           background:
             "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
