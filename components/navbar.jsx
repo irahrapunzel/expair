@@ -16,6 +16,8 @@ import {
   User,
   Settings,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -27,26 +29,18 @@ const inter = Inter({ subsets: ["latin"] });
 
 export default function Navbar() {
   const { data: session } = useSession();
-
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [bellRect, setBellRect] = useState(null);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true); // Always show badge
-  const [notifCount, setNotifCount] = useState(5); // Hardcoded count
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
+  const [notifCount, setNotifCount] = useState(5);
   const bellRef = useRef(null);
 
-  // Directly derive the avatar URL from the session object.
-  // This is the single source of truth and will cause a re-render
-  // whenever the session updates.
   const profileImage =
     session?.user?.profilePic ||
     session?.user?.image ||
     "/assets/defaultavatar.png";
 
-  console.log("🔍 Navbar session:", session);
-  console.log("🖼️ Navbar profileImage:", profileImage);
-
-  // Build dynamic profile links
   const profileSlug =
     session?.user?.username ??
     (session?.user?.id ? String(session.user.id) : "me");
@@ -66,9 +60,7 @@ export default function Navbar() {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const toggleNotification = () => {
@@ -112,9 +104,9 @@ export default function Navbar() {
 
   return (
     <header
-      className={`${inter.className} w-full py-6 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300 ${inter.className}`}
+      className={`${inter.className} w-full py-4 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
     >
-      <div className="flex items-center justify-between max-w-[1440px] mx-auto px-6 sm:px-[250px]">
+      <div className="flex items-center justify-between max-w-[1440px] mx-auto px-4 sm:px-[250px]">
         {/* Logo and Button */}
         <div className="flex items-center gap-4 sm:gap-6">
           <Link href="/home">
@@ -126,7 +118,7 @@ export default function Navbar() {
               className="w-auto h-[40px] cursor-pointer"
             />
           </Link>
-          <Link href="/home/request">
+          <Link href="/home/request" className="hidden sm:block">
             <Button className="font-normal flex w-[160px] h-[40px] px-[38px] py-[13px] justify-center items-center gap-[5px] flex-shrink-0 shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
               ✦ New request
             </Button>
@@ -145,119 +137,118 @@ export default function Navbar() {
               Help
             </button>
           </Link>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex-1 h-full text-white font-normal flex items-center justify-center gap-1 hover:bg-[#1A0F3E] rounded-[20px]">
                 Trades <ChevronDown className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C]`}
-            >
+            <DropdownMenuContent className="bg-[#15042C] text-white border border-[#2B124C]">
               <Link href="/home/trades/pending">
-                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
-                  Pending
-                </DropdownMenuItem>
+                <DropdownMenuItem>Pending</DropdownMenuItem>
               </Link>
               <Link href="/home/trades/active">
-                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
-                  Active
-                </DropdownMenuItem>
+                <DropdownMenuItem>Active</DropdownMenuItem>
               </Link>
               <Link href="/home/trades/completed">
-                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
-                  Completed
-                </DropdownMenuItem>
+                <DropdownMenuItem>Completed</DropdownMenuItem>
               </Link>
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
 
-        {/* Icons */}
+        {/* Right Section */}
         <div className="flex items-center gap-4 sm:gap-6">
-          <Link href="/home/messages">
-            <div className="relative cursor-pointer">
-              <MessageSquareText className="text-white w-5 h-5" />
-              {/* per-conversation unread count aggregated; read from localStorage key 'unread_counts' */}
-              {(() => {
-                try {
-                  const data = JSON.parse(
-                    typeof window !== "undefined"
-                      ? localStorage.getItem("unread_counts") || "{}"
-                      : "{}"
-                  );
-                  const total = Object.values(data).reduce(
-                    (a, b) => a + Number(b || 0),
-                    0
-                  );
-                  if (total > 0) {
-                    return (
-                      <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
-                        {total}
-                      </span>
-                    );
-                  }
-                } catch {}
-                return null;
-              })()}
+          {/* Mobile menu button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden text-white focus:outline-none"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+
+          {/* Desktop icons */}
+          <div className="hidden md:flex items-center gap-4 sm:gap-6">
+            <Link href="/home/messages">
+              <div className="relative cursor-pointer">
+                <MessageSquareText className="text-white w-5 h-5" />
+              </div>
+            </Link>
+            <div className="relative" ref={bellRef}>
+              <div className="cursor-pointer" onClick={toggleNotification}>
+                <Bell className="text-white w-5 h-5" />
+                {hasUnreadNotifications && (
+                  <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
+                    {notifCount}
+                  </span>
+                )}
+              </div>
             </div>
-          </Link>
-          <div className="relative" ref={bellRef}>
-            <div className="cursor-pointer" onClick={toggleNotification}>
-              <Bell className="text-white w-5 h-5" />
-              {hasUnreadNotifications && (
-                <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
-                  {notifCount}
-                </span>
-              )}
-            </div>
-          </div>
-          <NotificationPortal
-            isOpen={notificationOpen}
-            onClose={() => setNotificationOpen(false)}
-            onMarkAllAsRead={handleAllNotificationsRead}
-            anchorRect={bellRect}
-          />
-          {/* Profile dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="rounded-full border border-white focus:outline-none focus:ring-2 focus:ring-[#6DDFFF]">
-                <ProfileAvatar src={profileImage} size={25} />
-              </button>
-            </DropdownMenuTrigger>
-
-            <DropdownMenuContent
-              align="end"
-              className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]`}
-            >
-              <Link href={profileHref}>
-                <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">
-                  <User className="w-4 h-4" />
-                  Your profile
-                </DropdownMenuItem>
-              </Link>
-
-              <Link href={settingsHref}>
-                <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </DropdownMenuItem>
-              </Link>
-
-              <DropdownMenuItem
-                className="flex items-center gap-2 text-red-400 data-[highlighted]:bg-transparent data-[highlighted]:text-red-300 cursor-pointer"
-                onClick={() => {
-                  handleLogout();
-                }}
+            <NotificationPortal
+              isOpen={notificationOpen}
+              onClose={() => setNotificationOpen(false)}
+              onMarkAllAsRead={handleAllNotificationsRead}
+              anchorRect={bellRect}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="rounded-full border border-white focus:outline-none focus:ring-2 focus:ring-[#6DDFFF]">
+                  <ProfileAvatar src={profileImage} size={25} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]"
               >
-                <LogOut className="w-4 h-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <Link href={profileHref}>
+                  <DropdownMenuItem>
+                    <User className="w-4 h-4" />
+                    Your profile
+                  </DropdownMenuItem>
+                </Link>
+                <Link href={settingsHref}>
+                  <DropdownMenuItem>
+                    <Settings className="w-4 h-4" />
+                    Settings
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuItem
+                  className="text-red-400"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="w-4 h-4" /> Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden mt-4 px-4 pb-4 space-y-3 bg-[#0A0519] border-t border-[#1a1a3a]">
+          <Link href="/home">
+            <p className="text-white py-2">Home</p>
+          </Link>
+          <Link href="/home/help">
+            <p className="text-white py-2">Help</p>
+          </Link>
+          <Link href="/home/trades/pending">
+            <p className="text-white py-2">Pending Trades</p>
+          </Link>
+          <Link href="/home/trades/active">
+            <p className="text-white py-2">Active Trades</p>
+          </Link>
+          <Link href="/home/trades/completed">
+            <p className="text-white py-2">Completed Trades</p>
+          </Link>
+          <Link href="/home/request">
+            <Button className="w-full font-normal bg-[#0038FF] hover:bg-[#1a4dff] text-white rounded-[15px]">
+              ✦ New request
+            </Button>
+          </Link>
+        </div>
+      )}
     </header>
   );
 }
