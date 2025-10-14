@@ -79,7 +79,8 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
             username: item.username || item.requester,
             userId: item.requester_id || item.userId,
             need: item.need || item.reqname,
-            offer: item.offer || item.exchange || "—",
+      
+            offer: item.offer || item.exchange || "Skills & Services",
             deadline: item.deadline || item.reqdeadline,
             profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
             rating: item.rating || 0,
