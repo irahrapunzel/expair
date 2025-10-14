@@ -56,8 +56,6 @@ urlpatterns = [
     path('trade-rating/submit/', views.submit_trade_rating, name='submit_trade_rating'),
     path('trade-rating/status/<int:tradereq_id>/', views.get_trade_rating_status, name='get_trade_rating_status'),
 
-    path('trade-xp/award/<int:tradereq_id>/', views.award_trade_xp, name='award_trade_xp'),
-
     path('users/<int:user_id>/reviews/', views.user_reviews, name='user_reviews'),
 
 
