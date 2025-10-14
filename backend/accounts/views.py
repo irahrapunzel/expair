@@ -2298,9 +2298,21 @@ def get_active_trades(request):
                 print(f"Skipping trade {trade.tradereq_id} - no responder")
                 continue
             
-            # Determine which user is the "other" user
+            # Determine which user is the "other" user and if current user is the requester
             is_requester = (trade.requester.id == user.id)
             other_user = trade.responder if is_requester else trade.requester
+            
+            # Determine the correct 'needs' and 'offers' from the current user's point of view.
+            if is_requester:
+                # As the requester, I NEED the original request .
+                # The OFFER is what I give in exchange.
+                user_perspective_needs = trade.reqname
+                user_perspective_offers = trade.exchange
+            else:
+                # As the responder, I NEED the exchange.
+                # The OFFER I am providing is the original request.
+                user_perspective_needs = trade.exchange
+                user_perspective_offers = trade.reqname
             
             print(f"Trade {trade.tradereq_id}:")
             print(f"  Reqname from DB: {trade.reqname}")
@@ -2317,8 +2329,8 @@ def get_active_trades(request):
                 "rating": float(other_user.avgStars or 0),
                 "reviews": str(other_user.ratingCount or 0),
                 "level": str(other_user.level or 1),
-                "needs": trade.reqname,  # ✅ Direct from database - what requester needs
-                "offers": trade.exchange,  # ✅ Direct from database - what's offered in exchange
+                "needs": user_perspective_needs,  # ✅ Direct from database - what requester needs
+                "offers": user_perspective_offers,  # ✅ Direct from database - what's offered in exchange
                 "until": trade.reqdeadline.strftime('%B %d') if trade.reqdeadline else "No deadline",
                 "status": "PENDING",
                 "other_user_profile_pic": profile_pic_url,  
@@ -3765,6 +3777,90 @@ def get_trade_rating_status(request, tradereq_id):
     except Exception as e:
         print(f"Get rating status error: {str(e)}")
         return Response({"error": f"Failed to get rating status: {str(e)}"}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_completed_trades(request):
+    """
+    Get all COMPLETED trades where the user was a participant (requester or responder).
+    This is specifically for the completed trades history page.
+    ✅ CORRECTED: Now swaps 'reqname' and 'exchange' based on user's perspective.
+    """
+    user = request.user
+    print(f"=== GET_COMPLETED_TRADES (Corrected) DEBUG ===")
+    print(f"User ID: {user.id}")
+
+    try:
+        completed_trades_query = TradeRequest.objects.filter(
+            status=TradeRequest.Status.COMPLETED,
+            requester__isnull=False,
+            responder__isnull=False
+        ).filter(
+            Q(requester=user) | Q(responder=user)
+        ).select_related('requester', 'responder').order_by('-tradereq_id')
+
+        print(f"Found {completed_trades_query.count()} completed trades for user {user.id}")
+
+        trades_data = []
+        for trade in completed_trades_query:
+            is_requester = (trade.requester.id == user.id)
+            other_user = trade.responder if is_requester else trade.requester
+
+            if not other_user:
+                print(f"Skipping trade {trade.tradereq_id} due to missing other_user")
+                continue
+
+            if is_requester:
+                user_perspective_needed = trade.reqname
+                user_perspective_offered = trade.exchange
+            else:
+                user_perspective_needed = trade.exchange
+                user_perspective_offered = trade.reqname
+
+            profile_pic_url = other_user.profilePic if other_user.profilePic else None
+
+            user_trade_detail = TradeDetail.objects.filter(trade_request=trade, user=user).first()
+            total_xp = user_trade_detail.total_xp if user_trade_detail else 0
+
+            trade_history = TradeHistory.objects.filter(trade_request=trade).first()
+            completed_at = trade_history.completed_at if trade_history and trade_history.completed_at else None
+            
+            deadline_formatted = completed_at.strftime('%B %d, %Y') if completed_at else "Date not available"
+
+            trades_data.append({
+                "tradereq_id": trade.tradereq_id,
+                "other_user": {
+                    "id": other_user.id,
+                    "name": f"{other_user.first_name} {other_user.last_name}".strip() or other_user.username,
+                    "username": other_user.username,
+                    "profilePic": profile_pic_url,
+                    "level": other_user.level,
+                    "rating": float(other_user.avgStars or 0)
+                },
+                # ✅ Gagamitin na natin ang mga bago at tamang variables
+                "reqname": user_perspective_needed,
+                "exchange": user_perspective_offered,
+                "total_xp": total_xp,
+                "deadline": completed_at.isoformat() if completed_at else None,
+                "deadline_formatted": deadline_formatted,
+                "is_requester": is_requester,
+                "status": trade.status,
+            })
+
+        return Response({
+            "completed_trades": trades_data,
+            "count": len(trades_data)
+        }, status=200)
+
+    except Exception as e:
+        print(f"ERROR in get_completed_trades: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "error": f"Failed to get completed trades: {str(e)}",
+            "completed_trades": [],
+            "count": 0
+        }, status=500)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
