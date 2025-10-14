@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@headlessui/react": "^2.2.6",
     "@iconify/react": "^6.0.0",
     "@next-auth/supabase-adapter": "^0.2.1",
@@ -35,6 +36,7 @@
     "react-map-gl": "^7.1.9",
     "tailwind-merge": "^3.3.1",
     "tailwind-scrollbar": "^4.0.2",
+    "zod": "^4.1.11",
     "zustand": "^5.0.6"
   },
   "devDependencies": {

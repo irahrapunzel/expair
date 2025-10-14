@@ -269,83 +269,181 @@ export default function HomePage() {
   }, [session]);
 
   // Load Explore feed from backend
-  useEffect(() => {
-    (async () => {
-      setExploreLoading(true);
-      try {
-        const headers = { "Content-Type": "application/json" };
-        const token = session?.access || session?.accessToken;
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const resp = await fetch(`${BACKEND_URL}/explore/feed/`, { headers });
-        if (!resp.ok) {
-          setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
-          return;
-        }
-        const data = await resp.json();
+  // REPLACE the explore fetch useEffect (around line 260-310) with:
 
-        // 🔍 DEBUG: Check for duplicates in raw data
-        console.log("Raw API response:", data.items);
-        console.log("Total items:", data.items?.length);
+useEffect(() => {
+  // Wait for the session to load
+  if (!session?.access && !session?.accessToken) {
+    console.log("⏳ Waiting for session...");
+    setExploreLoading(false);
+    return;
+  }
 
-        const tradereqIds = data.items?.map(item => item.tradereq_id) || [];
-        const uniqueIds = [...new Set(tradereqIds)];
-        console.log("Unique tradereq_ids:", uniqueIds.length);
-        console.log("Total tradereq_ids:", tradereqIds.length);
+  let isMounted = true;
+  let timeoutId = null;
+  const controller = new AbortController();
 
-        if (uniqueIds.length !== tradereqIds.length) {
-          console.error("🚨 DUPLICATE tradereq_ids found in API response!");
-          const duplicates = tradereqIds.filter((id, index) => tradereqIds.indexOf(id) !== index);
-          console.error("Duplicate IDs:", duplicates);
-        }
+  (async () => {
+    if (!isMounted) return;
+    setExploreLoading(true);
 
-        // Check for duplicate names
-        const names = data.items?.map(item => item.name) || [];
-        const duplicateNames = names.filter((name, index) => names.indexOf(name) !== index);
-        if (duplicateNames.length > 0) {
-          console.log("Users with multiple requests:", [...new Set(duplicateNames)]);
-        }
-
-        const uniqueItems = Array.from(
-          new Map(data.items.map(item => [item.tradereq_id, item])).values()
-        );
-        // Filter out hidden trades from localStorage
-        let hidden = [];
-        try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
-        const hiddenSet = new Set(hidden.map(v => Number(v))); // Convert to numbers for trade IDs
-        const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
-
-        setExploreItems(filtered);
-      } catch (e) {
-        setExploreErr(e?.message || "Network error");
-      } finally {
-        setExploreLoading(false);
-      }
-    })();
-  }, [session]);
-
-  // Listen for hide updates from cards and refetch
-  const refreshExplore = async () => {
     try {
       const headers = { "Content-Type": "application/json" };
       const token = session?.access || session?.accessToken;
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const resp = await fetch(`${BACKEND_URL}/explore/feed/`, { headers });
-      if (!resp.ok) return;
+      
+      console.log("🔍 Fetching explore feed at:", new Date().toISOString());
+      const startTime = Date.now();
+
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        console.error("⏰ API request timed out");
+      }, 15000);
+
+      const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, { 
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      });
+
+      const endTime = Date.now();
+      console.log(`⏱️ API took ${(endTime - startTime) / 1000}s`);
+      
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        console.error("❌ API Error:", errorText);
+        if (isMounted) setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
+        return;
+      }
+      
       const data = await resp.json();
-      const uniqueItems = Array.from(new Map(data.items.map(item => [item.tradereq_id, item])).values());
+      console.log("✅ AI-ranked trades received:", data.ranked_trades?.length || 0);
+      console.log("🔍 Full response:", data);
+      if (data.ranked_trades) {
+        data.ranked_trades.slice(0, 5).forEach((trade, i) => {
+          console.log(`  ${i+1}. ${trade.reqname} by ${trade.requester}`);
+        });
+      }
+      console.log("✅ API Response:", data);
+      
+      // Handle both possible response formats
+      const itemsArray = data.ranked_trades || data.items || [];
+      console.log("📊 Items received:", itemsArray.length);
+
+      if (itemsArray.length === 0) {
+        console.log("⚠️ No items returned from API");
+      }
+
+      // Map backend fields to frontend display format
+      const mappedItems = itemsArray.map(item => ({
+        tradereq_id: item.tradereq_id,
+        name: item.requester || "Unknown",
+        username: item.requester,
+        userId: item.requester_id,
+        need: item.reqname,
+        offer: item.exchange || "—",
+        deadline: item.reqdeadline,
+        profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+        rating: item.rating || 0,
+        ratingCount: item.ratingCount || 0,
+        level: item.level || 1,
+      }));
+
+
+      const uniqueItems = Array.from(
+        new Map(mappedItems.map(item => [item.tradereq_id, item])).values()
+      );
+      
+      // Filter out hidden trades from localStorage
       let hidden = [];
       try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
-      const hiddenSet = new Set(hidden.map(v => Number(v))); // Convert to numbers for trade IDs
+      const hiddenSet = new Set(hidden.map(v => Number(v)));
       const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
-      setExploreItems(filtered);
-    } catch { }
-  };
 
-  useEffect(() => {
-    const handler = () => refreshExplore();
-    window.addEventListener('explore:hide-updated', handler);
-    return () => window.removeEventListener('explore:hide-updated', handler);
-  }, [session]);
+      console.log("✅ Final items to display:", filtered.length);
+      if (isMounted) {
+        setExploreItems(filtered);
+        setExploreErr(""); // Clear any previous errors
+      }
+    } catch (e) {
+        if (e.name === 'AbortError') {
+          console.error("💥 Fetch aborted / timed out");
+          if (isMounted) setExploreErr("Request timed out");
+        } else {
+          console.error("💥 Network error:", e);
+          if (isMounted) setExploreErr(e?.message || "Network error");
+        }
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (isMounted) setExploreLoading(false);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+  }, [session?.access, session?.accessToken]);
+
+  // Listen for hide updates from cards and refetch
+  const refreshExplore = async () => {
+  try {
+    const headers = { "Content-Type": "application/json" };
+    const token = session?.access || session?.accessToken;
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    
+    const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, {
+      method: 'GET',
+      headers,
+    });
+    
+    if (!resp.ok) {
+      console.error("❌ Refresh failed:", resp.status);
+      return;
+    }
+    
+    const data = await resp.json();
+    const itemsArray = data.ranked_trades || data.items || [];
+
+    const mappedItems = itemsArray.map(item => ({
+      tradereq_id: item.tradereq_id,
+      name: item.requester || "Unknown",
+      username: item.requester,
+      userId: item.requester_id,
+      need: item.reqname,
+      offer: item.exchange || "—",
+      deadline: item.reqdeadline,
+      profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+      rating: item.rating || 0,
+      ratingCount: item.ratingCount || 0,
+      level: item.level || 1,
+    }));
+
+    const uniqueItems = Array.from(new Map(mappedItems.map(item => [item.tradereq_id, item])).values());
+
+    let hidden = [];
+    try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
+    const hiddenSet = new Set(hidden.map(v => Number(v)));
+    const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
+    
+    setExploreItems(filtered);
+  } catch (e) {
+    console.error("💥 Refresh error:", e);
+  }
+};
+
+  // useEffect(() => {
+  //   const handler = () => refreshExplore();
+  //   window.addEventListener('explore:hide-updated', handler);
+  //   return () => window.removeEventListener('explore:hide-updated', handler);
+  // }, [session]);
 
   const fmtUntil = (iso) => {
     if (!iso) return "";

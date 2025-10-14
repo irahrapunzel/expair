@@ -63,19 +63,36 @@ export default function Step2({ step2Data, onDataSubmit, onNext, onPrev }) {
               zoom: 14 
             }));
             setMarker(newCoords);
+            setIsLoading(false);
           }
-          setIsLoading(false);
         },
         (error) => {
-          console.error("Geolocation error:", error);
+          console.log("ℹ️ Geolocation not available:", error.message || "Permission denied");
+          // Fallback to default location, Manila
+          setViewport(prev => ({
+            ...prev,
+            latitude: DEFAULT_COORDS.latitude,
+            longitude: DEFAULT_COORDS.longitude,
+            zoom: 14
+          }));
+          setMarker(DEFAULT_COORDS);
           setIsLoading(false);
         },
         {
           timeout: 10000,
-          enableHighAccuracy: false
+          enableHighAccuracy: false,
+          maximumAge: 60000
         }
       );
     } else {
+      console.log("ℹ️ Geolocation not supported by this browser.");
+      setViewport(prev => ({
+        ...prev,
+        latitude: DEFAULT_COORDS.latitude,
+        longitude: DEFAULT_COORDS.longitude,
+        zoom: 14
+      }));
+      setMarker(DEFAULT_COORDS);
       setIsLoading(false);
     }
   }, []);

@@ -380,43 +380,43 @@ export default function PendingTradesPage() {
   }, [session, refreshAllTrades]);
 
   useEffect(() => {
-  const handleVisibilityChange = () => {
-    if (!document.hidden && session?.access) {
-      console.log('Page became visible - refreshing trades...');
-      refreshAllTrades(false);
-    }
-  };
+    const handleVisibilityChange = () => {
+      if (!document.hidden && session?.access) {
+        console.log('Page became visible - refreshing trades...');
+        refreshAllTrades(false);
+      }
+    };
 
-  const handleFocus = () => {
-    if (session?.access) {
-      console.log('Window focused - refreshing trades...');
-      refreshAllTrades(false);
-    }
-  };
+    const handleFocus = () => {
+      if (session?.access) {
+        console.log('Window focused - refreshing trades...');
+        refreshAllTrades(false);
+      }
+    };
 
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
 
-  return () => {
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-    window.removeEventListener('focus', handleFocus);
-  };
-}, [session, refreshAllTrades]);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [session, refreshAllTrades]);
 
-useEffect(() => {
-  const handleStorageChange = (e) => {
-    if (e.key === 'trade_details_updated' && session?.access) {
-      console.log('Trade details updated - refreshing...');
-      refreshAllTrades(false);
-    }
-  };
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'trade_details_updated' && session?.access) {
+        console.log('Trade details updated - refreshing...');
+        refreshAllTrades(false);
+      }
+    };
 
-  window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
 
-  return () => {
-    window.removeEventListener('storage', handleStorageChange);
-  };
-}, [session, refreshAllTrades]);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [session, refreshAllTrades]);
 
   const handleViewClick = useCallback((trade) => {
     console.log("=== HANDLE VIEW CLICK DEBUG ===");
@@ -679,15 +679,22 @@ useEffect(() => {
 
 
             {postedTrades.map((trade, index) => {
-              console.log(`Trade ${trade.tradereq_id} status:`, trade.status);
+              console.log(`=== Trade ${trade.tradereq_id} Debug ===`);
+              console.log('Trade status:', trade.status);
+              console.log('all_interested_users:', trade.all_interested_users);
+              console.log('interested_users:', trade.interested_users);
+              console.log('interested:', trade.interested);
 
-              // Determines if the trade is locked (Status 'PENDING' for posted trades is the lock indicator)
+              // Check each array for ACCEPTED status
+              if (trade.all_interested_users) {
+                console.log('all_interested_users with ACCEPTED:',
+                  trade.all_interested_users.filter(u => u.status === 'ACCEPTED')
+                );
+              }
+
               const isTradeLocked = trade.status === 'PENDING';
-
-              // Use the clean array of pending offers created in refreshAllTrades (lines 217-220)
               const visibleInterests = trade.interested || [];
 
-              // Explicitly return the JSX element
               return (
                 <div key={trade.id} className="relative">
                   <div
@@ -893,7 +900,8 @@ useEffect(() => {
                         <Tooltip
                           content={
                             <>
-                              Trade Locked: You have an accepted offer pending.
+                              Trade Locked: You have an accepted offer pending with{" "}
+                              {trade.accepted_user?.name || "another user"}.
                               <br /><br />
                               You can't view or consider new offers until you resolve the current one.
                             </>
@@ -1835,9 +1843,9 @@ useEffect(() => {
         tradeData={selectedTrade}
         onTradeUpdate={(tradeRequestId) => {
           updateFinalizationTrade(tradeRequestId);
-          // Also refresh all trades to update other sections
           refreshAllTrades(false);
         }}
+        viewOnly={false}
       />
     </div >
   );

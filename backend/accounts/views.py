@@ -1759,14 +1759,9 @@ def get_trade_interests(request, tradereq_id):
 def get_posted_trades(request):
     """
     Get all trades posted by the authenticated user with interested users.
-    These are trades where the user is the requester.
-    Shows: NULL (available), CANCELLED (can accept new), and PENDING (locked but visible)
-    Hides: Hides: Only ACTIVE and COMPLETED trades
     """
     user = request.user
     
-    # Get trades where user is the requester
-    # Show everything except ACTIVE and COMPLETED
     posted_trades = TradeRequest.objects.filter(
         requester=user
     ).exclude(
@@ -1775,7 +1770,7 @@ def get_posted_trades(request):
         'interests__interested_user'
     ).order_by('-tradereq_id')
     
-    # Get requester's skills (Francis's skills)
+    # Get requester's skills
     requester_skills = {}
     user_skills = UserSkill.objects.filter(user=user).select_related('specSkills__genSkills_id')
     for skill in user_skills:
@@ -1787,35 +1782,38 @@ def get_posted_trades(request):
     trades_data = []
     
     for trade in posted_trades:
-        # Get all interested users for this trade
+        # Get PENDING interested users (for display)
         interested_users = []
+        accepted_user = None  # Store the accepted user separately
+        
         for interest in trade.interests.all():
             interested_user = interest.interested_user
             
-            # Get this interested user's interests (what they want to learn/get)
-            user_interests = UserInterest.objects.filter(
-                user=interested_user
-            ).select_related('genSkills_id').values_list('genSkills_id__genCateg', flat=True)
+            # ✅ Convert to list immediately
+            user_interests_list = list(
+                UserInterest.objects.filter(
+                    user=interested_user
+                ).select_related('genSkills_id').values_list('genSkills_id__genCateg', flat=True)
+            )
             
-            # Find matching skill between requester's skills and interested user's interests
             matching_skill = None
             for gen_category, spec_skills in requester_skills.items():
-                if gen_category in user_interests:
-                    matching_skill = gen_category  # Use the general category
+                if gen_category in user_interests_list:
+                    matching_skill = gen_category
                     break
 
             if not matching_skill and requester_skills:
-                matching_skill = list(requester_skills.keys())[0]  # Show any skill from requester
+                matching_skill = list(requester_skills.keys())[0]
             elif not matching_skill:
                 any_skill = GenSkill.objects.first()
                 matching_skill = any_skill.genCateg if any_skill else "Skills & Services"
             
             profile_pic_url = interested_user.profilePic if interested_user.profilePic else None
 
-            interested_users.append({
+            user_data = {
                 "id": interested_user.id,
                 "interest_id": interest.trade_interests_id,
-                "status": interest.status,  # ✅ Include the status field
+                "status": interest.status,
                 "name": f"{interested_user.first_name} {interested_user.last_name}".strip() or interested_user.username,
                 "username": interested_user.username,
                 "level": interested_user.level,
@@ -1823,16 +1821,23 @@ def get_posted_trades(request):
                 "rating_count": interested_user.ratingCount,
                 "profilePic": profile_pic_url,
                 "created_at": interest.created_at.isoformat(),
-                "interests": list(user_interests),  # What this user wants to learn
+                "interests": user_interests_list,  # ✅ Now a list, not QuerySet
                 "matching_skill": matching_skill, 
-            })
+            }
+            
+            # Separate PENDING and ACCEPTED users
+            if interest.status == TradeInterest.InterestStatus.ACCEPTED:
+                accepted_user = user_data
+            elif interest.status == TradeInterest.InterestStatus.PENDING:
+                interested_users.append(user_data)
         
         trades_data.append({
             "tradereq_id": trade.tradereq_id,
             "reqname": trade.reqname,
             "deadline": trade.reqdeadline.isoformat() if trade.reqdeadline else "",
             "status": trade.status,
-            "interested_users": interested_users,
+            "interested_users": interested_users,  # Only PENDING users
+            "accepted_user": accepted_user,  # The accepted user (if any)
             "interest_count": len(interested_users),
             "created_at": trade.created_at if hasattr(trade, 'created_at') else None,
             "requester_skills": requester_skills,  
