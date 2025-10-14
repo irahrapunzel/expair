@@ -358,10 +358,10 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
 
       {/* Request/Exchange Section */}
       {perspectiveLabels.requested && perspectiveLabels.exchange && (
-        <div className="px-5 py-3 bg-[#0A0519]">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-0">
+        <div className="px-[15px] py-[10px] bg-[#0A0519]">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             {/* Requested / Exchange */}
-            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-[20px]">
               {/* Requested */}
               <div className="flex flex-col">
                 <span className="text-[15px] sm:text-[16px] text-white">Requested</span>
@@ -384,18 +384,18 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
             </div>
 
             {/* Buttons */}
-            <div className="flex sm:items-end gap-3 pb-1 sm:pb-0">
+            <div className="flex items-center gap-3">
               {checkingDetailsStatus ? (
                 <button
                   disabled
-                  className="w-full sm:w-[120px] h-[35px] sm:h-[30px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
+                  className="w-full sm:w-[120px] h-[35px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
                 >
                   <span className="text-[13px] text-white">Loading...</span>
                 </button>
               ) : detailsSubmitted ? (
                 <button
                   disabled
-                  className="w-full sm:w-[140px] h-[35px] sm:h-[30px] bg-[#6DDFFF] rounded-[10px] cursor-default"
+                  className="w-full sm:w-[140px] h-[35px] bg-[#6DDFFF] rounded-[10px] cursor-default"
                 >
                   <span className="text-[13px] text-black font-bold">Details Submitted</span>
                 </button>
@@ -410,7 +410,7 @@ export default function MessageConversation({ conversation, onSendMessage, onCon
                     sessionStorage.setItem('trade_details_updated', Date.now().toString());
                   }}
                 >
-                  <button className="w-full sm:w-[120px] h-[35px] sm:h-[30px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
+                  <button className="w-full sm:w-[120px] h-[35px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
                     <span className="text-[13px] text-white">Add details</span>
                   </button>
                 </Link>
