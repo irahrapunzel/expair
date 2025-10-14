@@ -153,7 +153,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
         setLoading(false);
       }
     })();
-  }, [session, tradereqId]);  // ✅ Re-run when tradereqId changes
+  }, [session, tradereq_id]);  // ✅ Re-run when tradereqId changes
 
   // Date formatting function
   const fmtUntil = (iso) => {
