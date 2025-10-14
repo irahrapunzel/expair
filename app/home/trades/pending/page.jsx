@@ -860,7 +860,7 @@ export default function PendingTradesPage() {
 
                       {/* Interested People */}
                       <div className="flex flex-col items-end gap-[10px]">
-                        <span className="text-[13px] text-white">
+                        <span className="text-sm text-white font-medium">
                           Look who's interested
                         </span>
                         <div className="flex -space-x-2">
