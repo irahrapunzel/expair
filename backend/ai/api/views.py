@@ -291,6 +291,16 @@ def api_explore_feed(request):
                     "reqname": t['trade'].reqname,
                     "requester": t['trade'].requester.username,
                     "requester_id": t['trade'].requester.pk,
+                    # ✅ ADD THESE FIELDS:
+                    "name": (f"{t['trade'].requester.first_name} {t['trade'].requester.last_name}").strip() or t['trade'].requester.username,
+                    "username": t['trade'].requester.username,
+                    "profilePicUrl": t['trade'].requester.profilePic if t['trade'].requester.profilePic else None,
+                    "rating": float(t['trade'].requester.avgStars or 0),
+                    "ratingCount": int(t['trade'].requester.ratingCount or 0),
+                    "level": int(t['trade'].requester.level or 0),
+                    "offer": t['trade'].exchange or "Skills & Services",
+                    "deadline": t['trade'].reqdeadline.isoformat() if t['trade'].reqdeadline else "",
+                    # Keep existing fields:
                     "score": t['score'],
                     "category": getattr(t['trade'], 'classified_category', None),
                     "exchange": getattr(t['trade'], 'exchange', None),
@@ -309,7 +319,6 @@ def api_explore_feed(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])

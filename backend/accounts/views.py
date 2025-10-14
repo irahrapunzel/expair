@@ -4,6 +4,7 @@ import os
 from datetime import date, timezone
 from urllib import request
 
+import requests
 import cloudinary
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes, permission_classes
@@ -25,12 +26,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
 
-<<<<<<< Updated upstream
 import logging
 from ai.services.classifier import categorize_tradereq
 
-=======
->>>>>>> Stashed changes
 CustomUser = get_user_model()
 
 from .models import (
@@ -409,7 +407,6 @@ def get_user_posted_trades(request, username):
         status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED]
     ).prefetch_related('interests__interested_user').order_by('-tradereq_id')
 
-<<<<<<< Updated upstream
     # Build mapping of requester's skills grouped by gen category
     requester_skills = {}
     user_skills_qs = UserSkill.objects.filter(user=user).select_related('specSkills__genSkills_id')
@@ -451,33 +448,20 @@ def get_user_posted_trades(request, username):
             offer = any_spec.specName if any_spec else ""
 
         trades_data.append({
-=======
-    # map the same way as in get_posted_trades
-    trades_data = [
-        {
->>>>>>> Stashed changes
             "tradereq_id": t.tradereq_id,
             "reqname": t.reqname,
             "deadline": t.reqdeadline.isoformat() if t.reqdeadline else "",
             "status": t.status,
-<<<<<<< Updated upstream
             "offer": offer,
             "requester_skills": requester_skills,
             "created_at": t.created_at,
             "offer": offer,
         })
-=======
-            "interest_count": t.interests.count(),
-        }
-        for t in posted_trades
-    ]
->>>>>>> Stashed changes
 
     return Response({
         "posted_trades": trades_data,
         "count": len(trades_data)
     }, status=200)
-<<<<<<< Updated upstream
 
 
 @api_view(['GET'])
@@ -512,9 +496,24 @@ def explore_feed(request):
 
     for tr in qs:
         requester = tr.requester
-        display_name = (f"{(requester.first_name or '').strip()} {(requester.last_name or '').strip()}").strip() or requester.username
+        
+        # ✅ Build proper display name - prioritize first_name + last_name
+        first_name = (requester.first_name or "").strip()
+        last_name = (requester.last_name or "").strip()
+        
+        if first_name or last_name:
+            display_name = f"{first_name} {last_name}".strip()
+        else:
+            display_name = requester.username
+        
         needs = tr.reqname
-        profile_pic_url = requester.profilePic if requester.profilePic else None
+        
+        # ✅ Handle profile picture - ensure valid URL or None
+        profile_pic_url = None
+        if requester.profilePic:
+            pic = str(requester.profilePic).strip()
+            if pic and (pic.startswith('http://') or pic.startswith('https://')):
+                profile_pic_url = pic
 
         # Load requester user skills (specific names + general id/category)
         req_user_skills = list(
@@ -542,41 +541,38 @@ def explore_feed(request):
         can_offer = ""
         has_match = False
 
-        # Priority 1: viewer interest matches requester's gen_id -> prefer specific specName from that gen
+        # Priority 1: Find skills that the requester has AND the viewer is interested in
         if viewer and viewer_gen_interests and genid_to_specs:
-            matching_gen_ids = set(viewer_gen_interests) & set(genid_to_specs.keys())
-            if matching_gen_ids:
-                mid = next(iter(matching_gen_ids))
-                specs = genid_to_specs.get(mid, [])
-                can_offer = specs[0] if specs else genid_to_gencat.get(mid, "")
+            matching_skills = set(viewer_gen_interests) & set(genid_to_specs.keys())
+            
+            if matching_skills:
+                matching_skill_id = list(matching_skills)[0]
+                can_offer = genid_to_specs[matching_skill_id][0] if genid_to_specs[matching_skill_id] else genid_to_gencat.get(matching_skill_id, "")
                 has_match = True
-
-        # Priority 2: prefer requester's first specific skill name
-        if not can_offer and spec_names:
-            can_offer = spec_names[0]
-
-        # Priority 3: prefer general category if no specific skills found
-        if not can_offer and genid_to_gencat:
-            can_offer = next(iter(genid_to_gencat.values()))
-
-        # Priority 4: global fallback to a specific specName from DB (never "Skills & Services")
+        
+        # Priority 2: If no match, show any skill the requester has
+        if not can_offer and genid_to_specs:
+            first_category_skills = list(genid_to_specs.values())[0]
+            can_offer = first_category_skills[0] if first_category_skills else ""
+        
+        # Priority 3: If requester has no skills, use fallback
         if not can_offer:
-            can_offer = global_spec_fallback
-
+            any_spec = SpecSkill.objects.first()
+            can_offer = any_spec.specName if any_spec else ""
+        
         item_data = {
             "tradereq_id": tr.tradereq_id,
             "requester_id": requester.id,
-            "requester": requester.username,
-            "name": display_name,
-            "rating": float(getattr(requester, "avgStars", 0) or 0),
-            "ratingCount": int(getattr(requester, "ratingCount", 0) or 0),
-            "level": int(getattr(requester, "level", 0) or 0),
+            "name": display_name,  # ✅ Now properly shows first_name + last_name
+            "rating": float(requester.avgStars or 0),
+            "ratingCount": int(requester.ratingCount or 0),
+            "level": int(requester.level or 0),
             "need": needs,
             "offer": can_offer,
-            "specName": spec_names[0] if spec_names else "",
             "deadline": tr.reqdeadline.isoformat() if tr.reqdeadline else "",
-            "profilePicUrl": profile_pic_url,
-            "username": requester.username,
+            "profilePicUrl": profile_pic_url,  # ✅ Now properly validated
+            "userId": requester.id,
+            "username": requester.username, 
         }
 
         if has_match:
@@ -596,9 +592,6 @@ def explore_feed(request):
     items = unique_by_tradereq(items_with_matches) + unique_by_tradereq(items_without_matches)
     return Response({"items": items}, status=200)
     
-=======
-   
->>>>>>> Stashed changes
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -1353,7 +1346,6 @@ def complete_registration(request):
             google_image_url = request.data.get("google_image_url")
             if google_image_url:
                 try:
-                    import requests
                     
                     # Download the Google profile picture
                     response = requests.get(google_image_url, timeout=10)
@@ -1809,12 +1801,8 @@ def express_trade_interest(request):
             declined_interest.status = TradeInterest.InterestStatus.PENDING
             declined_interest.save()
             trade_interest = declined_interest
-<<<<<<< Updated upstream
             reactivated = True
             print(f"Reactivated declined/cancelled interest for user {request.user.id}.")
-=======
-            print(f"Reactivated declined interest for user {request.user.id}.")
->>>>>>> Stashed changes
         else:
             # Create new interest record
             trade_interest = TradeInterest.objects.create(
@@ -1822,21 +1810,10 @@ def express_trade_interest(request):
                 interested_user=request.user,
                 status=TradeInterest.InterestStatus.PENDING
             )
-<<<<<<< Updated upstream
             reactivated = False
             print(f"Created new trade interest for user {request.user.id}.")
                 
         # Get total PENDING interest count (exclude declined/cancelled)
-=======
-            print(f"Created new trade interest for user {request.user.id}.")
-        
-        # Update trade request status to PENDING if it's the first interest (NULL -> PENDING)
-        if not trade_request.status:  # If status is NULL/empty
-            trade_request.status = TradeRequest.Status.PENDING
-            trade_request.save()
-        
-        # Get total PENDING interest count (exclude declined)
->>>>>>> Stashed changes
         interest_count = TradeInterest.objects.filter(
             trade_request=trade_request,
             status=TradeInterest.InterestStatus.PENDING

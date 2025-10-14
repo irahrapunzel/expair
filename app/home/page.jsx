@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Star } from "lucide-react"
+import { Star } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
@@ -14,7 +14,8 @@ import ActiveTradeCardHome from "../../components/trade-cards/active-home";
 import SortDropdown from "../../components/shared/sortdropdown";
 import ExploreCard from "../../components/trade-cards/explore-card";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
 
@@ -47,7 +48,7 @@ export default function HomePage() {
     skillCategory: "all",
     minLevel: 0,
   });
-  const hiddenKey = 'explore_hidden_trades'; // Changed from usernames to trades
+  const hiddenKey = "explore_hidden_trades"; // Changed from usernames to trades
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,7 +96,7 @@ export default function HomePage() {
         headers,
         body: JSON.stringify({
           tradereq_id: selectedPartner?.tradereq_id,
-          requester_name: selectedPartner?.name
+          requester_name: selectedPartner?.name,
         }),
       });
 
@@ -104,13 +105,17 @@ export default function HomePage() {
         console.log("Interest expressed successfully:", data);
 
         // ✅ REMOVE CARD whether it's new interest OR reactivated interest
-        setExploreItems(prevItems =>
-          prevItems.filter(item => item.tradereq_id !== selectedPartner.tradereq_id)
+        setExploreItems((prevItems) =>
+          prevItems.filter(
+            (item) => item.tradereq_id !== selectedPartner.tradereq_id
+          )
         );
 
         // Show appropriate success message
         if (data.reactivated) {
-          console.log("Reactivated declined interest - card removed from explore");
+          console.log(
+            "Reactivated declined interest - card removed from explore"
+          );
         }
 
         setShowSuccessDialog(true);
@@ -129,15 +134,21 @@ export default function HomePage() {
         }
 
         // If user already expressed interest, still remove card and show success
-        if (response.status === 400 && /already expressed interest/i.test(message)) {
-          setExploreItems(prevItems =>
-            prevItems.filter(item => item.tradereq_id !== selectedPartner.tradereq_id)
+        if (
+          response.status === 400 &&
+          /already expressed interest/i.test(message)
+        ) {
+          setExploreItems((prevItems) =>
+            prevItems.filter(
+              (item) => item.tradereq_id !== selectedPartner.tradereq_id
+            )
           );
           setShowSuccessDialog(true);
           return;
         }
 
-        const finalMsg = message || `Failed to express interest (HTTP ${response.status}).`;
+        const finalMsg =
+          message || `Failed to express interest (HTTP ${response.status}).`;
         console.error("Failed to express interest:", finalMsg);
         alert(finalMsg);
       }
@@ -160,7 +171,7 @@ export default function HomePage() {
   const handleGoToPendingTrades = () => {
     setShowSuccessDialog(false);
     setSelectedPartner(null);
-    router.push('/home/trades/pending');
+    router.push("/home/trades/pending");
   };
 
   // Explore sort and filter handlers
@@ -240,10 +251,18 @@ export default function HomePage() {
   // Set greeting based on time of day
   useEffect(() => {
     const hour = new Date().getHours();
-    let prefix = "Starry night", emoji = "⭐";
-    if (hour >= 5 && hour < 12) { prefix = "Bright morning"; emoji = "☀️"; }
-    else if (hour >= 12 && hour < 18) { prefix = "Good afternoon"; emoji = "☁️"; }
-    else if (hour >= 18 && hour < 22) { prefix = "Stellar evening"; emoji = "🌙"; }
+    let prefix = "Starry night",
+      emoji = "⭐";
+    if (hour >= 5 && hour < 12) {
+      prefix = "Bright morning";
+      emoji = "☀️";
+    } else if (hour >= 12 && hour < 18) {
+      prefix = "Good afternoon";
+      emoji = "☁️";
+    } else if (hour >= 18 && hour < 22) {
+      prefix = "Stellar evening";
+      emoji = "🌙";
+    }
 
     console.log("Session user object:", session?.user);
 
@@ -256,7 +275,8 @@ export default function HomePage() {
     if (!first && !session?.user && typeof window !== "undefined") {
       const fromLS =
         localStorage.getItem("first_name") ||
-        localStorage.getItem("prefill_name") || "";
+        localStorage.getItem("prefill_name") ||
+        "";
       first = fromLS.trim().split(" ")[0];
     }
 
@@ -271,102 +291,110 @@ export default function HomePage() {
   // Load Explore feed from backend
   // REPLACE the explore fetch useEffect (around line 260-310) with:
 
-useEffect(() => {
-  // Wait for the session to load
-  if (!session?.access && !session?.accessToken) {
-    console.log("⏳ Waiting for session...");
-    setExploreLoading(false);
-    return;
-  }
+  useEffect(() => {
+    // Wait for the session to load
+    if (!session?.access && !session?.accessToken) {
+      console.log("⏳ Waiting for session...");
+      setExploreLoading(false);
+      return;
+    }
 
-  let isMounted = true;
-  let timeoutId = null;
-  const controller = new AbortController();
+    let isMounted = true;
+    let timeoutId = null;
+    const controller = new AbortController();
 
-  (async () => {
-    if (!isMounted) return;
-    setExploreLoading(true);
+    (async () => {
+      if (!isMounted) return;
+      setExploreLoading(true);
 
-    try {
-      const headers = { "Content-Type": "application/json" };
-      const token = session?.access || session?.accessToken;
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      
-      console.log("🔍 Fetching explore feed at:", new Date().toISOString());
-      const startTime = Date.now();
+      try {
+        const headers = { "Content-Type": "application/json" };
+        const token = session?.access || session?.accessToken;
+        if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      timeoutId = setTimeout(() => {
-        controller.abort();
-        console.error("⏰ API request timed out");
-      }, 15000);
+        console.log("🔍 Fetching explore feed at:", new Date().toISOString());
+        const startTime = Date.now();
 
-      const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, { 
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
+        timeoutId = setTimeout(() => {
+          controller.abort();
+          console.error("⏰ API request timed out");
+        }, 15000);
 
-      const endTime = Date.now();
-      console.log(`⏱️ API took ${(endTime - startTime) / 1000}s`);
-      
-      if (!resp.ok) {
-        const errorText = await resp.text();
-        console.error("❌ API Error:", errorText);
-        if (isMounted) setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
-        return;
-      }
-      
-      const data = await resp.json();
-      console.log("✅ AI-ranked trades received:", data.ranked_trades?.length || 0);
-      console.log("🔍 Full response:", data);
-      if (data.ranked_trades) {
-        data.ranked_trades.slice(0, 5).forEach((trade, i) => {
-          console.log(`  ${i+1}. ${trade.reqname} by ${trade.requester}`);
+        const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, {
+          method: "GET",
+          headers,
+          signal: controller.signal,
         });
-      }
-      console.log("✅ API Response:", data);
-      
-      // Handle both possible response formats
-      const itemsArray = data.ranked_trades || data.items || [];
-      console.log("📊 Items received:", itemsArray.length);
 
-      if (itemsArray.length === 0) {
-        console.log("⚠️ No items returned from API");
-      }
+        const endTime = Date.now();
+        console.log(`⏱️ API took ${(endTime - startTime) / 1000}s`);
 
-      // Map backend fields to frontend display format
-      const mappedItems = itemsArray.map(item => ({
-        tradereq_id: item.tradereq_id,
-        name: item.requester || "Unknown",
-        username: item.requester,
-        userId: item.requester_id,
-        need: item.reqname,
-        offer: item.offer || item.exchange || item.specName || "Skills & Services",
-        deadline: item.reqdeadline,
-        profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
-        rating: item.rating || 0,
-        ratingCount: item.ratingCount || 0,
-        level: item.level || 1,
-      }));
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          console.error("❌ API Error:", errorText);
+          if (isMounted)
+            setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
+          return;
+        }
 
+        const data = await resp.json();
+        console.log(
+          "✅ AI-ranked trades received:",
+          data.ranked_trades?.length || 0
+        );
+        console.log("🔍 Full response:", data);
+        if (data.ranked_trades) {
+          data.ranked_trades.slice(0, 5).forEach((trade, i) => {
+            console.log(`  ${i + 1}. ${trade.reqname} by ${trade.requester}`);
+          });
+        }
+        console.log("✅ API Response:", data);
 
-      const uniqueItems = Array.from(
-        new Map(mappedItems.map(item => [item.tradereq_id, item])).values()
-      );
-      
-      // Filter out hidden trades from localStorage
-      let hidden = [];
-      try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
-      const hiddenSet = new Set(hidden.map(v => Number(v)));
-      const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
+        // Handle both possible response formats
+        const itemsArray = data.ranked_trades || data.items || [];
+        console.log("📊 Items received:", itemsArray.length);
 
-      console.log("✅ Final items to display:", filtered.length);
-      if (isMounted) {
-        setExploreItems(filtered);
-        setExploreErr(""); // Clear any previous errors
-      }
-    } catch (e) {
-        if (e.name === 'AbortError') {
+        if (itemsArray.length === 0) {
+          console.log("⚠️ No items returned from API");
+        }
+
+        // Map backend fields to frontend display format
+        const mappedItems = itemsArray.map((item) => ({
+          tradereq_id: item.tradereq_id,
+          name: item.name || "Unknown User", // ✅ Use the proper display name from backend
+          username: item.username || item.requester, // ✅ Use username field
+          userId: item.requester_id || item.userId,
+          need: item.reqname || item.need,
+          offer:
+            item.offer || item.exchange || item.specName || "Skills & Services",
+          deadline: item.reqdeadline || item.deadline,
+          profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+          rating: item.rating || 0,
+          ratingCount: item.ratingCount || 0,
+          level: item.level || 1,
+        }));  
+
+        const uniqueItems = Array.from(
+          new Map(mappedItems.map((item) => [item.tradereq_id, item])).values()
+        );
+
+        // Filter out hidden trades from localStorage
+        let hidden = [];
+        try {
+          hidden = JSON.parse(localStorage.getItem(hiddenKey) || "[]");
+        } catch {}
+        const hiddenSet = new Set(hidden.map((v) => Number(v)));
+        const filtered = uniqueItems.filter(
+          (i) => !hiddenSet.has(i.tradereq_id)
+        );
+
+        console.log("✅ Final items to display:", filtered.length);
+        if (isMounted) {
+          setExploreItems(filtered);
+          setExploreErr(""); // Clear any previous errors
+        }
+      } catch (e) {
+        if (e.name === "AbortError") {
           console.error("💥 Fetch aborted / timed out");
           if (isMounted) setExploreErr("Request timed out");
         } else {
@@ -394,50 +422,55 @@ useEffect(() => {
 
   // Listen for hide updates from cards and refetch
   const refreshExplore = async () => {
-  try {
-    const headers = { "Content-Type": "application/json" };
-    const token = session?.access || session?.accessToken;
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    
-    const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, {
-      method: 'GET',
-      headers,
-    });
-    
-    if (!resp.ok) {
-      console.error("❌ Refresh failed:", resp.status);
-      return;
+    try {
+      const headers = { "Content-Type": "application/json" };
+      const token = session?.access || session?.accessToken;
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!resp.ok) {
+        console.error("❌ Refresh failed:", resp.status);
+        return;
+      }
+
+      const data = await resp.json();
+      const itemsArray = data.ranked_trades || data.items || [];
+
+      const mappedItems = itemsArray.map((item) => ({
+        tradereq_id: item.tradereq_id,
+        name: item.requester || "Unknown",
+        username: item.requester,
+        userId: item.requester_id,
+        need: item.reqname,
+        offer:
+          item.offer || item.exchange || item.specName || "Skills & Services",
+        deadline: item.reqdeadline,
+        profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
+        rating: item.rating || 0,
+        ratingCount: item.ratingCount || 0,
+        level: item.level || 1,
+      }));
+
+      const uniqueItems = Array.from(
+        new Map(mappedItems.map((item) => [item.tradereq_id, item])).values()
+      );
+
+      let hidden = [];
+      try {
+        hidden = JSON.parse(localStorage.getItem(hiddenKey) || "[]");
+      } catch {}
+      const hiddenSet = new Set(hidden.map((v) => Number(v)));
+      const filtered = uniqueItems.filter((i) => !hiddenSet.has(i.tradereq_id));
+
+      setExploreItems(filtered);
+    } catch (e) {
+      console.error("💥 Refresh error:", e);
     }
-    
-    const data = await resp.json();
-    const itemsArray = data.ranked_trades || data.items || [];
-
-    const mappedItems = itemsArray.map(item => ({
-      tradereq_id: item.tradereq_id,
-      name: item.requester || "Unknown",
-      username: item.requester,
-      userId: item.requester_id,
-      need: item.reqname,
-      offer: item.offer || item.exchange || item.specName || "Skills & Services",
-      deadline: item.reqdeadline,
-      profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
-      rating: item.rating || 0,
-      ratingCount: item.ratingCount || 0,
-      level: item.level || 1,
-    }));
-
-    const uniqueItems = Array.from(new Map(mappedItems.map(item => [item.tradereq_id, item])).values());
-
-    let hidden = [];
-    try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]'); } catch { }
-    const hiddenSet = new Set(hidden.map(v => Number(v)));
-    const filtered = uniqueItems.filter(i => !hiddenSet.has(i.tradereq_id));
-    
-    setExploreItems(filtered);
-  } catch (e) {
-    console.error("💥 Refresh error:", e);
-  }
-};
+  };
 
   // useEffect(() => {
   //   const handler = () => refreshExplore();
@@ -465,10 +498,15 @@ useEffect(() => {
       }
 
       // Rating filter
-      if (exploreFilters.minRating > 0 && item.rating < exploreFilters.minRating) return false;
+      if (
+        exploreFilters.minRating > 0 &&
+        item.rating < exploreFilters.minRating
+      )
+        return false;
 
       // Level filter
-      if (exploreFilters.minLevel > 0 && item.level < exploreFilters.minLevel) return false;
+      if (exploreFilters.minLevel > 0 && item.level < exploreFilters.minLevel)
+        return false;
 
       // Skill category filter (you may need to add skillCategory to your backend data)
       // if (exploreFilters.skillCategory !== "all" && item.skillCategory !== exploreFilters.skillCategory) return false;
@@ -504,7 +542,9 @@ useEffect(() => {
         const token = session?.access || session?.accessToken;
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const response = await fetch(`${BACKEND_URL}/home/active-trades/`, { headers });
+        const response = await fetch(`${BACKEND_URL}/home/active-trades/`, {
+          headers,
+        });
         if (response.ok) {
           const data = await response.json();
           setHomeActiveTrades(data.home_active_trades);
@@ -572,7 +612,8 @@ useEffect(() => {
               No active trades ready yet
             </h3>
             <p className="text-white/60 text-center max-w-md mx-auto">
-              Complete trade details with your partners to see active trades here.
+              Complete trade details with your partners to see active trades
+              here.
             </p>
           </div>
         ) : (
@@ -624,37 +665,41 @@ useEffect(() => {
                 <div className="absolute top-full left-0 mt-2 w-[200px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
                   <div className="p-2">
                     <div
-                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "recommended"
-                        ? "bg-[#1A0F3E] text-white"
-                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
-                        } transition`}
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${
+                        exploreSortBy === "recommended"
+                          ? "bg-[#1A0F3E] text-white"
+                          : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                      } transition`}
                       onClick={() => handleExploreSortChange("recommended")}
                     >
                       Recommended
                     </div>
                     <div
-                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "date"
-                        ? "bg-[#1A0F3E] text-white"
-                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
-                        } transition`}
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${
+                        exploreSortBy === "date"
+                          ? "bg-[#1A0F3E] text-white"
+                          : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                      } transition`}
                       onClick={() => handleExploreSortChange("date")}
                     >
                       By Date
                     </div>
                     <div
-                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "level"
-                        ? "bg-[#1A0F3E] text-white"
-                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
-                        } transition`}
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${
+                        exploreSortBy === "level"
+                          ? "bg-[#1A0F3E] text-white"
+                          : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                      } transition`}
                       onClick={() => handleExploreSortChange("level")}
                     >
                       By Level
                     </div>
                     <div
-                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${exploreSortBy === "rating"
-                        ? "bg-[#1A0F3E] text-white"
-                        : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
-                        } transition`}
+                      className={`px-3 py-2 rounded-[10px] cursor-pointer ${
+                        exploreSortBy === "rating"
+                          ? "bg-[#1A0F3E] text-white"
+                          : "text-white/70 hover:bg-[#1A0F3E] hover:text-white"
+                      } transition`}
                       onClick={() => handleExploreSortChange("rating")}
                     >
                       By Rating
@@ -691,10 +736,11 @@ useEffect(() => {
                         {[0, 2, 3, 4, 5].map((rating) => (
                           <div
                             key={rating}
-                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${exploreFilters.minRating === rating
-                              ? "bg-[#0038FF] text-white"
-                              : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
-                              } transition`}
+                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${
+                              exploreFilters.minRating === rating
+                                ? "bg-[#0038FF] text-white"
+                                : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
+                            } transition`}
                             onClick={() =>
                               handleExploreFilterChange("minRating", rating)
                             }
@@ -738,10 +784,11 @@ useEffect(() => {
                         {[0, 5, 10, 15, 20].map((level) => (
                           <div
                             key={level}
-                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${exploreFilters.minLevel === level
-                              ? "bg-[#0038FF] text-white"
-                              : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
-                              } transition`}
+                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${
+                              exploreFilters.minLevel === level
+                                ? "bg-[#0038FF] text-white"
+                                : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
+                            } transition`}
                             onClick={() =>
                               handleExploreFilterChange("minLevel", level)
                             }
@@ -794,7 +841,10 @@ useEffect(() => {
           ) : exploreLoading ? (
             <div className="w-full py-10 flex flex-col items-center justify-center">
               <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4 animate-pulse">
-                <Icon icon="lucide:loader-2" className="w-8 h-8 text-white/50 animate-spin" />
+                <Icon
+                  icon="lucide:loader-2"
+                  className="w-8 h-8 text-white/50 animate-spin"
+                />
               </div>
               <h3 className="text-xl font-medium text-white mb-2">
                 Hang tight, voyager!
@@ -809,13 +859,14 @@ useEffect(() => {
                 <Icon icon="lucide:search" className="w-8 h-8 text-white/50" />
               </div>
               <h3 className="text-xl font-medium text-white mb-2">
-                {exploreItems.length === 0 ? "No matches yet" : "No matches found"}
+                {exploreItems.length === 0
+                  ? "No matches yet"
+                  : "No matches found"}
               </h3>
               <p className="text-white/60 text-center max-w-md">
                 {exploreItems.length === 0
                   ? "New requests will appear here as users post them."
-                  : "Try adjusting your filters or search criteria to see more results"
-                }
+                  : "Try adjusting your filters or search criteria to see more results"}
               </p>
             </div>
           ) : (
@@ -828,7 +879,9 @@ useEffect(() => {
                 level={item.level}
                 need={item.need}
                 offer={item.offer}
-                deadline={item.deadline ? `until ${fmtUntil(item.deadline)}` : ""}
+                deadline={
+                  item.deadline ? `until ${fmtUntil(item.deadline)}` : ""
+                }
                 profilePicUrl={item.profilePicUrl}
                 userId={item.userId}
                 username={item.username}
