@@ -60,7 +60,6 @@ urlpatterns = [
 
     path('users/<int:user_id>/reviews/', views.user_reviews, name='user_reviews'),
 
-
     path('me/', views.me, name='me'),
     
     # 👇 expose BOTH variants
