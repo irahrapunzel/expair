@@ -145,7 +145,7 @@ export default function Navbar() {
                 Trades <ChevronDown className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-[#15042C] text-white border border-[#2B124C]">
+            <DropdownMenuContent className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
               <Link href="/home/trades/pending">
                 <DropdownMenuItem>Pending</DropdownMenuItem>
               </Link>
