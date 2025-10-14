@@ -1155,7 +1155,10 @@ export default function PendingTradesPage() {
               const isClickable = bothSubmitted;
 
               return (
-                <div key={trade.id} className={`relative ${isClickable ? "opacity-100" : "opacity-100"}`}>
+                <div
+                  key={trade.id}
+                  className={`relative ${isClickable ? "opacity-100" : "opacity-100"}`}
+                >
                   <div
                     className={`${expandedFinalizationCardId === trade.id
                       ? "w-[945px]"
