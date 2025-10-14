@@ -425,7 +425,7 @@ export default function AddTradeDetailsPage() {
               <div className="w-full max-w-[500px] mb-[25px] p-[20px] flex flex-col items-center justify-center 
                 border-2 border-[#0038FF] rounded-[15px] bg-[#0038FF]/10 
                 shadow-[0px_0px_15px_#284CCC] backdrop-blur-[30px] text-center">
-                <h3 className="text-[25px] font-medium text-white mb-[8px]">
+                <h3 className="text-[20px] font-medium text-white mb-[8px]">
                   This trade will grant your partner
                 </h3>
                 <span className="text-[26px] font-bold text-[#906EFF]">
