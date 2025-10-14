@@ -12,9 +12,9 @@ export default function TradeRequestInfo({ requested, exchange }) {
           </span>
           <div
             className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-[15px] text-white/90 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap text-left"
-            title={exchange}
+            title={requested}
           >
-            {exchange}
+            {requested}
           </div>
         </div>
 
@@ -25,9 +25,9 @@ export default function TradeRequestInfo({ requested, exchange }) {
           </span>
           <div
             className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#0038FF] bg-[#0038FF33] text-[15px] text-white/90 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
-            title={requested}
+            title={exchange}
           >
-            {requested}
+            {exchange}
           </div>
         </div>
       </div>
