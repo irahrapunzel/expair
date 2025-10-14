@@ -403,7 +403,11 @@ export default function AddTradeDetailsPage() {
       {showSuccessModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 bg-black/50"></div>
-          <div className="relative w-[90%] max-w-[700px] h-auto min-h-[220px] flex flex-col items-center justify-center bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 px-4 md:px-[50px] py-[40px] md:py-[60px]">
+
+          <div className="relative w-[90%] max-w-[700px] h-auto min-h-[220px] flex flex-col items-center justify-center 
+            bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] 
+            rounded-[15px] z-50 px-4 md:px-[50px] py-[40px] md:py-[60px]">
+            
             {/* Close button */}
             <button
               className="absolute top-[20px] right-[20px] text-white hover:text-gray-300 cursor-pointer"
@@ -412,23 +416,29 @@ export default function AddTradeDetailsPage() {
               <X className="w-[15px] h-[15px]" />
             </button>
 
-            <h2 className="font-bold text-[20px] md:text-[22px] text-center text-white mb-[20px]">
+            <h2 className="font-bold text-[20px] md:text-[22px] text-center text-white mb-[25px]">
               Trade details successfully added.
             </h2>
 
-            {/* XP Display */}
+            {/* XP Display - Styled like "Cancel" button */}
             {xpBreakdown && (
-              <div className="w-full max-w-[500px] mb-[20px] p-[20px] bg-[#120A2A] border border-white/20 rounded-[15px]">
-                <h3 className="text-[16px] font-medium text-white mb-[5px] text-center">This trade will grant your partner</h3>
-                <div className="flex justify-center">
-                  <span className="text-[24px] font-bold text-[#906EFF]">{xpBreakdown.total_xp} XP</span>
-                </div>
+              <div className="w-full max-w-[500px] mb-[25px] p-[20px] flex flex-col items-center justify-center 
+                border-2 border-[#0038FF] rounded-[15px] bg-[#0038FF]/10 
+                shadow-[0px_0px_15px_#284CCC] backdrop-blur-[30px] text-center">
+                <h3 className="text-[25px] font-medium text-white mb-[8px]">
+                  This trade will grant your partner
+                </h3>
+                <span className="text-[26px] font-bold text-[#906EFF]">
+                  {xpBreakdown.total_xp} XP
+                </span>
               </div>
             )}
 
             <Link href="/home/trades/pending">
               <button
-                className="w-full sm:w-[240px] h-[50px] flex justify-center items-center bg-[#0038FF] text-white rounded-[15px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors cursor-pointer"
+                className="w-full sm:w-[313px] h-[40px] flex justify-center items-center bg-[#0038FF] 
+                  text-white rounded-[15px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] 
+                  transition-colors cursor-pointer"
               >
                 <span className="text-[16px]">Go back to Pending Trades</span>
               </button>
