@@ -152,7 +152,7 @@ export default function AddTradeDetailsPage() {
         <h1 className="text-[25px] font-semibold mb-[10px] w-full">Adding trade details</h1>
         {/* Instruction text */}
         <p className="text-[16px] text-white/70 mb-[30px] w-full">
-          Specify your {tradeData.requested || 'service'} needs. This helps the other person understand exactly what you're looking for.
+          Specify your {tradeData.exchange || 'service'} needs. This helps the other person understand exactly what you're looking for.
         </p>
 
         {/* Error message */}
