@@ -48,7 +48,7 @@ export default function Navbar() {
   const settingsHref = `/home/profile/${profileSlug}/settings`;
 
   useEffect(() => {
-    function handleClickOutside(event) {
+    function handleClickOutside(event: MouseEvent) {
       if (bellRef.current && !bellRef.current.contains(event.target)) {
         const notificationPortal = document.querySelector(
           "[data-notification-portal]"
@@ -104,11 +104,11 @@ export default function Navbar() {
 
   return (
     <header
-      className={`${inter.className} w-full py-4 sm:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
+      className={`${inter.className} w-full py-4 lg:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
     >
-      <div className="flex items-center justify-between max-w-[1440px] mx-auto px-4 sm:px-[250px]">
+      <div className="flex items-center justify-between max-w-[1440px] mx-auto px-4 lg:px-[250px]">
         {/* Logo and Button */}
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-4 lg:gap-6">
           <Link href="/home">
             <Image
               src="/expair.png"
@@ -118,15 +118,17 @@ export default function Navbar() {
               className="w-auto h-[40px] cursor-pointer"
             />
           </Link>
-          <Link href="/home/request" className="hidden sm:block">
+
+          {/* Hide “New request” below lg */}
+          <Link href="/home/request" className="hidden lg:block">
             <Button className="font-normal flex w-[160px] h-[40px] px-[38px] py-[13px] justify-center items-center gap-[5px] flex-shrink-0 shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
               ✦ New request
             </Button>
           </Link>
         </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center bg-[#120A2A] rounded-[20px] w-[337px] h-[60px] overflow-hidden">
+        {/* Desktop Navigation (show only lg+) */}
+        <nav className="hidden lg:flex items-center bg-[#120A2A] rounded-[20px] w-[337px] h-[60px] overflow-hidden">
           <Link href="/home" className="flex-1 h-full">
             <button className="w-full h-full text-white font-normal hover:bg-[#1A0F3E] rounded-[20px]">
               Home
@@ -158,17 +160,17 @@ export default function Navbar() {
         </nav>
 
         {/* Right Section */}
-        <div className="flex items-center gap-4 sm:gap-6">
-          {/* Mobile menu button */}
+        <div className="flex items-center gap-4 lg:gap-6">
+          {/* Hamburger — show below lg */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden text-white focus:outline-none"
+            className="block lg:hidden text-white focus:outline-none"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
 
-          {/* Desktop icons */}
-          <div className="hidden md:flex items-center gap-4 sm:gap-6">
+          {/* Desktop icons (hide below lg) */}
+          <div className="hidden lg:flex items-center gap-4 lg:gap-6">
             <Link href="/home/messages">
               <div className="relative cursor-pointer">
                 <MessageSquareText className="text-white w-5 h-5" />
@@ -226,7 +228,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden mt-4 px-4 pb-4 space-y-3 bg-[#0A0519] border-t border-[#1a1a3a]">
+        <div className="lg:hidden mt-4 px-4 pb-4 space-y-3 bg-[#0A0519] border-t border-[#1a1a3a]">
           <Link href="/home">
             <p className="text-white py-2">Home</p>
           </Link>
