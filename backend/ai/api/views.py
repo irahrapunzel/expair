@@ -16,8 +16,13 @@ from accounts.models import ReputationSystem, TradeRequest
 from django.utils import timezone
 from django.db.models import Avg
 from django.core.cache import cache
-from ..services.onboarding import OnboardingService
 
+from ..services.onboarding import OnboardingService
+from django.db.models import Q
+from accounts.models import UserInterest, UserSkill
+
+import logging
+logger = logging.getLogger(__name__)
 
 def check_ai_available():
     """Check if AI features are available"""
@@ -69,9 +74,8 @@ def api_best_picks(request):
 @permission_classes([IsAuthenticated])
 def api_onboarding_picks(request):
     """
-    Get 6 best picks for user onboarding (SM1).
-    Called after user completes signup and enters first trade request.
-    Also shows what each requester can offer based on skill matching.
+    Get 6 best picks for user onboarding (generic fallback).
+    Finds user's latest trade request and returns compatible matches.
     """
     available, error_response = check_ai_available()
     if not available:
@@ -83,152 +87,131 @@ def api_onboarding_picks(request):
     cache_key = f"onboarding_picks_{user_id}"
     cached_data = cache.get(cache_key)
     if cached_data:
+        logger.info(f"Returning cached onboarding picks for user {user_id}")
         return Response(cached_data)
 
     try:
-        picks = get_onboarding_best_picks(user_id)
-        response_data = {
-            "best_picks": [
-                {
-                    "tradereq_id": p['trade'].pk,
-                    "reqname": p['trade'].reqname,
-                    "requester": p['trade'].requester.username,
-                    "requester_id": p['trade'].requester.pk,
-                    "score": p['score'],
-                    "category": getattr(p['trade'], 'classified_category', None),
-                    "exchange": getattr(p['trade'], 'exchange', None),
-                    "reqdeadline": getattr(p['trade'], 'reqdeadline', None),
-                    # Frontend display fields
-                    "name": p['trade'].requester.get_full_name() or p['trade'].requester.username,
-                    "username": p['trade'].requester.username,
-                    "profilePicUrl": getattr(p['trade'].requester, 'profilepic', None) or '/assets/defaultavatar.png',
-                    "rating": float(getattr(p['trade'].requester, 'avgStars', 0) or 0),
-                    "ratingCount": getattr(p['trade'].requester, 'ratingCount', 0) or 0,
-                    "level": getattr(p['trade'].requester, 'currentLevel', 1) or 1,
-                    "need": p['trade'].reqname,
-                    "offer": p['trade'].exchange or "—",
-                    "deadline": str(p['trade'].reqdeadline) if p['trade'].reqdeadline else None,
-                    "userId": p['trade'].requester.pk,
-                }
-                for p in picks
-            ],
-            "count": len(picks)
-        }
+        # Get the user's latest trade request
+        latest_request = TradeRequest.objects.filter(
+            requester_id=user_id
+        ).order_by('-created_at').first()
 
+        if not latest_request:
+            return Response({
+                "best_picks": [],
+                "count": 0,
+                "message": "Please create your first trade request to see matches."
+            })
+
+        picks = get_onboarding_best_picks(user_id, limit=6)
+        
+        if not picks:
+            response_data = {
+                "best_picks": [],
+                "count": 0,
+                "request_text": latest_request.reqname or "",
+                "message": "No matches found yet. Try completing your profile or check back later!"
+            }
+            cache.set(cache_key, response_data, 300)
+            return Response(response_data)
+
+        response_data = {
+            "best_picks": picks,
+            "count": len(picks),
+            "request_text": latest_request.reqname or ""
+        }
         cache.set(cache_key, response_data, 300)
         return Response(response_data)
+        
     except Exception as e:
+        logger.error(f"Error in api_onboarding_picks: {e}", exc_info=True)
         return Response(
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def onboarding_picks_for_request(request):
+    """
+    Get personalized best picks based on a specific trade request ID.
+    This is the preferred endpoint when tradereq_id is available.
+    """
+    available, error_response = check_ai_available()
+    if not available:
+        return error_response
     
-    viewer = request.user if getattr(request, 'id', None) else None
-
-    items_with_matches = []
-    items_without_matches = []
-
-    for tr in qs:
-        requester = tr.requester
-        display_name = (f"{(requester.first_name or '').strip()} {(requester.last_name or '').strip()}").strip() or requester.username
-
-        needs = tr.reqname
-        profile_pic_url = requester.profilePic if requester.profilePic else None
-
-        # 🔧 IMPROVED SKILL MATCHING LOGIC
-        # Get all skills that the REQUESTER has (what they can offer)
-        requester_skills = UserSkill.objects.filter(
-            user_id=tr.requester.id
-        ).select_related("specSkills__genSkills_id")
-
-        # Build requester's skill categories
-        requester_gen_skills = {}  # {gen_skill_id: category_name}
-        requester_spec_skills = []  # List of specific skill names
+    tradereq_id = request.GET.get('tradereq_id')
+    
+    if not tradereq_id:
+        return Response(
+            {'error': 'tradereq_id is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        tradereq_id = int(tradereq_id)
+    except ValueError:
+        return Response(
+            {'error': 'tradereq_id must be an integer'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Verify the trade request exists and belongs to the user
+    try:
+        trade_request = TradeRequest.objects.get(
+            tradereq_id=tradereq_id,
+            requester_id=request.user.id
+        )
+    except TradeRequest.DoesNotExist:
+        return Response(
+            {'error': 'Trade request not found or access denied'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Caching
+    cache_key = f"onboarding_picks_req_{tradereq_id}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        logger.info(f"Returning cached picks for tradereq {tradereq_id}")
+        return Response(cached_data)
+    
+    try:
+        # Generate personalized picks
+        service = OnboardingService()
+        best_picks = service.get_best_picks_for_request(
+            tradereq_id=tradereq_id,
+            requester_id=request.user.id,
+            limit=6
+        )
         
-        for skill in requester_skills:
-            if skill.specSkills:
-                requester_spec_skills.append(skill.specSkills.specName)
-                if skill.specSkills.genSkills_id:
-                    requester_gen_skills[skill.specSkills.genSkills_id.genskills_id] = skill.specSkills.genSkills_id.genCateg
+        if not best_picks:
+            response_data = {
+                'best_picks': [],
+                'count': 0,
+                'request_text': trade_request.reqname or "",
+                'message': 'No matches found yet. Try completing your profile or check back later!'
+            }
+            cache.set(cache_key, response_data, 300)
+            return Response(response_data)
         
-        # Determine what the requester "can offer"
-        can_offer = ""
-        has_match = False
-        
-        if viewer:
-            # Get viewer's interests
-            viewer_interests = UserInterest.objects.filter(
-                user=viewer
-            ).values_list('genSkills_id_id', flat=True)
-            
-            # Priority 1: Match requester's skills with viewer's interests (BEST MATCH)
-            if viewer_interests and requester_gen_skills:
-                matching_skill_ids = set(viewer_interests) & set(requester_gen_skills.keys())
-                
-                if matching_skill_ids:
-                    # Use the first matching skill category
-                    matching_skill_id = list(matching_skill_ids)[0]
-                    can_offer = requester_gen_skills[matching_skill_id]
-                    has_match = True
-            
-            # Priority 2: Check if any requester's SPECIFIC skills are mentioned in viewer's request
-            if not can_offer and requester_spec_skills:
-                needs_lower = needs.lower()
-                for spec_skill in requester_spec_skills:
-                    if spec_skill.lower() in needs_lower:
-                        # Find the general category for this specific skill
-                        for skill in requester_skills:
-                            if skill.specSkills and skill.specSkills.specName == spec_skill:
-                                if skill.specSkills.genSkills_id:
-                                    can_offer = skill.specSkills.genSkills_id.genCateg
-                                    has_match = True
-                                    break
-                        if can_offer:
-                            break
-        
-        # Priority 3: Show requester's most prominent skill category
-        if not can_offer and requester_gen_skills:
-            # Get the most common skill category the requester has
-            can_offer = list(requester_gen_skills.values())[0]
-        
-        # Priority 4: Show first specific skill as general category
-        if not can_offer and requester_spec_skills:
-            # Find the category of the first specific skill
-            first_skill = requester_skills.first()
-            if first_skill and first_skill.specSkills and first_skill.specSkills.genSkills_id:
-                can_offer = first_skill.specSkills.genSkills_id.genCateg
-        
-        # Priority 5: Fallback to database skill (last resort)
-        if not can_offer:
-            any_spec = SpecSkill.objects.first()
-            can_offer = any_spec.specName if any_spec else ""
-        
-        # Build the response item
-        item_data = {
-            "tradereq_id": tr.tradereq_id,
-            "requester_id": requester.id,
-            "name": display_name,
-            "rating": float(requester.avgStars or 0),
-            "ratingCount": int(requester.ratingCount or 0),
-            "level": int(requester.level or 0),
-            "need": needs,
-            "offer": can_offer,  # ✅ Will never be "—" now
-            "deadline": tr.reqdeadline.isoformat() if tr.reqdeadline else "",
-            "profilePicUrl": profile_pic_url,
-            "userId": requester.id,
-            "username": requester.username,
+        response_data = {
+            'best_picks': best_picks,
+            'count': len(best_picks),
+            'request_text': trade_request.reqname or ""
         }
         
-        # Separate items with matches from those without
-        if has_match:
-            items_with_matches.append(item_data)
-        else:
-            items_without_matches.append(item_data)
-
-    # Prioritize matches, then add others
-    all_items = items_with_matches + items_without_matches
-
-    return Response({"items": all_items}, status=200)
+        cache.set(cache_key, response_data, 300)
+        logger.info(f"Returning {len(best_picks)} picks for tradereq {tradereq_id}")
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in onboarding_picks_for_request: {e}", exc_info=True)
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(["POST"])
@@ -263,62 +246,122 @@ def api_mark_interested(request):
         )
 
 
-@api_view(["GET"])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def api_explore_feed(request):
+def explore_feed(request):
     """
-    Get ranked trades for explore page.
-    Uses multi-factor ranking: AI similarity, category, location, availability.
+    AI-powered explore feed with multi-factor ranking:
+    - AI semantic similarity (40%) - understands context
+    - Interest/Category match (25%) - user's interests vs trade category
+    - Skills match (20%) - user's skills vs what trade needs
+    - Location proximity (10%) - AI-powered location analysis
+    - Availability/Recency (5%) - deadline consideration
+    
+    Returns personalized trade recommendations.
     """
     available, error_response = check_ai_available()
     if not available:
         return error_response
     
     user_id = request.user.pk
-    top_k = int(request.GET.get('top_k', 50))   
-    cache_key = f"explore_feed_{user_id}_{top_k}"
+    limit = int(request.GET.get('limit', 200))
     
+    # Cache key
+    cache_key = f"explore_feed_{user_id}"
     cached_data = cache.get(cache_key)
     if cached_data:
+        logger.info(f"Returning cached explore feed for user {user_id}")
         return Response(cached_data)
     
     try:
-        trades = rank_explore_trades(for_user_id=user_id, top_k=top_k)
+        logger.info(f"🔍 Starting explore feed for user {user_id}")
+        
+        # ✅ Call rank_explore_trades with correct parameters
+        ranked_trades = rank_explore_trades(for_user_id=user_id, top_k=limit)
+        
+        logger.info(f"✅ Ranked {len(ranked_trades)} trades for user {user_id}")
+        
+        # Get viewer's interests for offer matching
+        viewer_interests = UserInterest.objects.filter(
+            user_id=user_id
+        ).select_related('genSkills_id').values_list('genSkills_id__genCateg', flat=True)
+        viewer_interest_set = set(viewer_interests)
+        
+        # Format response
+        results = []
+        for entry in ranked_trades:
+            trade = entry['trade']
+            requester = trade.requester
+            
+            # ✅ Determine most compatible skill that matches viewer's interest
+            offer = "Skills & Services"
+            try:
+                requester_skills = UserSkill.objects.filter(
+                    user=requester
+                ).select_related('specSkills__genSkills_id')
+                
+                # Priority 1: Find skill that matches viewer's interest
+                best_match = None
+                for skill in requester_skills:
+                    if skill.specSkills and skill.specSkills.genSkills_id:
+                        skill_category = skill.specSkills.genSkills_id.genCateg
+                        if skill_category in viewer_interest_set:
+                            best_match = skill_category
+                            break  # Perfect match found
+                
+                # Priority 2: Use first available skill
+                if not best_match:
+                    first_skill = requester_skills.first()
+                    if first_skill and first_skill.specSkills:
+                        if first_skill.specSkills.genSkills_id:
+                            best_match = first_skill.specSkills.genSkills_id.genCateg
+                        elif first_skill.specSkills.specName:
+                            best_match = first_skill.specSkills.specName
+                
+                if best_match:
+                    offer = best_match
+                    
+            except Exception as e:
+                logger.warning(f"Failed to get offer for user {requester.id}: {e}")
+            
+            results.append({
+                'tradereq_id': trade.tradereq_id,
+                'requester_id': requester.id,
+                'name': f"{requester.first_name} {requester.last_name}".strip() or requester.username,
+                'username': requester.username,
+                'requester': requester.username,
+                'reqname': trade.reqname or "",
+                'need': trade.reqname or "",
+                'offer': offer,
+                'exchange': offer,
+                'reqdeadline': trade.reqdeadline.isoformat() if trade.reqdeadline else None,
+                'deadline': trade.reqdeadline.isoformat() if trade.reqdeadline else None,
+                'profilePicUrl': requester.profilePic if getattr(requester, 'profilePic', None) else None,
+                'rating': float(getattr(requester, 'avgStars', 0) or 0),
+                'ratingCount': int(getattr(requester, 'ratingCount', 0) or 0),
+                'level': int(getattr(requester, 'level', 1) or 1),
+                'match_score': round(entry.get('score', 0), 2),
+                'score_breakdown': entry.get('breakdown', {}),
+                'category': trade.classified_category or 'Uncategorized',
+            })
+        
         response_data = {
-            "ranked_trades": [
-                {
-                    "tradereq_id": t['trade'].pk,
-                    "reqname": t['trade'].reqname,
-                    "requester": t['trade'].requester.username,
-                    "requester_id": t['trade'].requester.pk,
-                    # ✅ ADD THESE FIELDS:
-                    "name": (f"{t['trade'].requester.first_name} {t['trade'].requester.last_name}").strip() or t['trade'].requester.username,
-                    "username": t['trade'].requester.username,
-                    "profilePicUrl": t['trade'].requester.profilePic if t['trade'].requester.profilePic else None,
-                    "rating": float(t['trade'].requester.avgStars or 0),
-                    "ratingCount": int(t['trade'].requester.ratingCount or 0),
-                    "level": int(t['trade'].requester.level or 0),
-                    "offer": t['trade'].exchange or "Skills & Services",
-                    "deadline": t['trade'].reqdeadline.isoformat() if t['trade'].reqdeadline else "",
-                    # Keep existing fields:
-                    "score": t['score'],
-                    "category": getattr(t['trade'], 'classified_category', None),
-                    "exchange": getattr(t['trade'], 'exchange', None),
-                    "reqdeadline": getattr(t['trade'], 'reqdeadline', None),
-                    "score_breakdown": t['breakdown'],
-                }
-                for t in trades
-            ],
-            "count": len(trades)
+            'ranked_trades': results,
+            'count': len(results),
         }
-
-        cache.set(cache_key, response_data, 900)
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, response_data, 300)
+        
         return Response(response_data)
+        
     except Exception as e:
+        logger.error(f"Error in explore_feed: {e}", exc_info=True)
         return Response(
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -367,7 +410,6 @@ def api_evaluate(request):
         result = evaluate_trade(tradereq_id)
         
         # Get trade request
-        from accounts.models import TradeRequest
         tradereq = TradeRequest.objects.get(pk=tradereq_id)
         
         # Get or create Evaluation record
@@ -412,6 +454,7 @@ def api_evaluate(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -502,6 +545,7 @@ def api_best_match(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -615,83 +659,3 @@ def api_submit_rating(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-# ...existing imports...
-from ..services.onboarding import OnboardingService
-
-# ...existing code...
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def onboarding_picks_for_request(request):
-    """
-    Get personalized best picks based on user's first trade request.
-    
-    This endpoint is used in the onboarding flow (Onboarding2) to show
-    highly relevant matches based on the actual request they just made.
-    
-    Query params:
-    - tradereq_id: The trade request ID (required)
-    
-    Returns:
-        {
-            "best_picks": [
-                {
-                    "tradereq_id": 123,
-                    "requester_id": 456,
-                    "name": "John Doe",
-                    "username": "johndoe",
-                    "need": "I need plumbing help",
-                    "offer": "Home Services",
-                    "deadline": "2025-12-31",
-                    "profilePicUrl": "...",
-                    "rating": 4.5,
-                    "ratingCount": 10,
-                    "level": 5,
-                    "match_score": 85.3
-                },
-                ...
-            ],
-            "count": 6,
-            "request_text": "I need plumbing help"
-        }
-    """
-    tradereq_id = request.GET.get('tradereq_id')
-    
-    if not tradereq_id:
-        return Response(
-            {'error': 'tradereq_id is required'},
-            status=400
-        )
-    
-    try:
-        tradereq_id = int(tradereq_id)
-    except ValueError:
-        return Response(
-            {'error': 'tradereq_id must be an integer'},
-            status=400
-        )
-    
-    # Generate personalized picks
-    service = OnboardingService()
-    best_picks = service.get_best_picks_for_request(
-        tradereq_id=tradereq_id,
-        requester_id=request.user.id,
-        limit=6
-    )
-    
-    # Get request text for context
-    try:
-        trade_request = TradeRequest.objects.get(
-            tradereq_id=tradereq_id,
-            requester_id=request.user.id
-        )
-        request_text = trade_request.reqname
-    except TradeRequest.DoesNotExist:
-        request_text = ""
-    
-    return Response({
-        'best_picks': best_picks,
-        'count': len(best_picks),
-        'request_text': request_text
-    })

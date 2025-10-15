@@ -89,7 +89,7 @@ def get_best_match(for_user_id: int) -> dict:
         dict with 'trade' and 'score' keys, or None if no matches
     """
     # Use the explore ranking to get all ranked trades
-    ranked_trades = rank_explore_trades(for_user_id=for_user_id, top_k=1)
+    ranked_trades = rank_explore_trades(for_user_id=for_user_id, top_k=limit)
     
     if ranked_trades:
         return ranked_trades[0]  # Return the #1 best match

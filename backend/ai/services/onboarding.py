@@ -5,8 +5,9 @@ Provides robust 'offer' label fallback so frontend never receives a hyphen.
 import logging
 from typing import List, Dict, Any, Optional, Set
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
-from accounts.models import TradeRequest, UserSkill, UserInterest, GenSkill
+from accounts.models import TradeRequest, UserSkill, UserInterest, GenSkill, SpecSkill
 from .embedding import EmbeddingService
 from .text_utils import extract_keywords
 from .matching import MatchingService
@@ -20,7 +21,6 @@ class OnboardingService:
 
     def __init__(self):
         self.embedding_service = EmbeddingService()
-        # MatchingService is optional; keep if you have extra ranking logic
         try:
             self.matching_service = MatchingService()
         except Exception:
@@ -32,9 +32,13 @@ class OnboardingService:
         requester_id: int,
         limit: int = 6
     ) -> List[Dict[str, Any]]:
-        """Return list of top responder dicts with guaranteed 'offer' label."""
+        """
+        Return list of users who can OFFER what the requester NEEDS.
+        Logic: User says "I need X" → Find people who have skills in X
+        """
         try:
-            trade_request = TradeRequest.objects.select_related('requester').get(
+            # Get the user's first trade request (what they NEED)
+            user_trade_request = TradeRequest.objects.select_related('requester').get(
                 tradereq_id=tradereq_id,
                 requester_id=requester_id
             )
@@ -42,217 +46,271 @@ class OnboardingService:
             logger.warning("TradeRequest not found: %s", tradereq_id)
             return []
 
-        request_text = trade_request.reqname or ""
-        keywords = extract_keywords(request_text)
-        request_embedding = None
+        # ✅ What the user NEEDS
+        user_need_text = user_trade_request.reqname or ""
+        user_need_keywords = extract_keywords(user_need_text)
+        user_need_category = user_trade_request.classified_category or ""
+        
+        logger.info(f"🎯 User needs: '{user_need_text}' | Category: '{user_need_category}' | Keywords: {user_need_keywords}")
+        
+        user_need_embedding = None
         try:
-            request_embedding = self.embedding_service.get_embedding(request_text)
-        except Exception:
-            request_embedding = None
+            user_need_embedding = self.embedding_service.get_embedding(user_need_text)
+        except Exception as e:
+            logger.warning(f"Failed to get embedding: {e}")
 
-        # collect requester interest categories for shared-interest matching
-        requester_cats: Set[str] = set()
+        # Get user's interests (what they're interested in receiving)
+        user_interest_cats: Set[str] = set()
+        user_interest_ids: Set[int] = set()
         try:
-            for ui in trade_request.requester.userinterest_set.select_related('genSkills_id').all():
-                if ui.genSkills_id and ui.genSkills_id.genCateg:
-                    requester_cats.add(ui.genSkills_id.genCateg)
-        except Exception:
-            requester_cats = set()
+            user_interests = UserInterest.objects.filter(
+                user_id=requester_id
+            ).select_related('genSkills_id')
+            
+            for ui in user_interests:
+                if ui.genSkills_id:
+                    user_interest_cats.add(ui.genSkills_id.genCateg.lower())
+                    user_interest_ids.add(ui.genSkills_id.genSkills_id)
+        except Exception as e:
+            logger.warning(f"Failed to get user interests: {e}")
 
-        # candidate users (exclude requester)
-        potential_users = User.objects.exclude(id=requester_id).filter(is_active=True).prefetch_related(
+        # Get ALL other users (not trade requests!)
+        # We want to match users who have the SKILLS we need
+        all_users = User.objects.exclude(
+            id=requester_id
+        ).prefetch_related(
             'userskill_set__specSkills__genSkills_id',
             'userinterest_set__genSkills_id'
-        )
+        )[:200]
 
-        scored = []
-        for user in potential_users:
-            score = self._calculate_match_score(
+        logger.info(f"🔍 Evaluating {len(all_users)} potential helpers")
+
+        scored_users = []
+        
+        for user in all_users:
+            score, breakdown = self._calculate_user_match_score(
                 user=user,
-                request_text=request_text,
-                request_embedding=request_embedding,
-                keywords=keywords,
-                deadline=trade_request.reqdeadline
+                user_need_text=user_need_text,
+                user_need_embedding=user_need_embedding,
+                user_need_keywords=user_need_keywords,
+                user_need_category=user_need_category,
+                user_interest_ids=user_interest_ids
             )
-            if score > 0:
-                scored.append({'user': user, 'score': score})
+            
+            # ✅ ALWAYS include users, even with score 0
+            scored_users.append({
+                'user': user,
+                'score': score,
+                'breakdown': breakdown
+            })
 
-        # fallback: if none have score > 0, include some users with any skill
-        if not scored:
-            for user in potential_users[:limit * 4]:
-                scored.append({'user': user, 'score': 0.0})
+        # Sort by score (highest first)
+        scored_users.sort(key=lambda x: x['score'], reverse=True)
+        
+        # ✅ Take top N
+        top_users = scored_users[:limit]
 
-        scored.sort(key=lambda x: x['score'], reverse=True)
-        top = scored[:limit]
+        logger.info(f"✅ Returning {len(top_users)} onboarding picks")
 
+        # Format results
         results = []
-        for entry in top:
+        for entry in top_users:
             user = entry['user']
-            offer = self._determine_offer_skill(
+            
+            # ✅ Determine what this user can OFFER (based on their skills)
+            offer = self._determine_user_offer(
                 user=user,
-                request_text=request_text,
-                keywords=keywords,
-                requester_interest_cats=requester_cats
+                viewer_need_keywords=user_need_keywords,
+                viewer_need_category=user_need_category
             )
-            # defensive fallback: if still falsy, try responder/requester first skill names
-            if not offer:
-                try:
-                    first_skill = user.userskill_set.select_related('specSkills__genSkills_id').first()
-                    if first_skill and first_skill.specSkills:
-                        # Prefer specific skill name
-                        spec_name = getattr(first_skill.specSkills, "specName", None)
-                        if spec_name:
-                            offer = spec_name
-                        else:
-                            # fallback to general category name if specific not present
-                            gen = getattr(first_skill.specSkills, "genSkills_id", None)
-                            if gen and getattr(gen, "genCateg", None):
-                                offer = gen.genCateg
-                except Exception:
-                    offer = None
-
-            if not offer:
-                # try requester skills/interests as last resort
-                try:
-                    r_first_specific = trade_request.requester.userskill_set.select_related('specSkills__genSkills_id').first()
-                    if r_first_specific and r_first_specific.specSkills:
-                        spec_name = getattr(r_first_specific.specSkills, "specName", None)
-                        if spec_name:
-                            offer = spec_name
-                        else:
-                            gen = getattr(r_first_specific.specSkills, "genSkills_id", None)
-                            if gen and getattr(gen, "genCateg", None):
-                                offer = gen.genCateg
-                    else:
-                        r_first_interest = trade_request.requester.userinterest_set.select_related('genSkills_id').first()
-                        if r_first_interest and r_first_interest.genSkills_id and getattr(r_first_interest.genSkills_id, "genCateg", None):
-                            offer = r_first_interest.genSkills_id.genCateg
-                except Exception:
-                    offer = None
-
+            
             if not offer:
                 offer = "Skills & Services"
 
+            # Get user's latest trade request (optional - shows what they need)
+            user_latest_request = TradeRequest.objects.filter(
+                requester_id=user.id
+            ).order_by('-created_at').first()
+
             results.append({
-                'tradereq_id': tradereq_id,
+                'tradereq_id': user_latest_request.tradereq_id if user_latest_request else None,
                 'requester_id': user.id,
                 'name': f"{user.first_name} {user.last_name}".strip() or user.username,
                 'username': user.username,
-                'need': request_text,
-                'offer': offer,
-                'deadline': trade_request.reqdeadline.isoformat() if trade_request.reqdeadline else None,
+                'need': user_latest_request.reqname if user_latest_request else "Open to trades",
+                'offer': offer,  # ✅ What they can OFFER (their skills)
+                'deadline': user_latest_request.reqdeadline.isoformat() if (user_latest_request and user_latest_request.reqdeadline) else None,
                 'profilePicUrl': user.profilePic if getattr(user, 'profilePic', None) else None,
                 'rating': float(getattr(user, 'avgStars', 0) or 0),
                 'ratingCount': int(getattr(user, 'ratingCount', 0) or 0),
                 'level': int(getattr(user, 'level', 1) or 1),
-                'match_score': round(entry.get('score', 0.0), 2),
+                'match_score': round(entry['score'], 2),
+                'score_breakdown': entry['breakdown'],
             })
 
         return results
 
-    def _calculate_match_score(
+    def _calculate_user_match_score(
         self,
         user: User,
-        request_text: str,
-        request_embedding: Optional[List[float]],
-        keywords: List[str],
-        deadline: Optional[Any]
-    ) -> float:
+        user_need_text: str,
+        user_need_embedding: Optional[List[float]],
+        user_need_keywords: List[str],
+        user_need_category: str,
+        user_interest_ids: Set[int]
+    ) -> tuple[float, Dict[str, float]]:
         """
-        Lightweight scoring: semantic similarity (if available) + keyword matches.
-        Keep it conservative so we return >0 only for somewhat relevant users.
+        Score how well this user can fulfill the requester's need.
+        Higher score = better match for what user is looking for.
         """
         score = 0.0
+        breakdown = {
+            'skill_match': 0.0,
+            'category_match': 0.0,
+            'keyword_match': 0.0,
+            'semantic_similarity': 0.0,
+            'interest_alignment': 0.0,
+        }
 
-        # semantic similarity
+        # Get user's skills (what they can OFFER)
         try:
-            skill_texts = []
-            for us in user.userskill_set.select_related('specSkills__genSkills_id').all():
-                if us.specSkills and us.specSkills.specName:
-                    skill_texts.append(us.specSkills.specName)
-            if skill_texts and request_embedding is not None:
-                combined = ", ".join(skill_texts)
-                u_emb = self.embedding_service.get_embedding(combined)
-                sim = self.embedding_service.cosine_similarity(request_embedding, u_emb)
-                score += sim * 40  # scale to 0..40
-        except Exception:
-            pass
+            user_skills = UserSkill.objects.filter(
+                user=user
+            ).select_related('specSkills__genSkills_id')
+            
+            user_skill_names = set()
+            user_skill_gen_ids = set()
+            user_skill_categories = set()
+            
+            for skill in user_skills:
+                if skill.specSkills:
+                    if skill.specSkills.specName:
+                        user_skill_names.add(skill.specSkills.specName.lower())
+                    if skill.specSkills.genSkills_id:
+                        user_skill_gen_ids.add(skill.specSkills.genSkills_id.genSkills_id)
+                        user_skill_categories.add(skill.specSkills.genSkills_id.genCateg.lower())
+            
+            # ✅ 1. DIRECT SKILL MATCH (0-40 points) - Most important!
+            # Does user have skills that match what requester needs?
+            skill_matches = 0
+            for kw in user_need_keywords:
+                kw_lower = kw.lower()
+                # Check if keyword appears in user's skills
+                if any(kw_lower in skill for skill in user_skill_names):
+                    skill_matches += 1
+                # Check if keyword matches skill category
+                if any(kw_lower in cat for cat in user_skill_categories):
+                    skill_matches += 1
+            
+            if skill_matches > 0:
+                skill_score = min(40, skill_matches * 15)  # Up to 40 points
+                breakdown['skill_match'] = skill_score
+                score += skill_score
+                
+        except Exception as e:
+            logger.warning(f"Skill match calculation failed: {e}")
 
-        # keyword overlap
-        try:
-            user_skill_names = [us.specSkills.specName.lower() for us in user.userskill_set.select_related('specSkills').all() if us.specSkills and us.specSkills.specName]
-            if keywords and user_skill_names:
-                matches = 0
-                for kw in keywords:
-                    if any(kw.lower() in s for s in user_skill_names):
-                        matches += 1
-                score += (matches / max(1, len(keywords))) * 30
-        except Exception:
-            pass
+        # ✅ 2. CATEGORY MATCH (0-30 points)
+        # Does classified category match user's skill categories?
+        if user_need_category:
+            need_cat_lower = user_need_category.lower()
+            if any(need_cat_lower in cat or cat in need_cat_lower for cat in user_skill_categories):
+                breakdown['category_match'] = 30.0
+                score += 30.0
 
-        # small reward if user has interests that match a keyword
-        try:
-            user_interest_names = [ui.genSkills_id.genCateg.lower() for ui in user.userinterest_set.select_related('genSkills_id').all() if ui.genSkills_id and ui.genSkills_id.genCateg]
-            if keywords and user_interest_names:
-                if any(kw.lower() in c for kw in keywords for c in user_interest_names):
-                    score += 10
-        except Exception:
-            pass
+        # ✅ 3. KEYWORD IN SKILLS (0-20 points)
+        # Additional keyword matching
+        if user_need_keywords and user_skill_names:
+            keyword_matches = sum(
+                1 for kw in user_need_keywords 
+                if any(kw.lower() in skill for skill in user_skill_names)
+            )
+            if keyword_matches > 0:
+                kw_score = min(20, (keyword_matches / len(user_need_keywords)) * 20)
+                breakdown['keyword_match'] = kw_score
+                score += kw_score
 
-        return float(score)
+        # ✅ 4. SEMANTIC SIMILARITY (0-10 points)
+        # Compare need text to user's skill descriptions
+        if user_need_embedding is not None and user_skill_names:
+            try:
+                # Create text from user's skills
+                skills_text = " ".join(user_skill_names)
+                if skills_text:
+                    skills_emb = self.embedding_service.get_embedding(skills_text)
+                    similarity = self.embedding_service.cosine_similarity(user_need_embedding, skills_emb)
+                    semantic_score = similarity * 10
+                    breakdown['semantic_similarity'] = semantic_score
+                    score += semantic_score
+            except Exception as e:
+                logger.warning(f"Semantic similarity failed: {e}")
 
+        return float(score), breakdown
 
-    def _determine_offer_skill(
+    def _determine_user_offer(
         self,
         user: User,
-        request_text: str,
-        keywords: List[str],
-        requester_interest_cats: Optional[set] = None
+        viewer_need_keywords: List[str],
+        viewer_need_category: str
     ) -> str:
         """
+        Determine what the user can OFFER based on their skills.
         Priority:
-        1) Shared interest category with requester
-        2) User's first interest category
-        3) User's first skill category (genCateg)
-        4) Requester's first interest or skill
-        5) "Skills & Services"
+        1) Skill that matches viewer's need keywords
+        2) Skill that matches viewer's need category
+        3) User's first/primary skill
+        4) Fallback to generic
         """
-        # 1) shared interests
         try:
-            user_interest_cats = [ui.genSkills_id.genCateg for ui in user.userinterest_set.select_related('genSkills_id').all() if ui.genSkills_id and ui.genSkills_id.genCateg]
-            if requester_interest_cats:
-                for cat in user_interest_cats:
-                    if cat in requester_interest_cats:
-                        return cat
-        except Exception:
-            user_interest_cats = []
-
-        # 2) user's first interest
-        if user_interest_cats:
-            return user_interest_cats[0]
-
-        # 3) user's first skill category
-        try:
-            first_skill = user.userskill_set.select_related('specSkills__genSkills_id').first()
+            user_skills = UserSkill.objects.filter(
+                user=user
+            ).select_related('specSkills__genSkills_id')
+            
+            if not user_skills.exists():
+                return ""
+            
+            # Try to match with viewer's need keywords
+            for skill in user_skills:
+                if skill.specSkills and skill.specSkills.specName:
+                    skill_name = skill.specSkills.specName.lower()
+                    for kw in viewer_need_keywords:
+                        if kw.lower() in skill_name:
+                            if skill.specSkills.genSkills_id:
+                                return skill.specSkills.genSkills_id.genCateg
+            
+            # Try to match with viewer's need category
+            if viewer_need_category:
+                for skill in user_skills:
+                    if skill.specSkills and skill.specSkills.genSkills_id:
+                        skill_cat = skill.specSkills.genSkills_id.genCateg.lower()
+                        if viewer_need_category.lower() in skill_cat or skill_cat in viewer_need_category.lower():
+                            return skill.specSkills.genSkills_id.genCateg
+            
+            # Return first skill category
+            first_skill = user_skills.first()
             if first_skill and first_skill.specSkills and first_skill.specSkills.genSkills_id:
                 return first_skill.specSkills.genSkills_id.genCateg
-        except Exception:
-            pass
+                
+        except Exception as e:
+            logger.warning(f"Failed to determine offer skill: {e}")
+        
+        return ""
 
-        # 4) requester's first interest or skill (caller may pass requester interests)
-        # caller-side will try requester; make no-op here (will be tried by caller)
-        return ""  # empty indicates caller should try other fallbacks
 
-
-# Module-level convenience functions for views.py (views expect these names)
 def get_onboarding_best_picks(user_id: int, limit: int = 6) -> List[Dict[str, Any]]:
     """Find latest request for user_id and return best picks."""
     try:
         latest = TradeRequest.objects.filter(requester_id=user_id).order_by('-created_at').first()
         if not latest:
+            logger.info(f"No trade requests found for user {user_id}")
             return []
+        
         svc = OnboardingService()
-        return svc.get_best_picks_for_request(tradereq_id=latest.tradereq_id, requester_id=user_id, limit=limit)
+        return svc.get_best_picks_for_request(
+            tradereq_id=latest.tradereq_id, 
+            requester_id=user_id, 
+            limit=limit
+        )
     except Exception as e:
         logger.error("get_onboarding_best_picks error: %s", e, exc_info=True)
         return []
@@ -260,36 +318,43 @@ def get_onboarding_best_picks(user_id: int, limit: int = 6) -> List[Dict[str, An
 
 def create_interests_from_onboarding(user_id: int, tradereq_ids: List[int]) -> int:
     """
-    Create UserInterest rows based on selected tradereq_ids (called after onboarding picks selection).
+    Create UserInterest rows based on selected tradereq_ids.
     Returns number created.
     """
     created = 0
     try:
         user = User.objects.get(id=user_id)
         gen_to_add = set()
+        
         for tid in tradereq_ids:
             try:
                 tr = TradeRequest.objects.get(tradereq_id=tid)
+                kws = extract_keywords(tr.reqname or "")
+                
+                for kw in kws:
+                    try:
+                        gs = GenSkill.objects.filter(genCateg__icontains=kw).first()
+                        if gs:
+                            gen_to_add.add(gs)
+                    except Exception as e:
+                        logger.warning(f"Failed to find GenSkill for keyword '{kw}': {e}")
+                
+                if tr.classified_category:
+                    try:
+                        gs = GenSkill.objects.filter(genCateg__icontains=tr.classified_category).first()
+                        if gs:
+                            gen_to_add.add(gs)
+                    except Exception as e:
+                        logger.warning(f"Failed to find GenSkill for category '{tr.classified_category}': {e}")
+                        
             except TradeRequest.DoesNotExist:
                 continue
-            # keywords from reqname
-            kws = extract_keywords(tr.reqname or "")
-            if kws:
-                # attempt to map keywords to GenSkill
-                for kw in kws:
-                    gs = GenSkill.objects.filter(genCateg__icontains=kw).first()
-                    if gs:
-                        gen_to_add.add(gs)
-            # include classified_category if present
-            if tr.classified_category:
-                gs = GenSkill.objects.filter(genCateg__icontains=tr.classified_category).first()
-                if gs:
-                    gen_to_add.add(gs)
 
         for gs in gen_to_add:
             ui, created_flag = UserInterest.objects.get_or_create(user=user, genSkills_id=gs)
             if created_flag:
                 created += 1
+                
     except Exception as e:
         logger.error("create_interests_from_onboarding error: %s", e, exc_info=True)
 

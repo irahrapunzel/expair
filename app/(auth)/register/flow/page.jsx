@@ -14,25 +14,12 @@ import { useRouter } from "next/navigation";
 
 export default function RegisterFlow() {
   const [step, setStep] = useState(1);
-  const [tradereqId, setTradereqId] = useState(null); // store tradereq_id from Onboarding1
   const router = useRouter();
   const { data: session, status } = useSession();
-
-  const completeRegistration = async () => {
-    try {
-      setIsRegistering(false);
-      sessionStorage.removeItem('registrationComplete');
-      sessionStorage.removeItem('userEmail');
-
-      // User is already signed in from step 6, just redirect
-      router.push("/home");
-    } catch (error) {
-      console.error("Navigation error:", error);
-      router.push("/signin?message=session_error");
-    }
-  };
-
   const [isRegistering, setIsRegistering] = useState(false);
+  
+  // ✅ NEW: Store the trade request ID
+  const [tradereqId, setTradereqId] = useState(null);
 
   // Hold step data
   const [step1Data, setStep1Data] = useState({
@@ -98,13 +85,32 @@ export default function RegisterFlow() {
       case 7:
         setIsRegistering(false);
         break;
+      case 8:
+        // Allow going back from Onboarding2 to Onboarding1
+        setTradereqId(null); // Clear the trade request ID
+        break;
       default:
         break;
     }
     setStep((prev) => prev - 1);
   };
 
-  // FIXED: Handle session changes - prevent redirect for new Google users
+  const completeRegistration = async () => {
+    try {
+      setIsRegistering(false);
+      sessionStorage.removeItem('registrationComplete');
+      sessionStorage.removeItem('userEmail');
+      sessionStorage.removeItem('postRegistrationFlow');
+      
+      console.log("✅ Registration complete! Redirecting to home...");
+      router.push("/home");
+    } catch (error) {
+      console.error("Navigation error:", error);
+      router.push("/signin?message=session_error");
+    }
+  };
+
+  // Handle session changes - prevent redirect for new Google users
   useEffect(() => {
     console.log("=== REGISTER FLOW SESSION CHECK ===");
     console.log("Status:", status);
@@ -186,14 +192,10 @@ export default function RegisterFlow() {
           onNext={nextStep}
           onPrev={prevStep}
           onConfirm={async (step6FinalData) => {
-            // Save step 6 data
             handleStep6Submit(step6FinalData);
-
-            // Set loading state
             setIsRegistering(true);
 
             try {
-              // CREATE THE ACCOUNT HERE - Call the complete-registration API
               const formData = new FormData();
 
               // Add basic user info from step1
@@ -212,7 +214,6 @@ export default function RegisterFlow() {
               if (step3Data.profilePicFile) {
                 formData.append("profilePic", step3Data.profilePicFile);
               } else if (session?.user?.googleData?.image) {
-                // If no file uploaded but Google image exists, pass the URL
                 formData.append("google_image_url", session.user.googleData.image);
               }
               if (step3Data.introduction) {
@@ -232,30 +233,18 @@ export default function RegisterFlow() {
               formData.append("genSkills_ids", JSON.stringify(genSkillsIds));
 
               // Add skills from step6 (specific skills)
-              // Convert checkedOptions format to what backend expects
               const specSkills = {};
               Object.entries(step6FinalData.checkedOptions).forEach(([genId, specIds]) => {
                 specSkills[genId] = specIds;
               });
               formData.append("specSkills", JSON.stringify(specSkills));
 
+              console.log("=== SUBMITTING REGISTRATION ===");
               console.log("Calling complete-registration API...");
 
-              // Call the backend registration endpoint
               const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL 
                 ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/complete-registration/`
                 : "/api/dj/complete-registration/";
-
-              console.log("=== SUBMITTING REGISTRATION ===");
-              console.log("API URL:", apiUrl);
-              console.log("FormData contents:");
-              for (let [key, value] of formData.entries()) {
-                if (value instanceof File) {
-                  console.log(`  ${key}: [File] ${value.name} (${value.size} bytes)`);
-                } else {
-                  console.log(`  ${key}:`, value);
-                }
-              }
 
               const response = await fetch(apiUrl, {
                 method: "POST",
@@ -268,8 +257,9 @@ export default function RegisterFlow() {
                 throw new Error(data.error || "Registration failed");
               }
 
-              console.log("Registration successful!", data);
+              console.log("✅ Registration successful!", data);
 
+              // Sign in the user
               console.log("Signing in user...");
               const signInResult = await signIn('credentials', {
                 identifier: step1Data.username || step1Data.email,
@@ -281,13 +271,16 @@ export default function RegisterFlow() {
                 throw new Error("Auto sign-in failed after registration");
               }
 
-              console.log("Sign-in successful, session created");
+              console.log("✅ Sign-in successful, session created");
+              
+              // Mark that we're in post-registration flow
+              sessionStorage.setItem('postRegistrationFlow', 'true');
 
-              // NOW move to onboarding with active session
+              // Move to onboarding
               nextStep();
 
             } catch (error) {
-              console.error("Registration error:", error);
+              console.error("❌ Registration error:", error);
               setIsRegistering(false);
               alert(`Registration failed: ${error.message}. Please try again.`);
             }
@@ -296,20 +289,22 @@ export default function RegisterFlow() {
         />
       )}
 
+      {/* Step 7: First Trade Request */}
       {step === 7 && (
         <Onboarding1
-          // Onboarding1 should return the created tradereq_id via onNext(id)
-          onNext={(id) => {
-            setTradereqId(id);
+          onNext={(createdTradereqId) => {
+            console.log("✅ Trade request created with ID:", createdTradereqId);
+            setTradereqId(createdTradereqId); // Store the ID
             setStep(8);
           }}
           onPrev={() => setStep(6)}
         />
       )}
-
+      
+      {/* Step 8: Best Picks */}
       {step === 8 && (
         <Onboarding2
-          tradereqId={tradereqId} // pass the tradereq_id so picks are personalized
+          tradereq_id={tradereqId} // ✅ Pass the trade request ID
           onNext={completeRegistration}
           onPrev={() => setStep(7)}
         />

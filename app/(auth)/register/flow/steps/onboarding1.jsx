@@ -45,67 +45,93 @@ export default function Onboarding1({ onNext, onPrev }) {
   };
 
   const handleConfirm = async () => {
-  if (!validate()) return;
+    if (!validate()) return;
 
-  const token = session?.access || session?.accessToken;
-  if (!token) {
-    setErrors((prev) => ({
-      ...prev,
-      serviceRequest:
-        "You must be signed in. Please log in again and try confirming.",
-    }));
-    return;
-  }
+    const token = session?.access || session?.accessToken;
+    if (!token) {
+      setErrors((prev) => ({
+        ...prev,
+        serviceRequest:
+          "You must be signed in. Please log in again and try confirming.",
+      }));
+      return;
+    }
 
-  setIsLoading(true);
-  try {
-    const resp = await fetch(`${BACKEND_URL}/trade-requests/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        reqname: serviceRequest.trim(),
-        reqdeadline: `${date}`,
-      }),
-    });
+    setIsLoading(true);
+    try {
+      // ✅ FIXED: Correct endpoint path
+      const resp = await fetch(`${BACKEND_URL}/trade-requests/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reqname: serviceRequest.trim(),
+          reqdeadline: date, // Send as YYYY-MM-DD
+          reqstatus: "pending", // ✅ Added default status
+        }),
+      });
 
-    if (resp.ok) {
-      const data = await resp.json();
-      
-      console.log("✅ Trade request created:", data);
-      
-      // Auto-categorize the new trade
-      try {
-        await fetch(`${BACKEND_URL}/api/ai/categorize/`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            tradereq_id: data.tradereq_id,
-          }),
-        });
-        console.log("✅ Trade categorized");
-      } catch (catError) {
-        console.error("⚠️ Categorization failed:", catError);
-      }
-      
-      // ✅ Pass tradereq_id to next step
-      onNext?.(data.tradereq_id);
-    } else {
+      if (resp.ok) {
+        const data = await resp.json();
+        
+        console.log("✅ Trade request created:", data);
+        console.log("✅ Trade request ID:", data.tradereq_id);
+        
+        // ✅ Auto-categorize the new trade request
+        try {
+          const categorizeResp = await fetch(`${BACKEND_URL}/api/ai/categorize/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              tradereq_id: data.tradereq_id,
+            }),
+          });
+
+          if (categorizeResp.ok) {
+            const catData = await categorizeResp.json();
+            console.log("✅ Trade categorized as:", catData.category);
+          } else {
+            console.warn("⚠️ Categorization failed, continuing anyway");
+          }
+        } catch (catError) {
+          console.error("⚠️ Categorization error:", catError);
+          // Continue anyway - categorization is optional
+        }
+        
+        // ✅ CRITICAL: Pass tradereq_id to parent component
+        if (data.tradereq_id) {
+          console.log("✅ Passing tradereq_id to Onboarding2:", data.tradereq_id);
+          onNext?.(data.tradereq_id);
+        } else {
+          console.error("❌ No tradereq_id in response!");
+          console.error("Response data:", data);
+          // Fallback: try to continue anyway
+          onNext?.();
+        }
+      } else {
         let msg = `Failed to create request (HTTP ${resp.status})`;
         try {
           const err = await resp.json();
+          console.error("❌ Server error response:", err);
           if (err?.error || err?.detail) {
             msg += `: ${err.error || err.detail}`;
+          } else if (err?.reqname) {
+            msg += `: ${err.reqname[0]}`;
+          } else if (err?.reqdeadline) {
+            msg += `: ${err.reqdeadline[0]}`;
           }
-        } catch {}
+        } catch (parseError) {
+          console.error("❌ Could not parse error response");
+        }
         setErrors((prev) => ({ ...prev, serviceRequest: msg }));
       }
     } catch (e) {
+      console.error("❌ Network error:", e);
       setErrors((prev) => ({
         ...prev,
         serviceRequest: `Network error: ${e?.message || e}`,
@@ -181,6 +207,7 @@ export default function Onboarding1({ onNext, onPrev }) {
                     setErrors((prev) => ({ ...prev, date: "" }));
                   }
                 }}
+                min={new Date().toISOString().split('T')[0]} // ✅ Prevent past dates in picker
                 className="w-full h-[50px] bg-[#120A2A] border border-white/40 rounded-[15px] px-[18px] py-[15px] pr-[45px] text-[16px] text-white outline-none placeholder:text-[#413663]"
               />
               <Calendar
@@ -199,11 +226,11 @@ export default function Onboarding1({ onNext, onPrev }) {
           {/* Continue Button */}
           <div className="flex justify-center mt-[25px] mb-[100px]">
             <Button
-              className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[20px] font-[500] transition rounded-[15px]"
+              className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[20px] font-[500] transition rounded-[15px] disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleConfirm}
               disabled={isLoading || !(session?.access || session?.accessToken)}
             >
-              {isLoading ? "Saving..." : "Submit"}
+              {isLoading ? "Creating request..." : "Submit"}
             </Button>
           </div>
         </div>

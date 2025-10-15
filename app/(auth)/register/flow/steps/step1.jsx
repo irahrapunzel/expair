@@ -133,53 +133,56 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
   const debouncedEmail = useDebounce(email, 500);
 
   const checkAvailability = async (field, value) => {
-    // 1. Check for the BASE_URL
-    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-    if (!baseUrl) {
-      console.error("NEXT_PUBLIC_BACKEND_URL is not set!");
-      // Set a general error state to prevent submission
-      setErrorMessage("Configuration Error: Backend URL not found.");
-      return true; // Treat as 'exists' to block submission
-    }
+  // 1. Check for the BASE_URL
+  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (!baseUrl) {
+    console.error("NEXT_PUBLIC_BACKEND_URL is not set!");
+    // Set a general error state to prevent submission
+    setErrorMessage("Configuration Error: Backend URL not found.");
+    return true; // Treat as 'exists' to block submission
+  }
 
-    try {
-      const response = await fetch(`${baseUrl}/api/validate-field/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ field, value }),
-      });
+  try {
+    const response = await fetch(`${baseUrl}/api/validate-field/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ field, value }),
+    });
 
-      // 2. Throw an error if the API call was unsuccessful (e.g., 404, 500)
-      if (!response.ok) {
-        // Read the body for a Django error, but continue to throw
-        const errorText = await response.text();
-        throw new Error(
-          `API call failed with status: ${
-            response.status
-          }. Response: ${errorText.substring(0, 100)}...`
-        );
-      }
-
-      const data = await response.json();
-      return data.exists;
-    } catch (error) {
-      // This catch block handles both the initial 'Failed to fetch'
-      // and the 'API call failed' errors we throw above.
-      console.error(`Error checking ${field} for value "${value}":`, error);
-
-      // This is the key fix: if fetch fails, assume the worst (network down)
-      // and prevent the user from continuing without confirmation.
-      setErrorMessage(
-        `Network Error: Could not verify ${field} availability. Please check server or try again.`
+    // 2. Throw an error if the API call was unsuccessful (e.g., 404, 500)
+    if (!response.ok) {
+      // Read the body for a Django error, but continue to throw
+      const errorText = await response.text();
+      throw new Error(
+        `API call failed with status: ${
+          response.status
+        }. Response: ${errorText.substring(0, 100)}...`
       );
-
-      // Returning true means "it exists" and will block the user.
-      // This is a safer default when a critical network check fails.
-      return true;
     }
-  };
+
+    const data = await response.json();
+    // ❌ REMOVE THESE 3 LINES - THEY DON'T BELONG HERE:
+    // console.log("✅ Trade request created:", data);
+    // onNext(data.tradereq_id);
+    return data.exists;
+  } catch (error) {
+    // This catch block handles both the initial 'Failed to fetch'
+    // and the 'API call failed' errors we throw above.
+    console.error(`Error checking ${field} for value "${value}":`, error);
+
+    // This is the key fix: if fetch fails, assume the worst (network down)
+    // and prevent the user from continuing without confirmation.
+    setErrorMessage(
+      `Network Error: Could not verify ${field} availability. Please check server or try again.`
+    );
+
+    // Returning true means "it exists" and will block the user.
+    // This is a safer default when a critical network check fails.
+    return true;
+  }
+};
 
   useEffect(() => {
     if (!debouncedUsername || debouncedUsername.length < 3) {

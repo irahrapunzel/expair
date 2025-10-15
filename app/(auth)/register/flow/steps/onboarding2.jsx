@@ -15,6 +15,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { StarIcon } from "../../../../../components/icons/star-icon";
+import { Icon } from "@iconify/react";
 import Image from "next/image";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -42,6 +43,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
   const [exploreItems, setExploreItems] = useState([]);
   const [exploreErr, setExploreErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const [requestText, setRequestText] = useState(""); // Store the user's request
 
   // Refs for click-outside handling
   const sortMenuRef = useRef(null);
@@ -52,7 +54,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
   useEffect(() => {
     (async () => {
       // Validate tradereq_id is provided
-      if (!tradereqId) {
+      if (!tradereq_id) {
         console.warn("⚠️ No tradereq_id provided, falling back to generic picks");
         // Fall back to generic onboarding picks
         try {
@@ -67,19 +69,30 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
           });
           
           if (!resp.ok) {
-            setExploreErr(`Failed to load feed (HTTP ${resp.status})`);
+            setExploreErr(`Failed to load picks (HTTP ${resp.status})`);
+            setLoading(false);
             return;
           }
           
           const data = await resp.json();
 
-          const mappedPicks = (data.best_picks || []).map(item => ({
+          // ✅ Handle empty results gracefully
+          if (!data.best_picks || data.best_picks.length === 0) {
+            setExploreItems([]);
+            setExploreErr(
+              data.message || 
+              "No matches found yet! Don't worry - you can explore more trades on your homepage."
+            );
+            setLoading(false);
+            return;
+          }
+
+          const mappedPicks = data.best_picks.map(item => ({
             tradereq_id: item.tradereq_id,
             name: item.name || item.requester,
             username: item.username || item.requester,
             userId: item.requester_id || item.userId,
             need: item.need || item.reqname,
-      
             offer: item.offer || item.exchange || item.specName || "Skills & Services",
             deadline: item.deadline || item.reqdeadline,
             profilePicUrl: item.profilePicUrl || "/assets/defaultavatar.png",
@@ -91,7 +104,8 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
           
           setExploreItems(mappedPicks);
         } catch (e) {
-          setExploreErr(e?.message || "Network error");
+          console.error("❌ Error fetching generic picks:", e);
+          setExploreErr(e?.message || "Network error loading picks");
         } finally {
           setLoading(false);
         }
@@ -105,10 +119,10 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
         const token = session?.access || session?.accessToken;
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        console.log(`🎯 Fetching personalized picks for request ${tradereqId}...`);
+        console.log(`🎯 Fetching personalized picks for request ${tradereq_id}...`);
 
         const resp = await fetch(
-          `${BACKEND_URL}/api/ai/onboarding-picks-for-request/?tradereq_id=${tradereqId}`,
+          `${BACKEND_URL}/api/ai/onboarding-picks-for-request/?tradereq_id=${tradereq_id}`,
           { 
             method: "GET",
             headers,
@@ -118,13 +132,26 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
         if (!resp.ok) {
           console.error(`❌ Failed to load personalized picks (HTTP ${resp.status})`);
           setExploreErr(`Failed to load personalized picks (HTTP ${resp.status})`);
+          setLoading(false);
           return;
         }
         
         const data = await resp.json();
         console.log("✅ Personalized picks loaded:", data);
 
-        const mappedPicks = (data.best_picks || []).map(item => ({
+        // ✅ Handle empty results gracefully
+        if (!data.best_picks || data.best_picks.length === 0) {
+          setExploreItems([]);
+          setRequestText(data.request_text || "");
+          setExploreErr(
+            data.message || 
+            "No matches found yet! Don't worry - you can explore more trades on your homepage."
+          );
+          setLoading(false);
+          return;
+        }
+
+        const mappedPicks = data.best_picks.map(item => ({
           tradereq_id: item.tradereq_id,
           name: item.name || item.requester,
           username: item.username || item.requester,
@@ -136,24 +163,25 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
           rating: item.rating || 0,
           ratingCount: item.ratingCount || 0,
           level: item.level || 1,
-          match_score: item.match_score || 0,  // ✅ Include match score
+          match_score: item.match_score || 0,
         }));
         
         setExploreItems(mappedPicks);
         
-        // Optional: Show the request text in UI
+        // Store the request text for display
         if (data.request_text) {
+          setRequestText(data.request_text);
           console.log(`📝 Your request: "${data.request_text}"`);
         }
         
       } catch (e) {
         console.error("❌ Error fetching personalized picks:", e);
-        setExploreErr(e?.message || "Network error");
+        setExploreErr(e?.message || "Network error loading personalized picks");
       } finally {
         setLoading(false);
       }
     })();
-  }, [session, tradereq_id]);  // ✅ Re-run when tradereqId changes
+  }, [session, tradereq_id]);
 
   // Date formatting function
   const fmtUntil = (iso) => {
@@ -204,7 +232,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
 
     try {
       const headers = { "Content-Type": "application/json" };
-      const token = session?.access;
+      const token = session?.access || session?.accessToken;
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const response = await fetch(`${BACKEND_URL}/express-interest/`, {
@@ -218,22 +246,26 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("Interest expressed successfully:", data);
+        console.log("✅ Interest expressed successfully:", data);
         setShowSuccessModal(true);
       } else {
         const errorData = await response.json();
-        console.error("Failed to express interest:", errorData.error);
+        console.error("❌ Failed to express interest:", errorData.error);
+        alert(errorData.error || "Failed to express interest. Please try again.");
       }
     } catch (error) {
-      console.error("Network error:", error);
+      console.error("❌ Network error:", error);
+      alert("Network error. Please check your connection and try again.");
     }
   };
 
   const handleCancel = () => {
     setShowConfirmModal(false);
+    setSelectedPartner(null);
   };
 
   const handleGoToHome = () => {
+    setShowSuccessModal(false);
     onNext();
   };
 
@@ -271,6 +303,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
   const handleReport = (partnerId) => {
     setOpenMenuIndex(null);
     console.log(`Reported partner ${partnerId}`);
+    // TODO: Implement report functionality
   };
 
   // Skill categories for filter
@@ -316,9 +349,15 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
           return b.level - a.level;
         case "rating":
           return b.rating - a.rating;
+        case "match_score":
+          return (b.match_score || 0) - (a.match_score || 0);
         case "recommended":
         default:
-          return b.rating - a.rating; // fallback to rating
+          // Sort by match score first, then rating
+          if ((b.match_score || 0) !== (a.match_score || 0)) {
+            return (b.match_score || 0) - (a.match_score || 0);
+          }
+          return b.rating - a.rating;
       }
     });
   };
@@ -426,9 +465,16 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                 </div>
               </div>
 
-              <p className="text-[16px] text-left text-white/40">
-                Browse your potential trade partners
-              </p>
+              <div className="flex flex-col gap-2">
+                <p className="text-[16px] text-left text-white/40">
+                  Browse your potential trade partners
+                </p>
+                {requestText && (
+                  <p className="text-[14px] text-left text-white/60 italic">
+                    Based on your request: "{requestText}"
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -442,13 +488,23 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
             {/* Trade Partner Cards */}
             <div className="flex flex-wrap gap-[25px] w-full">
               {exploreErr ? (
-                <div className="w-full py-4 text-red-400">{exploreErr}</div>
+                <div className="w-full py-10 flex flex-col items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4">
+                    <Search className="w-8 h-8 text-white/50" />
+                  </div>
+                  <h3 className="text-xl font-medium text-white mb-2">
+                    No matches found yet
+                  </h3>
+                  <p className="text-white/60 text-center max-w-md">
+                    {exploreErr}
+                  </p>
+                </div>
               ) : loading ? (
                 <div className="w-full py-10 flex flex-col items-center justify-center">
                   <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
                   </div>
-                  <p className="text-white/60">Loading trade partners...</p>
+                  <p className="text-white/60">Hang tight! We’re finding your best matches...</p>
                 </div>
               ) : filteredAndSortedItems.length > 0 ? (
                 filteredAndSortedItems.map((item, index) => (
@@ -467,7 +523,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                       <div className="flex justify-between items-start w-full">
                         <div className="flex items-start gap-[10px]">
                           <Image
-                            src={item.profilePicUrl || "/defaultavatar.png"}
+                            src={item.profilePicUrl || "/assets/defaultavatar.png"}
                             alt={item.name}
                             width={25}
                             height={25}
@@ -559,7 +615,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                                 onClick={() =>
                                   handleReport(item.tradereq_id || item.name)
                                 }
-                                className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full text-left"
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full text-left rounded-[10px]"
                               >
                                 <Icon
                                   icon="mdi:alert-circle-outline"
@@ -622,14 +678,10 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                     <Search className="w-8 h-8 text-white/50" />
                   </div>
                   <h3 className="text-xl font-medium text-white mb-2">
-                    {exploreItems.length === 0
-                      ? "No matches yet"
-                      : "No matches found"}
+                    No matches found
                   </h3>
                   <p className="text-white/60 text-center max-w-md">
-                    {exploreItems.length === 0
-                      ? "New requests will appear here as users post them."
-                      : "Try adjusting your filters or search criteria to see more results"}
+                    Try adjusting your search or come back later for new trade opportunities
                   </p>
                 </div>
               )}
