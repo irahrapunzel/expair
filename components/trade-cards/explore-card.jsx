@@ -238,7 +238,7 @@ export default function ExploreCard({
           <Button
             variant="default"
             size="default"
-            className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
+            className="px-[15px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
             onClick={onInterestedClick}
           >
             I'm interested
