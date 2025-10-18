@@ -1074,8 +1074,8 @@ export default function ActiveTradesPage() {
                           <div className="flex items-center gap-[10px]">
                             <span className="text-[16px] text-white">Requested</span>
                           </div>
-                          <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                            <span className="text-[15px] text-white">
+                          <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
+                            <span className="text-[13px] text-white">
                               {trade.requested}
                             </span>
                           </div>
@@ -1085,8 +1085,8 @@ export default function ActiveTradesPage() {
                           <span className="text-[16px] text-white">
                             In exchange for
                           </span>
-                          <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                            <span className="text-[15px] text-white">
+                          <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
+                            <span className="text-[13px] text-white">
                               {trade.offering}
                             </span>
                           </div>
@@ -1099,26 +1099,27 @@ export default function ActiveTradesPage() {
                     </div>
 
                     {/* Bottom Row - Due Date */}
-                    <div className="flex justify-end items-center w-full">
-                      <span className="text-[15px] font-normal text-white/60">
+                    <div className="flex justify-end items-center w-full"> {/* GINAMIT ANG justify-between DITO */}                   
+                      <span className="text-[13px] font-normal text-white/60">
                         Due on {trade.deadline}
                       </span>
                     </div>
 
-                    {/* Chevron Down + Action Buttons */}
-                    <div className="relative w-full mt-2">
-                      <div className="absolute bottom-0 left-0">
+                    <div className="flex justify-between items-center w-full">
+                      
+                      {/* Chevron Down */}
+                      <div>
                         <Icon
                           icon="lucide:chevron-down"
                           className="w-[30px] h-[30px] text-white cursor-pointer"
                         />
                       </div>
 
-                      {/* Action Buttons with Status */}
-                      <div className="flex flex-wrap items-center gap-[15px] justify-end">
+                      {/* Action Buttons with Status (nasa kanan) */}
+                      <div className="flex flex-wrap items-center gap-[15px]">
                         {/* Status Badge - left of buttons */}
                         <div
-                          className={`flex justify-center items-center h-[38px] px-3 rounded-[15px] ${ 
+                          className={`flex justify-center items-center h-[38px] px-[25px] py-[13px] rounded-[15px] ${ 
                             trade.bothProofsApproved
                               ? "bg-green-500/20 text-green-400 border border-green-500/30" 
                               : trade.proofWorkflowStatus === "waiting_for_approval"
@@ -1126,7 +1127,7 @@ export default function ActiveTradesPage() {
                               : "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
                           }`}
                         >
-                          <span className="text-[14px] font-medium">
+                          <span className="text-[16px] font-medium">
                             {getTradeStatusText(trade)}
                           </span>
                         </div>
@@ -1155,7 +1156,7 @@ export default function ActiveTradesPage() {
                           <>
                             {/* Your Proof Button */}
                             <button
-                              className="w-[160px] h-[38px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
+                              className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 proofButtonState.onClick &&
@@ -1192,7 +1193,7 @@ export default function ActiveTradesPage() {
                                     fill="#D9D9D9"
                                   />
                                 </svg>
-                                <span className="text-[14px] text-white">
+                                <span className="text-[16px] text-white">
                                   {proofButtonState.text}
                                 </span>
                               </div>
@@ -1200,7 +1201,7 @@ export default function ActiveTradesPage() {
 
                             {/* Partner Proof Button */}
                             <button
-                              className="min-w-[160px] max-w-[240px] h-[38px] flex justify-center items-center rounded-[15px] transition-all"
+                              className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] transition-all" 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 partnerProofButtonState.onClick &&
@@ -1222,7 +1223,7 @@ export default function ActiveTradesPage() {
                                   : "pointer",
                               }}
                             >
-                              <div className="flex items-center gap-[8px] px-2.5">
+                              <div className="flex items-center gap-[8px]">
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
                                   width="18"
@@ -1235,7 +1236,7 @@ export default function ActiveTradesPage() {
                                     fill="white"
                                   />
                                 </svg>
-                                <span className="text-[14px] text-white truncate">
+                                <span className="text-[16px] text-white truncate">
                                   {partnerProofButtonState.text}
                                 </span>
                               </div>
