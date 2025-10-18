@@ -1072,7 +1072,7 @@ export default function ActiveTradesPage() {
                       <div className="flex items-center gap-[20px]">
                         <div className="flex flex-col gap-[15px]">
                           <div className="flex items-center gap-[10px]">
-                            <span className="text-[16px] text-white">Needs</span>
+                            <span className="text-[16px] text-white">Requested</span>
                           </div>
                           <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
                             <span className="text-[15px] text-white">
@@ -1118,16 +1118,17 @@ export default function ActiveTradesPage() {
                       <div className="flex flex-wrap items-center gap-[15px] justify-end">
                         {/* Status Badge - left of buttons */}
                         <div
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                          className={`flex justify-center items-center h-[38px] px-3 rounded-[15px] ${ 
                             trade.bothProofsApproved
-                              ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                              : trade.proofWorkflowStatus ===
-                                "waiting_for_approval"
-                              ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                              : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                              ? "bg-green-500/20 text-green-400 border border-green-500/30" 
+                              : trade.proofWorkflowStatus === "waiting_for_approval"
+                              ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" 
+                              : "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
                           }`}
                         >
-                          {getTradeStatusText(trade)}
+                          <span className="text-[14px] font-medium">
+                            {getTradeStatusText(trade)}
+                          </span>
                         </div>
 
                         {showRateButton ? (
