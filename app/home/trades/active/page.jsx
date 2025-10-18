@@ -1075,7 +1075,7 @@ export default function ActiveTradesPage() {
                             <span className="text-[16px] text-white">Requested</span>
                           </div>
                           <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                            <span className="text-[13px] text-white">
+                            <span className="text-[16px] text-white">
                               {trade.requested}
                             </span>
                           </div>
@@ -1086,7 +1086,7 @@ export default function ActiveTradesPage() {
                             In exchange for
                           </span>
                           <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                            <span className="text-[13px] text-white">
+                            <span className="text-[16px] text-white">
                               {trade.offering}
                             </span>
                           </div>
@@ -1178,22 +1178,7 @@ export default function ActiveTradesPage() {
                               }}
                             >
                               <div className="flex items-center gap-[8px]">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 16 16"
-                                  fill="none"
-                                >
-                                  <path
-                                    d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"
-                                    fill="#D9D9D9"
-                                  />
-                                  <path
-                                    d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"
-                                    fill="#D9D9D9"
-                                  />
-                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path fill="#fff" d="M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20zm5-12.15L9.125 9.725q-.3.3-.712.288T7.7 9.7q-.275-.3-.288-.7t.288-.7l3.6-3.6q.15-.15.325-.212T12 4.425t.375.063t.325.212l3.6 3.6q.3.3.288.7t-.288.7q-.3.3-.712.313t-.713-.288L13 7.85V15q0 .425-.288.713T12 16t-.712-.288T11 15z"/></svg>
                                 <span className="text-[16px] text-white">
                                   {proofButtonState.text}
                                 </span>
