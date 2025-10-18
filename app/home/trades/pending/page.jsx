@@ -880,7 +880,7 @@ export default function PendingTradesPage() {
                               </div>
                             ))
                           ) : (
-                            <div className="text-[12px] text-white/60">
+                            <div className="text-sm text-white/60">
                               No requests yet
                             </div>
                           )}
@@ -1180,7 +1180,7 @@ export default function PendingTradesPage() {
                       // Expanded View - Full Card with Image
                       <div>
                         {/* Header with more options button */}
-                        <div className="p-[25px] pb-[15px] flex justify-between items-start">
+                        <div className="flex justify-between items-start">
                           <div className="flex items-start gap-[10px]">
                             {/* Clickable Profile Picture */}
                             {(() => {

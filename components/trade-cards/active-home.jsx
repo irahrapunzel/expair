@@ -109,7 +109,7 @@ export default function ActiveTradeHome({
           <p className="text-base font-semibold text-[#906EFF] whitespace-nowrap">{totalXp} XP</p>
         </div>
         <div className="flex justify-end w-full">
-          <p className="text-xs text-white/60">{deadline}</p>
+          <p className="text-sm text-white/50">Due on {deadline}</p>
         </div>
       </div>
     </div>
