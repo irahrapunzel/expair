@@ -803,195 +803,195 @@ export default function ActiveTradesPage() {
               >
                 {expandedCardId === trade.id ? (
                   // Expanded View
-                  <div>
-                    {/* Header */}
-                    <div className="p-[25px] pb-[15px] flex justify-between items-start">
-                      <div className="flex items-start gap-[10px]">
-                        {/* Clickable Profile Picture */}
-                        {trade.username ? (
-                          <Link
-                            href={`/home/profile/${trade.username}`}
-                            className="flex-shrink-0"
-                          >
-                            <div className="w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#284CCC] transition-all">
-                              <Image
-                                src={trade.avatar}
-                                alt="Avatar"
-                                width={25}
-                                height={25}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = "/assets/defaultavatar.png";
-                                }}
-                              />
-                            </div>
-                          </Link>
-                        ) : (
-                          <div className="w-[25px] h-[25px] rounded-full overflow-hidden">
-                            <Image
-                              src={trade.avatar}
-                              alt="Avatar"
-                              width={25}
-                              height={25}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = "/assets/defaultavatar.png";
-                              }}
-                            />
-                          </div>
-                        )}
+                  <div>
+                    {/* Header */}
+                    <div className="p-[25px] pb-[15px] flex justify-between items-start">
+                      <div className="flex items-start gap-[10px]">
+                        {/* Clickable Profile Picture */}
+                        {trade.username ? (
+                          <Link
+                            href={`/home/profile/${trade.username}`}
+                            className="flex-shrink-0"
+                          >
+                            <div className="w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#284CCC] transition-all">
+                              <Image
+                                src={trade.avatar}
+                                alt="Avatar"
+                                width={25}
+                                height={25}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.src = "/assets/defaultavatar.png";
+                                }}
+                              />
+                            </div>
+                          </Link>
+                        ) : (
+                          <div className="w-[25px] h-[25px] rounded-full overflow-hidden">
+                            <Image
+                              src={trade.avatar}
+                              alt="Avatar"
+                              width={25}
+                              height={25}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = "/assets/defaultavatar.png";
+                              }}
+                            />
+                          </div>
+                        )}
 
-                        <div>
-                          {/* Clickable Name */}
-                          {trade.username ? (
-                            <Link
-                              href={`/home/profile/${trade.username}`}
-                              className="hover:text-[#284CCC] transition-colors"
-                            >
-                              <span>
-                                {trade.firstname} {trade.lastname}
-                              </span>
-                            </Link>
-                          ) : (
-                            <span className="text-[16px] font-normal text-white">
-                              {trade.firstname} {trade.lastname}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {/* Report Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleReport(trade);
-                        }}
-                        className="flex items-center justify-center w-8 h-8 text-white hover:text-red-500 rounded-lg transition-colors"
-                        title="Report user"
-                      >
-                        <Icon
-                          icon="mdi:alert-circle-outline"
-                          className="text-lg"
-                        />
-                      </button>
-                    </div>
+                        <div>
+                          {/* Clickable Name */}
+                          {trade.username ? (
+                            <Link
+                              href={`/home/profile/${trade.username}`}
+                              className="hover:text-[#284CCC] transition-colors"
+                            >
+                              <span>
+                                {trade.firstname} {trade.lastname}
+                              </span>
+                            </Link>
+                          ) : (
+                            <span className="text-[16px] font-normal text-white">
+                              {trade.firstname} {trade.lastname}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Report Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReport(trade);
+                        }}
+                        className="flex items-center justify-center w-8 h-8 text-white hover:text-red-500 rounded-lg transition-colors"
+                        title="Report user"
+                      >
+                        <Icon
+                          icon="mdi:alert-circle-outline"
+                          className="text-lg"
+                        />
+                      </button>
+                    </div>
 
-                    {/* Context Image - Only show if contextPic exists */}
-                    {trade.contextPic && (
-                      <div className="px-[25px] pb-[20px]">
-                        <div className="w-full h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
-                          <Image
-                            src={trade.contextPic}
-                            alt="Trade Context"
-                            width={900}
-                            height={300}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      </div>
-                    )}
+                    {/* Context Image - Only show if contextPic exists */}
+                    {trade.contextPic && (
+                      <div className="px-[25px] pb-[20px]">
+                        <div className="w-full h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
+                          <Image
+                            src={trade.contextPic}
+                            alt="Trade Context"
+                            width={900}
+                            height={300}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                    {/* Trade Details */}
-                    <div className="px-[25px] pb-[20px]">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex flex-col items-start gap-[10px]">
-                          <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block">
-                            <span className="text-[16px] text-white">
-                              Requested {trade.requested}
-                            </span>
-                          </div>
-                          <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)]">
-                            Due on {trade.deadline}
-                          </span>
-                        </div>
-                        <span className="text-[16px] font-semibold text-[#906EFF]">
-                          {trade.xp}
-                        </span>
-                      </div>
+                    {/* Trade Details */}
+                    <div className="px-[25px] pb-[20px]">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block">
+                            <span className="text-[16px] text-white">
+                              {trade.requested}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-[16px] font-semibold text-[#906EFF]">
+                          {trade.xp}
+                        </span>
+                      </div>
 
-                      <div className="flex flex-col gap-4">
-                        {/* Tags Row */}
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-wrap gap-[15px]">
-                            {getTradeDetailTags(trade).map((tag, index) => (
-                              <div
-                                key={index}
-                                className="px-[15px] py-[10px] border-[2px] border-white rounded-[15px]"
-                              >
-                                <span className="text-[13px] font-normal text-white">
-                                  {tag}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                      <div className="flex flex-col gap-4">
+                        {/* Tags and Deadline Row - aligned */}
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-wrap gap-[15px]">
+                            {getTradeDetailTags(trade).map((tag, index) => (
+                              <div
+                                key={index}
+                                className="px-[15px] py-[4px] border-[2px] border-white rounded-[15px]"
+                              >
+                                <span className="text-[13px] font-normal text-white">
+                                  {tag}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap ml-4">
+                            Due on {trade.deadline}
+                          </span>
+                        </div>
 
-                        <div>
-                          <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
-                            <span className="text-[16px] text-white">
-                              In exchange for {trade.offering}
-                          </span>
-                          </div>
-                        </div>
+                        <div>
+                          <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
+                            <span className="text-[16px] text-white">
+                              In exchange for {trade.offering}
+                            </span>
+                          </div>
+                        </div>
 
-                        <p className="text-[13px] text-[rgba(255,255,255,0.60)]">
-                          {trade.requestBio}
-                        </p>
-                      </div>
-                    </div>
+                        <p className="text-[15px] text-[rgba(255,255,255,0.60)]">
+                          {trade.requestBio}
+                        </p>
+                      </div>
+                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="px-[25px] pb-[25px] flex flex-wrap justify-between">
-                      <button
-                        className="flex items-center justify-center"
-                        onClick={() => toggleCardExpand(trade.id)}
-                      >
-                        <Icon
-                          icon="lucide:chevron-up"
-                          className="w-[30px] h-[30px] text-white"
-                        />
-                      </button>
+                    {/* Action Buttons */}
+                    <div className="px-[25px] pb-[25px] flex flex-wrap justify-between">
+                      <button
+                        className="flex items-center justify-center"
+                        onClick={() => toggleCardExpand(trade.id)}
+                      >
+                        <Icon
+                          icon="lucide:chevron-up"
+                          className="w-[30px] h-[30px] text-white"
+                        />
+                      </button>
 
-                      <div className="flex items-center gap-[15px]">
-                        {showRateButton ? (
-                          <button
-                            className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTrade(trade);
-                              setShowSuccessDialog(true);
-                            }}
-                            style={{
-                              background: "#0038FF",
-                              boxShadow: "0px 0px 15px rgba(40, 76, 204, 0.6)",
-                            }}
-                          >
-                            <div className="flex items-center gap-[10px]">
-                              <StarIconSmall />
-                              <span className="text-[16px] text-white">
-                                Rate your trade
-                              </span>
-                            </div>
-                          </button>
-                        ) : (
-                          <button
-                            className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] border-2 border-[#7E59F8] bg-[#120A2A] shadow-[0_0_15px_#D78DE5] cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTrade(trade);
-                              setShowEvaluationDialog(true);
-                            }}
-                          >
-                            <div className="flex items-center gap-[10px]">
-                              <StarIconSmall />
-                              <span className="text-[16px] font-normal text-white">
-                                Review Details
-                              </span>
-                            </div>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                      <div className="flex items-center gap-[15px]">
+                        {showRateButton ? (
+                          <button
+                            className="w-[170px] h-[40px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTrade(trade);
+                              setShowSuccessDialog(true);
+                            }}
+                            style={{
+                              background: "#0038FF",
+                              boxShadow: "0px 0px 15px rgba(40, 76, 204, 0.6)",
+                            }}
+                          >
+                            <div className="flex items-center gap-[10px]">
+                              <StarIconSmall />
+                              <span className="text-[16px] text-white">
+                                Rate your trade
+                              </span>
+                            </div>
+                          </button>
+                        ) : (
+                          <button
+                            className="min-w-[170px] h-[40px] flex justify-center items-center rounded-[15px] border-2 border-[#7E59F8] bg-[#120A2A] shadow-[0_0_15px_#D78DE5] cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTrade(trade);
+                              setShowEvaluationDialog(true);
+                            }}
+                          >
+                            <div className="flex items-center gap-[10px]">
+                              <StarIconSmall />
+                              <span className="text-[16px] font-normal text-white">
+                                Review Details
+                              </span>
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   // Collapsed View
                   <div
@@ -1075,7 +1075,7 @@ export default function ActiveTradesPage() {
                             <span className="text-[16px] text-white">Requested</span>
                           </div>
                           <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                            <span className="text-[16px] text-white">
+                            <span className="text-[13px] text-white">
                               {trade.requested}
                             </span>
                           </div>
@@ -1086,7 +1086,7 @@ export default function ActiveTradesPage() {
                             In exchange for
                           </span>
                           <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                            <span className="text-[16px] text-white">
+                            <span className="text-[13px] text-white">
                               {trade.offering}
                             </span>
                           </div>
@@ -1099,15 +1099,16 @@ export default function ActiveTradesPage() {
                     </div>
 
                     {/* Bottom Row - Due Date */}
-                    <div className="flex justify-end items-center w-full">                   
+                    <div className="flex justify-end items-center w-full">                    
                       <span className="text-[13px] font-normal text-white/60">
                         Due on {trade.deadline}
                       </span>
                     </div>
 
+
                     <div className="flex justify-between items-center w-full">
                       
-                      {/* Chevron Down */}
+                      {/* Chevron Down*/}
                       <div>
                         <Icon
                           icon="lucide:chevron-down"
@@ -1115,9 +1116,9 @@ export default function ActiveTradesPage() {
                         />
                       </div>
 
-                      {/* Action Buttons with Status (nasa kanan) */}
+                      {/* Action Buttons with Status*/}
                       <div className="flex flex-wrap items-center gap-[15px]">
-                        {/* Status Badge - left of buttons */}
+                        {/* Status Badge */}
                         <div
                           className={`flex justify-center items-center h-[38px] px-[25px] py-[13px] rounded-[15px] ${ 
                             trade.bothProofsApproved
@@ -1177,7 +1178,22 @@ export default function ActiveTradesPage() {
                               }}
                             >
                               <div className="flex items-center gap-[8px]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path fill="#fff" d="M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20zm5-12.15L9.125 9.725q-.3.3-.712.288T7.7 9.7q-.275-.3-.288-.7t.288-.7l3.6-3.6q.15-.15.325-.212T12 4.425t.375.063t.325.212l3.6 3.6q.3.3.288.7t-.288.7q-.3.3-.712.313t-.713-.288L13 7.85V15q0 .425-.288.713T12 16t-.712-.288T11 15z"/></svg>
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 16 16"
+                                  fill="none"
+                                >
+                                  <path
+                                    d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"
+                                    fill="#D9D9D9"
+                                  />
+                                  <path
+                                    d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"
+                                    fill="#D9D9D9"
+                                  />
+                                </svg>
                                 <span className="text-[16px] text-white">
                                   {proofButtonState.text}
                                 </span>
