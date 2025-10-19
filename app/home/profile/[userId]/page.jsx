@@ -2767,18 +2767,18 @@ export default function ProfilePage() {
                 {`${user.firstname} ${user.lastname}`.trim() || "—"}
               </h3>
             )}
-            {(user.is_verified || verificationStatus === "verified") && (
+            {(user.is_verified ||
+              verificationStatus?.toLowerCase() === "verified") && (
               <div className="relative group">
-                <Icon
-                  icon="mdi:check-decagram"
-                  className="w-[1.8em] h-[1.8em]"
+                <div
+                  className="w-[1.8em] h-[1.8em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
                   style={{
-                    background:
-                      "linear-gradient(135deg, #FB9696, #7E59F8, #284CCC, #6DDFFF)",
-                    WebkitBackgroundClip: "text",
-                    color: "transparent",
+                    WebkitMask:
+                      "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                    mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
                   }}
                 />
+
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
                   This user has uploaded their ID and been verified by Expair.
                   You can get verified too on your profile.
