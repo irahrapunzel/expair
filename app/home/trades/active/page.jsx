@@ -894,9 +894,9 @@ export default function ActiveTradesPage() {
                     <div className="px-[25px] pb-[20px]">
                       <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block">
+                          <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block">
                             <span className="text-[16px] text-white">
-                              {trade.requested}
+                              Requested {trade.requested}
                             </span>
                           </div>
                         </div>
@@ -926,7 +926,7 @@ export default function ActiveTradesPage() {
                         </div>
 
                         <div>
-                          <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
+                          <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
                             <span className="text-[16px] text-white">
                               In exchange for {trade.offering}
                             </span>
@@ -1069,7 +1069,7 @@ export default function ActiveTradesPage() {
 
                     {/* Middle Row - Requested, In Exchange For, XP */}
                     <div className="flex justify-between items-start w-full">
-                      <div className="flex items-center gap-[20px]">
+                      <div className="flex items-center gap-[15px]">
                         <div className="flex flex-col gap-[15px]">
                           <div className="flex items-center gap-[10px]">
                             <span className="text-[16px] text-white">Requested</span>
