@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import AnimatedLevelBar from "../../../../components/ui/animated-level-bar";
 import ProfileAvatar from "@/components/avatar";
+import VerificationModal from "../../../../components/profile/verification-modal";
 
 // ===== XP / Level  based on CUMULATIVE THRESHOLDS =====
 const LVL_CAPS = [
@@ -669,52 +670,54 @@ export default function ProfilePage() {
   }, [slug, status, session?.access]);
 
   const handleTradeAgainClick = (review) => {
-  console.log("🔍 Review object:", review); // Debug
-  setSelectedReviewForTrade(review);
-  setShowTradeAgainModal(true);
-};
+    console.log("🔍 Review object:", review); // Debug
+    setSelectedReviewForTrade(review);
+    setShowTradeAgainModal(true);
+  };
 
-const handleConfirmTradeAgain = async () => {
-  if (!selectedReviewForTrade || !session?.access) return;
-  
-  setTradeAgainLoading(true);
-  
-  try {
-    console.log("🔍 Sending trade again request for:", selectedReviewForTrade);
-    
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-again/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access}`,
-        },
-        body: JSON.stringify({
-          trade_partner_username: selectedReviewForTrade.requesterUsername, // ✅ Use requesterUsername
-        }),
+  const handleConfirmTradeAgain = async () => {
+    if (!selectedReviewForTrade || !session?.access) return;
+
+    setTradeAgainLoading(true);
+
+    try {
+      console.log(
+        "🔍 Sending trade again request for:",
+        selectedReviewForTrade
+      );
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-again/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access}`,
+          },
+          body: JSON.stringify({
+            trade_partner_username: selectedReviewForTrade.requesterUsername, // ✅ Use requesterUsername
+          }),
+        }
+      );
+
+      const data = await response.json();
+      console.log("📦 Backend response:", data);
+
+      if (!response.ok) {
+        console.error("❌ Backend error:", data);
+        throw new Error(data.error || "Failed to create trade request");
       }
-    );
 
-    const data = await response.json();
-    console.log("📦 Backend response:", data);
-
-    if (!response.ok) {
-      console.error("❌ Backend error:", data);
-      throw new Error(data.error || "Failed to create trade request");
+      console.log("✅ Trade created:", data);
+      setShowTradeAgainModal(false);
+      router.push("/home/trades/pending");
+    } catch (error) {
+      console.error("❌ Trade again error:", error);
+      alert(error.message || "Failed to create trade request");
+    } finally {
+      setTradeAgainLoading(false);
     }
-
-    console.log("✅ Trade created:", data);
-    setShowTradeAgainModal(false);
-    router.push("/home/trades/pending");
-    
-  } catch (error) {
-    console.error("❌ Trade again error:", error);
-    alert(error.message || "Failed to create trade request");
-  } finally {
-    setTradeAgainLoading(false);
-  }
-};
+  };
 
   const handleCancelTradeAgain = () => {
     setShowTradeAgainModal(false);
@@ -2765,10 +2768,22 @@ const handleConfirmTradeAgain = async () => {
               </h3>
             )}
             {(user.is_verified || verificationStatus === "verified") && (
-              <Icon
-                icon="mdi:check-decagram"
-                className="text-[#0038FF] w-[1.8em] h-[1.8em]" // scale with font size
-              />
+              <div className="relative group">
+                <Icon
+                  icon="mdi:check-decagram"
+                  className="w-[1.8em] h-[1.8em]"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #FB9696, #7E59F8, #284CCC, #6DDFFF)",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent",
+                  }}
+                />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                  This user has uploaded their ID and been verified by Expair.
+                  You can get verified too on your profile.
+                </div>
+              </div>
             )}
           </div>
           {/* Username + Joined Date */}
@@ -4043,132 +4058,15 @@ const handleConfirmTradeAgain = async () => {
 
         {/* === Verification Popup (improved UI) === */}
         {showVerificationPopup && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-[#120A2A] p-6 rounded-[15px] w-[420px] shadow-lg border border-white/20">
-              <div className="flex items-start justify-between">
-                <h3 className="text-white text-lg font-semibold">
-                  Upload your ID
-                </h3>
-                <button
-                  onClick={() => {
-                    // close & clear selection
-                    setShowVerificationPopup(false);
-                    setIdFile(null);
-                    if (idPreviewUrl) {
-                      URL.revokeObjectURL(idPreviewUrl);
-                      setIdPreviewUrl(null);
-                    }
-                  }}
-                  className="p-1 rounded hover:bg-white/10"
-                  aria-label="Close verification popup"
-                >
-                  <Icon icon="mdi:close" className="w-5 h-5 text-white/70" />
-                </button>
-              </div>
-
-              <p className="text-white/70 text-sm mt-2 mb-4">
-                Please upload a clear image or PDF of your government-issued ID.
-                Accepted: PDF, PNG, or JPEG. Max 15&nbsp;MB.
-              </p>
-
-              {/* Upload control */}
-              <div className="flex items-center gap-3 mb-5">
-                <input
-                  id="id-upload"
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={(e) =>
-                    handleIdFileChange(e.target.files?.[0] ?? null)
-                  }
-                />
-
-                {/* Visible button (label) */}
-                <label
-                  htmlFor="id-upload"
-                  className="cursor-pointer inline-flex items-center gap-2 rounded-[12px] px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm border border-white/20"
-                >
-                  <Icon icon="mdi:upload" className="w-4 h-4" />
-                  Upload file
-                </label>
-
-                {/* Filename or preview */}
-                <div className="flex-1 min-w-0">
-                  {idFile ? (
-                    <div className="flex items-center gap-3">
-                      {idPreviewUrl ? (
-                        <img
-                          src={idPreviewUrl}
-                          alt="ID preview"
-                          className="w-12 h-8 object-cover rounded-sm border border-white/10"
-                        />
-                      ) : (
-                        <span className="inline-block w-12 h-8 rounded-sm bg-white/5 border border-white/10 flex items-center justify-center text-xs text-white/70">
-                          PDF
-                        </span>
-                      )}
-                      <span className="text-white/80 text-sm truncate">
-                        {idFile.name}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setIdFile(null);
-                          if (idPreviewUrl) {
-                            URL.revokeObjectURL(idPreviewUrl);
-                            setIdPreviewUrl(null);
-                          }
-                          // clear the native input too
-                          const el = document.getElementById("id-upload");
-                          if (el) el.value = "";
-                        }}
-                        className="ml-2 text-white/60 hover:text-white/90"
-                        aria-label="Remove selected file"
-                        type="button"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-white/60 text-sm">
-                      No file selected
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    // cancel
-                    setShowVerificationPopup(false);
-                    setIdFile(null);
-                    if (idPreviewUrl) {
-                      URL.revokeObjectURL(idPreviewUrl);
-                      setIdPreviewUrl(null);
-                    }
-                    const el = document.getElementById("id-upload");
-                    if (el) el.value = "";
-                  }}
-                  className="bg-white/10 text-white rounded-[15px] px-4 py-2 hover:bg-white/20"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={handleSubmitVerification}
-                  disabled={!idFile}
-                  className={`rounded-[15px] px-4 py-2 shadow ${
-                    idFile
-                      ? "bg-[#0038FF] hover:bg-[#1a4dff] text-white"
-                      : "bg-white/10 text-white/40 cursor-not-allowed"
-                  }`}
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
-          </div>
+          <VerificationModal
+            onClose={() => setShowVerificationPopup(false)}
+            handleSubmitVerification={handleSubmitVerification}
+            handleIdFileChange={handleIdFileChange}
+            idFile={idFile}
+            idPreviewUrl={idPreviewUrl}
+          />
         )}
+
         {editingCredentials && (
           <EditCredentialsPage
             credentialsToEdit={
