@@ -216,25 +216,47 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
 
               {/* Close button */}
               <button
-                className="absolute top-4 right-4 text-white hover:text-gray-300"
                 onClick={onClose}
+                className="absolute top-[30px] right-[30px] text-white hover:text-gray-300"
               >
-                <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
+                <Icon icon="lucide:x" className="w-[15px] h-[15px]" />
               </button>
 
               <div className="flex flex-col items-center gap-[30px] w-full relative z-10">
                 {/* Success Icon */}
-                <div className="w-[80px] h-[80px] rounded-full bg-gradient-to-r from-[#0038FF] to-[#906EFF] flex items-center justify-center shadow-[0px_0px_20px_#284CCC]">
+                <div className="w-[70px] h-[70px] rounded-full bg-gradient-to-r from-[#0038FF] to-[#906EFF] flex items-center justify-center shadow-[0px_0px_20px_#284CCC]">
                   <Icon icon="lucide:check" className="w-[40px] h-[40px] text-white" />
                 </div>
 
                 {/* Title */}
                 <h2 className="text-[25px] font-bold text-white text-center">
-                  Trade Completed Successfully!
+                  Successful trade!
                 </h2>
 
+                {/* Trade details */}
+                <div className="flex items-center gap-4 text-white text-center max-w-[500px]">
+                  <div className="flex-1 px-3 py-2 bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
+                    <span className="text-[14px]">
+                      {trade?.requested || trade?.reqname || "Service Request"}
+                    </span>
+                  </div>
+                  <Icon icon="lucide:x" className="w-5 h-5 flex-shrink-0" />
+                  <div className="flex-1 px-3 py-2 bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
+                    <span className="text-[14px]">
+                      {trade?.offering || trade?.exchange || "Skill Exchange"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div className="w-full p-3 bg-red-500/20 border border-red-500 rounded-[15px] text-red-300 text-sm">
+                    {error}
+                  </div>
+                )}
+
                 {/* Feedback Section */}
-                <div className="w-full flex flex-col gap-[15px]">
+                <div className="w-full">
                   <p className="text-white text-center mb-4">
                     Tell us more about your experience
                   </p>
@@ -252,14 +274,9 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                     </span>
                   </div>
                   <p className="text-xs text-gray-400 mt-2 text-center">
-                    🤖 Your rating will be generated automatically based on AI sentiment analysis
+                    Your rating will be generated automatically based on AI sentiment analysis
                   </p>
                 </div>
-
-                {/* Error message */}
-                {error && (
-                  <p className="text-red-400 text-sm text-center">{error}</p>
-                )}
 
                 {/* Submit Button */}
                 <button
@@ -276,7 +293,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                       Analyzing...
                     </>
                   ) : (
-                    'Submit'
+                    "Submit"
                   )}
                 </button>
               </div>
@@ -289,23 +306,26 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                 background: "rgba(18, 10, 42, 0.95)",
                 border: "2px solid #0038FF",
                 boxShadow: "0px 4px 15px rgba(40, 76, 204, 0.8)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "20px",
+                backdropFilter: "blur(30px)",
+                borderRadius: "15px",
               }}
             >
-              {/* Background gradients */}
-              <div className="absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
-              <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
+              {/* Close button */}
+              <button
+                onClick={onClose}
+                className="absolute top-[30px] right-[30px] text-white hover:text-gray-300 transition"
+              >
+                <Icon icon="lucide:x" className="w-[15px] h-[15px]" />
+              </button>
 
-              <div className="flex flex-col items-center gap-8 w-full relative z-10">
-                {/* Success Icon with AI badge */}
-                <div className="relative">
-                  <div className="w-[80px] h-[80px] rounded-full bg-gradient-to-r from-[#0038FF] to-[#906EFF] flex items-center justify-center shadow-[0px_0px_20px_#284CCC]">
-                    <Icon icon="lucide:check" className="w-[40px] h-[40px] text-white" />
-                  </div>
-                  <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-[#906EFF] flex items-center justify-center border-2 border-[#120A2A]">
-                    <Icon icon="lucide:sparkles" className="w-4 h-4 text-white" />
-                  </div>
+              {/* Subtle background glow */}
+              <div className="absolute top-[-40px] left-[-40px] w-[120px] h-[120px] rounded-full bg-[#0038FF]/15 blur-[35px]"></div>
+              <div className="absolute bottom-[-40px] right-[-40px] w-[100px] h-[100px] rounded-full bg-[#906EFF]/15 blur-[35px]"></div>
+
+              <div className="flex flex-col items-center gap-[30px] w-full relative z-10">
+                {/* Clean success icon (no gradients, no sparkles) */}
+                <div className="w-[70px] h-[70px] rounded-full bg-[#0038FF] flex items-center justify-center shadow-[0px_0px_15px_#284CCC]">
+                  <Icon icon="lucide:check" className="w-[40px] h-[40px] text-white" />
                 </div>
 
                 {/* Title */}
@@ -316,24 +336,44 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                 {/* Trade details */}
                 <div className="flex items-center gap-4 text-white text-center max-w-[500px]">
                   <div className="flex-1 px-3 py-2 bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
-                    <span className="truncate block text-[14px]">{trade?.requested || trade?.reqname || "Service Request"}</span>
+                    <span className="truncate block text-[14px]">
+                      {trade?.requested || trade?.reqname || "Service Request"}
+                    </span>
                   </div>
                   <Icon icon="lucide:x" className="w-5 h-5 flex-shrink-0" />
-                  <div className="flex-1 px-3 py-2 bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
-                    <span className="truncate block text-[14px]">{trade?.offered || trade?.exchange || "Service Offer"}</span>
+                  <div className="flex-1 px-3 py-2 bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
+                    <span className="truncate block text-[14px]">
+                      {trade?.offering || trade?.exchange || "Skill Exchange"}
+                    </span>
                   </div>
                 </div>
 
-                {/* Star Rating Display */}
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex gap-2">
+                {/* AI-Generated Star Rating Display */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex gap-3">
                     {stars.map((_, index) => (
-                      <div key={index} className="relative w-[30px] h-[30px]">
+                      <div key={index} className="relative w-[30px] h-[30px] cursor-default">
                         {index < aiRating ? (
-                          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M15 2.5L18.09 11.26L27.5 12.29L21.25 18.14L22.82 27.5L15 22.77L7.18 27.5L8.75 18.14L2.5 12.29L11.91 11.26L15 2.5Z" fill="url(#paint0_linear_1277_5550)" />
+                          <svg
+                            width="30"
+                            height="30"
+                            viewBox="0 0 30 30"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M15 2.5L18.09 11.26L27.5 12.29L21.25 18.14L22.82 27.5L15 22.77L7.18 27.5L8.75 18.14L2.5 12.29L11.91 11.26L15 2.5Z"
+                              fill="url(#paint0_linear_1277_5550)"
+                            />
                             <defs>
-                              <linearGradient id="paint0_linear_1277_5550" x1="0" y1="15" x2="30" y2="15" gradientUnits="userSpaceOnUse">
+                              <linearGradient
+                                id="paint0_linear_1277_5550"
+                                x1="0"
+                                y1="15"
+                                x2="30"
+                                y2="15"
+                                gradientUnits="userSpaceOnUse"
+                              >
                                 <stop stopColor="#FB9696" />
                                 <stop offset="0.25" stopColor="#D78DE5" />
                                 <stop offset="0.5" stopColor="#7E59F8" />
@@ -343,49 +383,51 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                             </defs>
                           </svg>
                         ) : (
-                          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M15 2.5L18.09 11.26L27.5 12.29L21.25 18.14L22.82 27.5L15 22.77L7.18 27.5L8.75 18.14L2.5 12.29L11.91 11.26L15 2.5Z" fill="#1A0F3E" />
+                          <svg
+                            width="30"
+                            height="30"
+                            viewBox="0 0 30 30"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M15 2.5L18.09 11.26L27.5 12.29L21.25 18.14L22.82 27.5L15 22.77L7.18 27.5L8.75 18.14L2.5 12.29L11.91 11.26L15 2.5Z"
+                              fill="#1A0F3E"
+                            />
                           </svg>
                         )}
                       </div>
                     ))}
                   </div>
-                  <div className="text-center text-white">
-                    <p className="text-2xl font-bold bg-gradient-to-r from-[#D78DE5] to-[#6DDFFF] bg-clip-text text-transparent">{aiRating} out of 5</p>
-                    <p className="text-base text-white/90 font-semibold mt-1">AI-Generated Rating</p>
-                  </div>
-                </div>
 
-                {/* Enhanced disclaimer section */}
-                <div className="w-full max-w-[480px] p-4 bg-[#0038FF]/10 border border-[#0038FF]/30 rounded-[15px]">
-                  <div className="flex items-start gap-3">
-                    <Icon icon="lucide:info" className="w-5 h-5 text-[#6DDFFF] flex-shrink-0 mt-0.5" />
-                    <div className="text-white/80 text-sm space-y-2">
-                      <p className="font-semibold text-[#6DDFFF]">About this AI-generated rating:</p>
-                      <p>This rating was automatically generated through sentiment analysis of your feedback. Expair's AI system analyzes the tone, keywords, and sentiment to provide an objective assessment.</p>
-                      {submissionResult?.partner_name && (
-                        <p className="mt-2">
-                          <span className="text-[#6DDFFF]">{submissionResult.partner_name}'s</span> new average rating: 
-                          <span className="font-bold ml-1">{submissionResult.partner_new_rating?.toFixed(1)}⭐</span>
-                          {submissionResult.partner_total_ratings && (
-                            <span className="text-white/60 ml-1">({submissionResult.partner_total_ratings} reviews)</span>
-                          )}
-                        </p>
-                      )}
-                      {submissionResult?.sentiment && (
-                        <p className="text-xs text-white/60">
-                          Sentiment: {submissionResult.sentiment} (confidence: {(submissionResult.confidence * 100).toFixed(0)}%)
-                        </p>
-                      )}
-                    </div>
+                  <div className="text-center text-white">
+                    <p className="text-xl font-bold bg-gradient-to-r from-[#D78DE5] to-[#6DDFFF] bg-clip-text text-transparent">
+                      {aiRating} out of 5
+                    </p>
+                    <p className="text-lg font-medium text-white/90">
+                      AI-Generated Rating
+                    </p>
+                  </div>
+
+                  <div className="text-white/60 text-sm text-center mt-2 max-w-[400px]">
+                    <p>This rating was generated through AI sentiment analysis of your feedback.</p>
+                    {submissionResult?.both_users_rated ? (
+                      <p className="text-green-400 mt-1">
+                        ✓ Trade completed — both users have submitted ratings!
+                      </p>
+                    ) : (
+                      <p className="text-yellow-400 mt-1">
+                        Waiting for your trade partner to submit their rating...
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {/* Continue Button */}
                 <button
                   onClick={handleContinue}
-                  className="w-[172px] h-[40px] rounded-[15px] text-[16px] bg-[#0038FF] text-white 
-                            shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors
+                  className="w-[172px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] 
+                            shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors 
                             flex items-center justify-center gap-2"
                 >
                   Continue
