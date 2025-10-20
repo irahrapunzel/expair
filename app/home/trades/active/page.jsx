@@ -954,7 +954,7 @@ export default function ActiveTradesPage() {
                       <div className="flex items-center gap-[15px]">
                         {showRateButton ? (
                           <button
-                            className="w-[170px] h-[40px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
+                            className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedTrade(trade);
@@ -1135,7 +1135,7 @@ export default function ActiveTradesPage() {
 
                         {showRateButton ? (
                           <button
-                            className="w-[170px] h-[40px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
+                            className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedTrade(trade);
