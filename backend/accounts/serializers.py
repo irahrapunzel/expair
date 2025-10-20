@@ -4,7 +4,7 @@ from .models import TradeDetail, User, Conversation, Message
 from .models import GenSkill, UserInterest
 from rest_framework import serializers
 from .models import SpecSkill, UserSkill 
-from .models import VerificationStatus
+from .models import VerificationStatus, IdType
 from .models import User, UserCredential
 from .models import Report
 
@@ -13,6 +13,12 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.conf import settings
 import json
+
+class IdTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IdType
+        fields = ['id', 'name', 'short_name', 'description', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     profilePic = serializers.ImageField(required=False, allow_null=True)
@@ -140,6 +146,9 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 class UserSerializer(serializers.ModelSerializer):
+    id_type_name = serializers.CharField(source='id_type.name', read_only=True)
+    id_type_short_name = serializers.CharField(source='id_type.short_name', read_only=True)
+    
     class Meta:
         model = User
         fields = '__all__'

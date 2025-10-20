@@ -34,6 +34,49 @@ def check_ai_available():
     return True, None
 
 
+def get_basic_explore_feed(request):
+    """Basic explore feed without AI - returns recent trade requests"""
+    from accounts.models import TradeRequest
+    
+    user_id = request.user.pk
+    limit = int(request.GET.get('limit', 50))
+    
+    # Get recent trade requests excluding user's own
+    trades = TradeRequest.objects.filter(
+        status__in=["PENDING", None]
+    ).exclude(
+        requester_id=user_id
+    ).select_related('requester').order_by('-created_at')[:limit]
+    
+    # Format response similar to AI version
+    results = []
+    for trade in trades:
+        results.append({
+            "tradereq_id": trade.pk,
+            "reqname": trade.reqname,
+            "requester": trade.requester.username,
+            "requester_id": trade.requester.pk,
+            "reqdeadline": getattr(trade, 'reqdeadline', None),
+            "exchange": getattr(trade, 'exchange', None),
+            "created_at": trade.created_at.isoformat() if trade.created_at else None,
+            "category": getattr(trade, 'classified_category', None),
+            "score": 0.5,  # Default score for basic feed
+            "score_breakdown": {
+                "ai_similarity": 0.0,
+                "interest_match": 0.0,
+                "skills_match": 0.0,
+                "location_proximity": 0.0,
+                "availability": 0.5
+            }
+        })
+    
+    return Response({
+        "trades": results,
+        "total": len(results),
+        "ai_enabled": False
+    })
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def api_best_picks(request):
@@ -259,9 +302,11 @@ def explore_feed(request):
     
     Returns personalized trade recommendations.
     """
+    # Fallback to basic feed if AI is not available
     available, error_response = check_ai_available()
     if not available:
-        return error_response
+        logger.warning("AI not available, returning basic explore feed")
+        return get_basic_explore_feed(request)
     
     user_id = request.user.pk
     limit = int(request.GET.get('limit', 200))

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { LayoutDashboard, Users, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Menu, X, FileText } from "lucide-react";
 import ProfileAvatar from "@/components/avatar";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -21,10 +21,15 @@ export default function AdminLayout({ children }) {
       JSON.stringify({
         username: "admin",
         name: "Admin User",
-        org: "indigo-dc",
-        role: "Developer",
+        org: "expair",
+        role: "Administrator",
       });
     setAdminUser(JSON.parse(user));
+    
+    // Set admin token for API calls
+    if (!localStorage.getItem("adminToken")) {
+      localStorage.setItem("adminToken", "admin-token-123");
+    }
   }, []);
 
   const handleLogout = () => {
@@ -34,8 +39,9 @@ export default function AdminLayout({ children }) {
   };
 
   const navigationItems = [
+    { name: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
     { name: "Users", icon: Users, href: "/admin/dashboard/users" },
-    { name: "Reports", icon: LayoutDashboard, href: "/admin/dashboard" },
+    { name: "Reports", icon: FileText, href: "/admin/dashboard/reports" },
   ];
 
   if (!adminUser) {
