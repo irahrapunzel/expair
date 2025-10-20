@@ -379,6 +379,45 @@ export default function PendingTradesPage() {
     }
   }, [session, refreshAllTrades]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && session?.access) {
+        console.log('Page became visible - refreshing trades...');
+        refreshAllTrades(false);
+      }
+    };
+
+    const handleFocus = () => {
+      if (session?.access) {
+        console.log('Window focused - refreshing trades...');
+        refreshAllTrades(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [session, refreshAllTrades]);
+
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'trade_details_updated' && session?.access) {
+        console.log('Trade details updated - refreshing...');
+        refreshAllTrades(false);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [session, refreshAllTrades]);
+
   const handleViewClick = useCallback((trade) => {
     console.log("=== HANDLE VIEW CLICK DEBUG ===");
     console.log("Trade object:", trade);
@@ -631,31 +670,39 @@ export default function PendingTradesPage() {
         <h2 className="text-[20px] font-[500] mb-5 text-[#D78DE5]">
           Trades you posted
         </h2>
+
         {postedTrades.length === 0 ? (
           <div className="text-white/60 text-center py-8">
             You haven't posted any trades yet.
           </div>
         ) : (
-          <div className="flex flex-wrap gap-[25px]">
-
+          // ✅ Layout container (two cards per row, left-right)
+          <div className="flex flex-wrap justify-between gap-y-[25px] w-full max-w-[940px]">
 
             {postedTrades.map((trade, index) => {
-              console.log(`Trade ${trade.tradereq_id} status:`, trade.status);
+              console.log(`=== Trade ${trade.tradereq_id} Debug ===`);
+              console.log('Trade status:', trade.status);
+              console.log('all_interested_users:', trade.all_interested_users);
+              console.log('interested_users:', trade.interested_users);
+              console.log('interested:', trade.interested);
 
-              // Determines if the trade is locked (Status 'PENDING' for posted trades is the lock indicator)
+              if (trade.all_interested_users) {
+                console.log(
+                  'all_interested_users with ACCEPTED:',
+                  trade.all_interested_users.filter((u) => u.status === 'ACCEPTED')
+                );
+              }
+
               const isTradeLocked = trade.status === 'PENDING';
-
-              // Use the clean array of pending offers created in refreshAllTrades (lines 217-220)
               const visibleInterests = trade.interested || [];
 
-              // Explicitly return the JSX element
               return (
                 <div key={trade.id} className="relative">
                   <div
-                    className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+                    className="w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
                     style={{
                       background:
-                        "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
+                        "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
                       boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
                     }}
                   >
@@ -788,12 +835,12 @@ export default function PendingTradesPage() {
                           e.stopPropagation();
                           setShowDeleteModalForCard(trade.id);
                         }}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        className="p-1 hover:bg-white/10 rounded-full transition"
                         title="Delete trade"
                       >
                         <Icon
                           icon="lucide:trash-2"
-                          className="w-5 h-5 text-white hover:text-red-400 transition-colors"
+                          className="w-5 h-5 text-red-500 hover:text-red-600 transition"
                         />
                       </button>
                     </div>
@@ -801,18 +848,19 @@ export default function PendingTradesPage() {
                     {/* Needs and Interested Section */}
                     <div className="flex justify-between items-start w-full">
                       {/* Needs */}
-                      <div className="flex flex-col items-start gap-[10px]">
-                        <span className="text-[13px] text-white">Needs</span>
-                        <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                          <span className="text-[13px] text-white leading-tight">
-                            {trade.needs}
-                          </span>
+                      <div className="flex flex-col gap-2 items-start">
+                        <span className="text-sm text-white/80 font-medium">Needs</span>
+                        <div
+                          className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                          title={trade.needs}
+                        >
+                          {trade.needs}
                         </div>
                       </div>
 
                       {/* Interested People */}
                       <div className="flex flex-col items-end gap-[10px]">
-                        <span className="text-[13px] text-white">
+                        <span className="text-sm text-white font-medium">
                           Look who's interested
                         </span>
                         <div className="flex -space-x-2">
@@ -832,7 +880,7 @@ export default function PendingTradesPage() {
                               </div>
                             ))
                           ) : (
-                            <div className="text-[12px] text-white/60">
+                            <div className="text-sm text-white/60">
                               No requests yet
                             </div>
                           )}
@@ -853,7 +901,8 @@ export default function PendingTradesPage() {
                         <Tooltip
                           content={
                             <>
-                              Trade Locked: You have an accepted offer pending.
+                              Trade Locked: You have an accepted offer pending with{" "}
+                              {trade.accepted_user?.name || "another user"}.
                               <br /><br />
                               You can't view or consider new offers until you resolve the current one.
                             </>
@@ -871,7 +920,7 @@ export default function PendingTradesPage() {
                     ) : (
                       <div className="w-full flex justify-start">
                         <button
-                          className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors mt-[-30px]"
+                          className="w-[120px] h-[30px] flex justify-center items-center bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] cursor-pointer hover:bg-[#1a4dff] transition-colors"
                           onClick={() => handleViewClick(trade)}
                           disabled={!trade.interested || trade.interested.length === 0}
                         >
@@ -894,6 +943,7 @@ export default function PendingTradesPage() {
                     />
                   )}
                 </div>
+
               );
             })}
           </div>
@@ -905,32 +955,55 @@ export default function PendingTradesPage() {
         <h2 className="text-[20px] font-medium mb-5 text-[#FB9696]">
           Trades you're interested in
         </h2>
+
         {initiatedTrades.length === 0 ? (
           <div className="text-white/60 text-center py-8">
             You haven't expressed interest in any trades yet.
           </div>
         ) : (
-          <div className="flex flex-wrap gap-[25px]">
+          // ✅ Two cards per row, left-right aligned
+          <div className="flex flex-wrap justify-between gap-y-[25px] w-full max-w-[940px]">
+
             {initiatedTrades.map((trade, index) => (
-              <div
-                key={trade.id}
-                className="w-[440px] h-[240px] p-[25px] flex flex-col justify-between duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#FB9696]/80"
-                style={{
-                  background:
-                    "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
-                  boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
-                }}
-              >
-                {/* Trade Header */}
-                <div className="flex justify-between items-start w-full">
-                  <div className="flex items-start gap-[10px]">
-                    {/* Clickable Profile Picture */}
-                    {trade.requester?.username ? (
-                      <Link
-                        href={`/home/profile/${trade.requester.username}`}
-                        className="flex-shrink-0"
-                      >
-                        <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#FB9696] transition-all">
+              <div key={trade.id} className="relative">
+                <div
+                  className="w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
+                  style={{
+                    background:
+                      "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
+                    boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
+                  }}
+                >
+                  {/* Trade Header */}
+                  <div className="flex justify-between items-start w-full">
+                    <div className="flex items-start gap-[10px]">
+                      {/* Clickable Profile Picture */}
+                      {trade.requester?.username ? (
+                        <Link
+                          href={`/home/profile/${trade.requester.username}`}
+                          className="flex-shrink-0"
+                        >
+                          <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#FB9696] transition-all">
+                            <Image
+                              src={
+                                trade.requester?.profile_pic ||
+                                "/assets/defaultavatar.png"
+                              }
+                              alt={`${trade.name}'s profile picture`}
+                              width={25}
+                              height={25}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = "/assets/defaultavatar.png";
+                              }}
+                              unoptimized={trade.requester?.profile_pic?.startsWith(
+                                "http"
+                              )}
+                            />
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
                           <Image
                             src={
                               trade.requester?.profile_pic ||
@@ -948,134 +1021,117 @@ export default function PendingTradesPage() {
                             )}
                           />
                         </div>
-                      </Link>
-                    ) : (
-                      <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
-                        <Image
-                          src={
-                            trade.requester?.profile_pic ||
-                            "/assets/defaultavatar.png"
-                          }
-                          alt={`${trade.name}'s profile picture`}
-                          width={25}
-                          height={25}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = "/assets/defaultavatar.png";
-                          }}
-                          unoptimized={trade.requester?.profile_pic?.startsWith(
-                            "http"
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex flex-col items-start gap-[5px]">
-                      {/* Clickable Name */}
-                      {trade.requester?.username ? (
-                        <Link
-                          href={`/home/profile/${trade.requester.username}`}
-                          className="text-[16px] text-white hover:text-[#FB9696] transition-colors cursor-pointer"
-                        >
-                          <span>{trade.name}</span>
-                        </Link>
-                      ) : (
-                        <span className="text-[16px] text-white">
-                          {trade.name}
-                        </span>
                       )}
 
-                      <div className="flex items-center gap-[15px]">
-                        <div className="flex items-center gap-[5px]">
-                          <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
-                          <span className="text-[13px] font-bold text-white">
-                            {trade.rating} ({trade.reviews})
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-[3px]">
+                      <div className="flex flex-col items-start gap-[5px]">
+                        {/* Clickable Name */}
+                        {trade.requester?.username ? (
+                          <Link
+                            href={`/home/profile/${trade.requester.username}`}
+                            className="text-[16px] text-white hover:text-[#FB9696] transition-colors cursor-pointer"
+                          >
+                            <span>{trade.name}</span>
+                          </Link>
+                        ) : (
+                          <span className="text-[16px] text-white">{trade.name}</span>
+                        )}
+
+                        <div className="flex items-center gap-[15px]">
                           <div className="flex items-center gap-[5px]">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="12"
-                              height="13"
-                              viewBox="0 0 12 13"
-                              fill="none"
-                            >
-                              <path
-                                d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
-                                fill="url(#paint0_radial_1202_2090)"
-                                stroke="url(#paint1_linear_1202_2090)"
-                                strokeWidth="1.5"
-                              />
-                              <defs>
-                                <radialGradient
-                                  id="paint0_radial_1202_2090"
-                                  cx="0"
-                                  cy="0"
-                                  r="1"
-                                  gradientUnits="userSpaceOnUse"
-                                  gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
-                                >
-                                  <stop offset="0.4" stopColor="#933BFF" />
-                                  <stop offset="1" stopColor="#34188D" />
-                                </radialGradient>
-                                <linearGradient
-                                  id="paint1_linear_1202_2090"
-                                  x1="6.00002"
-                                  y1="0.0778344"
-                                  x2="6.00002"
-                                  y2="13.2525"
-                                  gradientUnits="userSpaceOnUse"
-                                >
-                                  <stop stopColor="white" />
-                                  <stop offset="0.5" stopColor="#999999" />
-                                  <stop offset="1" stopColor="white" />
-                                </linearGradient>
-                              </defs>
-                            </svg>
-                            <span className="text-[13px] text-white">
-                              LVL {trade.level}
+                            <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
+                            <span className="text-[13px] font-bold text-white">
+                              {trade.rating} ({trade.reviews})
                             </span>
+                          </div>
+                          <div className="flex flex-col gap-[3px]">
+                            <div className="flex items-center gap-[5px]">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="12"
+                                height="13"
+                                viewBox="0 0 12 13"
+                                fill="none"
+                              >
+                                <path
+                                  d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
+                                  fill="url(#paint0_radial_1202_2090)"
+                                  stroke="url(#paint1_linear_1202_2090)"
+                                  strokeWidth="1.5"
+                                />
+                                <defs>
+                                  <radialGradient
+                                    id="paint0_radial_1202_2090"
+                                    cx="0"
+                                    cy="0"
+                                    r="1"
+                                    gradientUnits="userSpaceOnUse"
+                                    gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
+                                  >
+                                    <stop offset="0.4" stopColor="#933BFF" />
+                                    <stop offset="1" stopColor="#34188D" />
+                                  </radialGradient>
+                                  <linearGradient
+                                    id="paint1_linear_1202_2090"
+                                    x1="6.00002"
+                                    y1="0.0778344"
+                                    x2="6.00002"
+                                    y2="13.2525"
+                                    gradientUnits="userSpaceOnUse"
+                                  >
+                                    <stop stopColor="white" />
+                                    <stop offset="0.5" stopColor="#999999" />
+                                    <stop offset="1" stopColor="white" />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+                              <span className="text-[13px] text-white">
+                                LVL {trade.level}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
+                    <div className="relative"></div>
                   </div>
-                  <div className="relative"></div>
-                </div>
 
-                {/* Needs/Offers Section */}
-                <div className="flex justify-between items-start w-full">
-                  {/* Needs */}
-                  <div className="flex flex-col items-start gap-[10px]">
-                    <span className="text-[13px] text-white">Needs</span>
-                    <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] max-w-full">
-                      <span className="text-[13px] text-white leading-tight">
+                  {/* Needs/Offers Section */}
+                  <div className="flex justify-between items-start w-full flex-wrap gap-4">
+                    {/* Needs */}
+                    <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
+                      <span className="text-sm text-white/80 font-medium">Needs</span>
+                      <div
+                        className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                        title={trade.needs}
+                      >
                         {trade.needs}
-                      </span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Offers */}
-                  <div className="flex flex-col items-end gap-[10px]">
-                    <span className="text-[13px] text-white">In exchange for</span>
-                    <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] max-w-full">
-                      <span className="text-[13px] text-white leading-tight">
+                    {/* Can offer */}
+                    <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
+                      <span className="text-sm text-white/80 font-medium">
+                        Can offer
+                      </span>
+                      <div
+                        className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                        title={trade.offers}
+                      >
                         {trade.offers}
-                      </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Status and Date */}
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-[13px] text-white/60">
-                    {trade.status}
-                  </span>
-                  <span className="text-[13px] text-white/60">
-                    until {trade.until}
-                  </span>
-                </div>
+                  {/* Status and Date */}
+                  <div className="flex justify-between items-center w-full">
+                    <span className="text-[13px] text-white/60">
+                      {trade.status}
+                    </span>
+                    <span className="text-[13px] text-white/60">
+                      until {trade.until}
+                    </span>
+                  </div>
+                </div> {/* ✅ properly closed inner card div */}
               </div>
             ))}
           </div>
@@ -1092,26 +1148,23 @@ export default function PendingTradesPage() {
             No trades ready for confirmation yet.
           </div>
         ) : (
-          <div className="flex flex-wrap gap-[25px]">
+          <div className="flex flex-wrap justify-between gap-x-[30px] gap-y-[25px] w-full max-w-[940px]">
             {finalizationTrades.map((trade, index) => {
               const bothSubmitted =
                 trade.detailsStatus?.submission_status?.both_submitted;
               const isClickable = bothSubmitted;
+
               return (
                 <div
                   key={trade.id}
-                  className={`relative ${isClickable ? "opacity-100" : "opacity-100"
-                    }`}
+                  className={`relative ${isClickable ? "opacity-100" : "opacity-100"}`}
                 >
                   <div
                     className={`${expandedFinalizationCardId === trade.id
                       ? "w-[945px]"
-                      : "w-[440px]"
-                      } transition-all duration-300 hover:scale-[1.01] ${expandedFinalizationCardId === trade.id
-                        ? "h-auto"
-                        : "h-[240px]"
-                      } rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${isClickable ? "cursor-pointer" : "cursor-default"
-                      }`}
+                      : "w-[455px]"
+                    } transition-all duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${isClickable ? "cursor-pointer" : "cursor-default"
+                      } p-[25px] flex flex-col gap-[15px] relative`}
                     style={{
                       background:
                         "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -1127,7 +1180,7 @@ export default function PendingTradesPage() {
                       // Expanded View - Full Card with Image
                       <div>
                         {/* Header with more options button */}
-                        <div className="p-[25px] pb-[15px] flex justify-between items-start">
+                        <div className="flex justify-between items-start">
                           <div className="flex items-start gap-[10px]">
                             {/* Clickable Profile Picture */}
                             {(() => {
@@ -1249,8 +1302,11 @@ export default function PendingTradesPage() {
                         <div className="px-[25px] pb-[20px]">
                           <div className="flex justify-between items-center mb-4">
                             <div className="flex items-center gap-3">
-                              <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block">
-                                <span className="text-[16px] text-white">
+                              <div
+                                className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap"
+                                title={`Requested ${trade.needs}`}
+                              >
+                                <span className="text-[16px] text-white/90">
                                   Requested {trade.needs}
                                 </span>
                               </div>
@@ -1281,7 +1337,7 @@ export default function PendingTradesPage() {
                           </div>
 
                           <div className="mb-3">
-                            <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
+                            <div className="px-[15px] py-[7px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
                               <span className="text-[16px] text-white">
                                 In exchange for {trade.offers}
                               </span>
@@ -1313,7 +1369,7 @@ export default function PendingTradesPage() {
                               position="left"
                             >
                               <button
-                                className={`min-w-[120px] h-[40px] flex justify-center items-center rounded-[15px] border-2 border-[#7E59F8] shadow-[0_0_15px_#D78DE5] transition-colors ${trade.detailsStatus?.submission_status
+                                className={`min-w-[120px] h-[30px] flex justify-center items-center rounded-[15px] border-2 border-[#7E59F8] shadow-[0_0_15px_#D78DE5] transition-colors ${trade.detailsStatus?.submission_status
                                   ?.both_submitted
                                   ? "bg-[#120A2A] cursor-pointer hover:bg-[#1A0F3E]"
                                   : "bg-[#413663] cursor-not-allowed opacity-50"
@@ -1351,7 +1407,7 @@ export default function PendingTradesPage() {
                                     alt="Logo"
                                     className="w-[16px] h-[16px]"
                                   />
-                                  <span className="text-[14px] font-normal text-white">
+                                  <span className="text-[13px] font-normal text-white">
                                     {trade.detailsStatus?.submission_status
                                       ?.both_submitted
                                       ? "Evaluate"
@@ -1380,7 +1436,7 @@ export default function PendingTradesPage() {
                     ) : (
                       // Collapsed View
                       <div
-                        className="p-[25px] flex flex-col justify-between h-full"
+                        className="flex flex-col justify-between h-full"
                         onClick={(e) => {
                           // Don't expand if not clickable
                           if (!isClickable) {
@@ -1472,7 +1528,7 @@ export default function PendingTradesPage() {
                                 </span>
                               )}
 
-                              <div className="flex items-center gap-[15px]">
+                              <div className="flex items-center gap-[15px] mb-[15px]">
                                 <div className="flex items-center gap-[5px]">
                                   <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
                                   <span className="text-[13px] font-bold text-white">
@@ -1607,10 +1663,10 @@ export default function PendingTradesPage() {
                         <div className="flex justify-between items-start gap-4 flex-wrap w-full">
                           {/* Needs */}
                           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
-                            <span className="text-[13px] text-white/90 font-medium">Needs</span>
+                            <span className="text-sm text-white/80 font-medium">Needs</span>
                             <div
-                              className="inline-block px-[12px] py-[6px] rounded-[15px] border-[2px] border-[#0038FF] bg-[rgba(40,76,204,0.2)] 
-                                        text-[13px] text-white leading-tight max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                              className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] 
+                                        text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
                               title={trade.needs}
                             >
                               {trade.needs}
@@ -1619,10 +1675,10 @@ export default function PendingTradesPage() {
 
                           {/* Can offer */}
                           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
-                            <span className="text-[13px] text-white/90 font-medium">In exchange for</span>
+                            <span className="text-sm text-white/80 font-medium" >Can offer</span>
                             <div
-                              className="inline-block px-[12px] py-[6px] rounded-[15px] border-[2px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] 
-                                        text-[13px] text-white leading-tight max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                              className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] 
+                                        text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
                               title={trade.offers}
                             >
                               {trade.offers}
@@ -1630,7 +1686,7 @@ export default function PendingTradesPage() {
                           </div>
                         </div>
                         {/* Date */}
-                        <div className="flex justify-end items-center w-full">
+                        <div className="flex justify-end mt-[15px] mb-[15px] items-center w-full">
                           <span className="text-[13px] text-white/60">
                             until {trade.until}
                           </span>
@@ -1680,7 +1736,7 @@ export default function PendingTradesPage() {
                                     e.preventDefault();
                                   }}
                                 >
-                                  <span className="text-[11px] text-white/70">
+                                  <span className="text-[13px] text-white/70">
                                     Waiting for {otherUserName}
                                   </span>
                                 </button>
@@ -1736,18 +1792,18 @@ export default function PendingTradesPage() {
                               }
                             }}
                           >
-                            <div className={`w-full h-full rounded-[8px] flex justify-center items-center ${trade.detailsStatus?.submission_status
+                            <div className={`w-full h-[30px] rounded-[8px] flex justify-center items-center ${trade.detailsStatus?.submission_status
                               ?.both_submitted
                               ? "bg-[#120A2A]"
                               : "bg-[#413663]"
                               }`}>
-                              <div className="flex items-center gap-[8px]">
+                              <div className="flex items-center gap-[8px] ">
                                 <img
                                   src="/assets/logos/White=Logo S.png"
                                   alt="Logo"
                                   className="w-[14px] h-[14px]"
                                 />
-                                <span className="text-[14px] text-white">
+                                <span className="text-[13px] text-white">
                                   {trade.detailsStatus?.submission_status
                                     ?.both_submitted
                                     ? "Evaluate"
@@ -1789,9 +1845,9 @@ export default function PendingTradesPage() {
         tradeData={selectedTrade}
         onTradeUpdate={(tradeRequestId) => {
           updateFinalizationTrade(tradeRequestId);
-          // Also refresh all trades to update other sections
           refreshAllTrades(false);
         }}
+        viewOnly={false}
       />
     </div >
   );

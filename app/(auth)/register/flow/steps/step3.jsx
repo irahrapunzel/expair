@@ -4,7 +4,9 @@ import { Button } from "../../../../../components/ui/button";
 import { Input } from "../../../../../components/ui/input";
 import { ChevronLeft, ChevronRight, Upload, X } from "lucide-react";
 import { Inter } from "next/font/google";
+import { Icon } from "@iconify/react";
 import Image from "next/image";
+import VerificationModal from "../../../../../components/profile/verification-modal";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,6 +27,17 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
     step3Data.introduction || ""
   );
   const [links, setLinks] = useState(step3Data.links || [""]); // keep as array
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+
+  const [user, setUser] = useState({
+    id: null,
+    is_verified: false,
+    verification_status: null,
+    userVerifyId: null,
+  });
+  const [idFile, setIdFile] = useState(null);
+  const [idPreviewUrl, setIdPreviewUrl] = useState(null);
+  const [verificationStatus, setVerificationStatus] = useState("unverified");
 
   // Handle Google profile picture preview
   useEffect(() => {
@@ -90,17 +103,74 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
 
   const handlePrev = () => {
     const filteredLinks = links.filter((link) => link && link.trim() !== "");
-    onPrev({ 
-      profilePicFile, 
-      userIDFile, 
-      userIDFileName, 
-      introduction, 
-      links: filteredLinks 
+    onPrev({
+      profilePicFile,
+      userIDFile,
+      userIDFileName,
+      introduction,
+      links: filteredLinks,
     });
   };
 
+  useEffect(() => {
+    if (!user) return;
+    const s = (
+      user.verification_status
+        ? user.verification_status
+        : user.is_verified
+        ? "VERIFIED"
+        : user.userVerifyId
+        ? "PENDING"
+        : "UNVERIFIED"
+    ).toLowerCase();
+    setVerificationStatus(s);
+  }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
+
+  // call this when input changes
+  const handleIdFileChange = (file) => {
+    if (!file) {
+      setIdFile(null);
+      setIdPreviewUrl(null);
+      return;
+    }
+
+    setIdFile(file);
+
+    // if it's an image, create a preview URL
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setIdPreviewUrl(url);
+    } else {
+      setIdPreviewUrl(null);
+    }
+  };
+
+  async function handleSubmitVerification() {
+    try {
+      if (!idFile) {
+        alert("Please choose a file first.");
+        return;
+      }
+
+      // 🧩 Onboarding mode: save locally, don't upload yet
+      console.log("[verify upload] Onboarding mode — saving file locally");
+
+      setUserIDFile(idFile);
+      setUserIDFileName(idFile.name);
+      setShowVerificationModal(false);
+      alert("Your ID has been added for verification.");
+
+      // Clear modal state
+      setIdFile(null);
+      setIdPreviewUrl(null);
+    } catch (e) {
+      console.error("[verify upload] error", e);
+      alert(e.message || "Upload failed.");
+    }
+  }
+
   return (
-     <div
+    <div
       className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
@@ -185,36 +255,72 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
           <div className="flex flex-col lg:flex-row gap-[40px] lg:gap-[100px] w-full">
             {/* ID upload + Introduction */}
             <div className="flex flex-col gap-[20px] sm:gap-[25px] w-full lg:w-[400px]">
-              {/* ID upload */}
+              {/* ID Verification */}
               <div>
                 <p className="text-white font-[500] text-[18px] sm:text-[20px] mb-[12px] sm:mb-[15px] text-left">
-                  Get verified by uploading an ID
+                  Get verified to start trading
                 </p>
-                <div className="relative">
-                  <label
-                    htmlFor="id-upload"
-                    className="w-full h-[45px] sm:h-[50px] rounded-[12px] sm:rounded-[15px] border border-white/40 bg-[#120A2A] px-4 flex items-center justify-between cursor-pointer"
+
+                {/* If no ID yet → show Get Verified button */}
+                {!userIDFile ? (
+                  <button
+                    onClick={() => setShowVerificationModal(true)}
+                    className="cursor-pointer bg-[#0038FF] hover:bg-[#1a4dff] text-white px-5 py-2 sm:px-6 sm:py-3 rounded-[15px] shadow-[0px_0px_15px_#284CCC] flex items-center gap-2"
                   >
-                    <span className="text-white/50 text-[14px] sm:text-[16px]">
-                      {userIDFileName || "Upload file or photo"}
+                    <Icon
+                      icon="mdi:check-decagram"
+                      className="w-5 h-5 sm:w-6 sm:h-6"
+                    />
+                    <span className="text-[14px] sm:text-[16px]">
+                      Get Verified
                     </span>
-                    <Upload className="text-white w-5 h-5 sm:w-6 sm:h-6" />
-                  </label>
-                  <input
-                    id="id-upload"
-                    type="file"
-                    accept="image/*,application/pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
+                  </button>
+                ) : (
+                  // If file is uploaded → show preview box
+                  <div className="relative w-full h-[45px] sm:h-[50px] rounded-[12px] sm:rounded-[15px] border border-white/40 bg-[#120A2A] px-4 flex items-center justify-between">
+                    <span
+                      className="text-white/70 text-[14px] sm:text-[16px] truncate max-w-[75%]"
+                      title={userIDFileName}
+                    >
+                      {userIDFileName}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          setUserIDFile(null);
+                          setUserIDFileName("");
+                          setIdPreviewUrl(null);
+                        }}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {showVerificationModal && (
+                  <VerificationModal
+                    onClose={() => setShowVerificationModal(false)}
+                    handleIdFileChange={(file) => {
                       if (file) {
-                        console.log("ID file selected:", file.name, file.size);
                         setUserIDFile(file);
                         setUserIDFileName(file.name);
+                        setIdPreviewUrl(URL.createObjectURL(file));
+                      } else {
+                        setUserIDFile(null);
+                        setUserIDFileName("");
+                        setIdPreviewUrl(null);
                       }
                     }}
+                    handleSubmitVerification={() => {
+                      // Onboarding version just closes modal (no API call yet)
+                      setShowVerificationModal(false);
+                    }}
+                    idFile={userIDFile}
+                    idPreviewUrl={idPreviewUrl}
                   />
-                </div>
+                )}
               </div>
 
               {/* Introduction */}

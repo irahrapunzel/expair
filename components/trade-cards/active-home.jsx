@@ -25,7 +25,7 @@ export default function ActiveTradeHome({
 
   return (
     <div
-      className="flex flex-col w-[440px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[20px] relative cursor-pointer hover:scale-[1.02] transition-transform"
+      className="flex flex-col w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[20px] relative cursor-pointer transition-all duration-300 hover:scale-[1.01]"
       style={{
         background: 'radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)'
       }}
@@ -109,7 +109,7 @@ export default function ActiveTradeHome({
           <p className="text-base font-semibold text-[#906EFF] whitespace-nowrap">{totalXp} XP</p>
         </div>
         <div className="flex justify-end w-full">
-          <p className="text-xs text-white/60">{deadline}</p>
+          <p className="text-sm text-white/50">Due on {deadline}</p>
         </div>
       </div>
     </div>
