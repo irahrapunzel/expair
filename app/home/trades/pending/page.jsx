@@ -835,12 +835,12 @@ export default function PendingTradesPage() {
                           e.stopPropagation();
                           setShowDeleteModalForCard(trade.id);
                         }}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        className="p-1 hover:bg-white/10 rounded-full transition"
                         title="Delete trade"
                       >
                         <Icon
                           icon="lucide:trash-2"
-                          className="w-5 h-5 text-white hover:text-red-400 transition-colors"
+                          className="w-5 h-5 text-red-500 hover:text-red-600 transition"
                         />
                       </button>
                     </div>
