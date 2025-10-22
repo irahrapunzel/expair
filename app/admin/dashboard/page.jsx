@@ -9,13 +9,8 @@ import {
   AlertTriangle, 
   CheckCircle, 
   Clock,
-  BarChart3,
   Activity,
-  X,
-  Search,
-  Filter,
   Calendar,
-  TrendingDown,
   Shield,
   Award
 } from "lucide-react";
@@ -30,15 +25,10 @@ export default function AdminDashboard() {
     verifiedUsers: 0,
     pendingVerifications: 0,
     totalReportsSubmitted: 0,
-    totalCompletedTrades: 0,
     activeUsersThisMonth: 0,
     systemHealth: "Good"
   });
 
-  const [recentActivity, setRecentActivity] = useState([]);
-  const [showActivityModal, setShowActivityModal] = useState(false);
-  const [activityFilter, setActivityFilter] = useState("all");
-  const [activitySearch, setActivitySearch] = useState("");
   const [dateRange, setDateRange] = useState("2023-2024");
 
   useEffect(() => {
@@ -51,306 +41,46 @@ export default function AdminDashboard() {
       verifiedUsers: 3, // Jane Smith, Emily Brown, Sarah Manager
       pendingVerifications: 3, // John Doe, Mike Johnson, Tom Director  
       totalReportsSubmitted: 0,
-      totalCompletedTrades: 0,
       activeUsersThisMonth: 8,
       systemHealth: "Good"
     });
-    
-    // Set hardcoded recent activity based on Users page data
-    const allActivities = [
-    {
-      id: 1,
-        type: "user_registration",
-        message: "New user 'Alex Johnson' registered",
-        timestamp: "Aug 15, 2023",
-        icon: Users,
-        status: "completed",
-        details: "User completed full registration process with email verification"
-    },
-    {
-      id: 2,
-        type: "user_registration", 
-        message: "New user 'Tom Director' registered",
-        timestamp: "Sep 1, 2023",
-        icon: Users,
-        status: "completed",
-        details: "User completed full registration process with email verification"
-    },
-    {
-      id: 3,
-        type: "user_registration",
-        message: "New user 'Sarah Manager' registered",
-        timestamp: "Oct 1, 2023",
-        icon: Users,
-        status: "completed",
-        details: "User completed full registration process with email verification"
-    },
-    {
-      id: 4,
-        type: "user_registration",
-        message: "New user 'Emily Brown' registered",
-        timestamp: "Nov 10, 2023",
-        icon: Users,
-        status: "completed",
-        details: "User completed full registration process with email verification"
-    },
-    {
-      id: 5,
-        type: "user_registration",
-        message: "New user 'Jane Smith' registered",
-        timestamp: "Dec 1, 2023",
-        icon: Users,
-        status: "completed",
-        details: "User completed full registration process with email verification"
-    },
-    {
-      id: 6,
-        type: "user_registration",
-        message: "New user 'John Doe' registered",
-        timestamp: "Jan 15, 2024",
-        icon: Users,
-        status: "pending",
-        details: "User registration pending verification"
-    },
-    {
-      id: 7,
-        type: "user_registration",
-        message: "New user 'Mike Johnson' registered",
-        timestamp: "Feb 20, 2024",
-        icon: Users,
-        status: "pending",
-        details: "User registration pending verification"
-    },
-    {
-      id: 8,
-        type: "user_registration",
-        message: "New user 'David Wilson' registered",
-        timestamp: "Mar 5, 2024",
-        icon: Users,
-        status: "rejected",
-        details: "User registration rejected due to invalid documents"
-      },
-      {
-        id: 9,
-        type: "trade_created",
-        message: "New trade 'Web Development Services' created",
-        timestamp: "Mar 10, 2024",
-        icon: TrendingUp,
-        status: "active",
-        details: "Trade request created by verified user"
-      },
-      {
-        id: 10,
-        type: "report_submitted",
-        message: "Report submitted against user 'David Wilson'",
-        timestamp: "Mar 12, 2024",
-        icon: AlertTriangle,
-        status: "under_review",
-        details: "User reported for suspicious activity"
-      },
-      {
-        id: 11,
-        type: "trade_completed",
-        message: "Trade #001 completed successfully",
-        timestamp: "Mar 15, 2024",
-        icon: CheckCircle,
-        status: "completed",
-        details: "Trade between verified users completed with positive rating"
-      },
-      {
-        id: 12,
-        type: "system_alert",
-        message: "High server load detected",
-        timestamp: "Mar 18, 2024",
-        icon: Activity,
-        status: "resolved",
-        details: "Server load spike resolved automatically"
-      }
-    ];
-    
-    // Set recent activity (first 5 for dashboard)
-    setRecentActivity(allActivities.slice(0, 5));
   }, []);
 
-  // All activities data (same as in useEffect)
-  const allActivities = [
-    {
-      id: 1,
-      type: "user_registration",
-      message: "New user 'Alex Johnson' registered",
-      timestamp: "Aug 15, 2023",
-      icon: Users,
-      status: "completed",
-      details: "User completed full registration process with email verification"
-    },
-    {
-      id: 2,
-      type: "user_registration", 
-      message: "New user 'Tom Director' registered",
-      timestamp: "Sep 1, 2023",
-      icon: Users,
-      status: "completed",
-      details: "User completed full registration process with email verification"
-    },
-    {
-      id: 3,
-      type: "user_registration",
-      message: "New user 'Sarah Manager' registered",
-      timestamp: "Oct 1, 2023",
-      icon: Users,
-      status: "completed",
-      details: "User completed full registration process with email verification"
-    },
-    {
-      id: 4,
-      type: "user_registration",
-      message: "New user 'Emily Brown' registered",
-      timestamp: "Nov 10, 2023",
-      icon: Users,
-      status: "completed",
-      details: "User completed full registration process with email verification"
-    },
-    {
-      id: 5,
-      type: "user_registration",
-      message: "New user 'Jane Smith' registered",
-      timestamp: "Dec 1, 2023",
-      icon: Users,
-      status: "completed",
-      details: "User completed full registration process with email verification"
-    },
-    {
-      id: 6,
-      type: "user_registration",
-      message: "New user 'John Doe' registered",
-      timestamp: "Jan 15, 2024",
-      icon: Users,
-      status: "pending",
-      details: "User registration pending verification"
-    },
-    {
-      id: 7,
-      type: "user_registration",
-      message: "New user 'Mike Johnson' registered",
-      timestamp: "Feb 20, 2024",
-      icon: Users,
-      status: "pending",
-      details: "User registration pending verification"
-    },
-    {
-      id: 8,
-      type: "user_registration",
-      message: "New user 'David Wilson' registered",
-      timestamp: "Mar 5, 2024",
-      icon: Users,
-      status: "rejected",
-      details: "User registration rejected due to invalid documents"
-    },
-    {
-      id: 9,
-      type: "trade_created",
-      message: "New trade 'Web Development Services' created",
-      timestamp: "Mar 10, 2024",
-      icon: TrendingUp,
-      status: "active",
-      details: "Trade request created by verified user"
-    },
-    {
-      id: 10,
-      type: "report_submitted",
-      message: "Report submitted against user 'David Wilson'",
-      timestamp: "Mar 12, 2024",
-      icon: AlertTriangle,
-      status: "under_review",
-      details: "User reported for suspicious activity"
-    },
-    {
-      id: 11,
-      type: "trade_completed",
-      message: "Trade #001 completed successfully",
-      timestamp: "Mar 15, 2024",
-      icon: CheckCircle,
-      status: "completed",
-      details: "Trade between verified users completed with positive rating"
-    },
-    {
-      id: 12,
-      type: "system_alert",
-      message: "High server load detected",
-      timestamp: "Mar 18, 2024",
-      icon: Activity,
-      status: "resolved",
-      details: "Server load spike resolved automatically"
-    }
-  ];
 
   // Chart data
   const tradesPerMonth = [
-    { month: "Jan 2023", trades: 12, revenue: 2400 },
-    { month: "Feb 2023", trades: 18, revenue: 3600 },
-    { month: "Mar 2023", trades: 25, revenue: 5000 },
-    { month: "Apr 2023", trades: 22, revenue: 4400 },
-    { month: "May 2023", trades: 30, revenue: 6000 },
-    { month: "Jun 2023", trades: 28, revenue: 5600 },
-    { month: "Jul 2023", trades: 35, revenue: 7000 },
-    { month: "Aug 2023", trades: 32, revenue: 6400 },
-    { month: "Sep 2023", trades: 38, revenue: 7600 },
-    { month: "Oct 2023", trades: 42, revenue: 8400 },
-    { month: "Nov 2023", trades: 45, revenue: 9000 },
-    { month: "Dec 2023", trades: 48, revenue: 9600 },
-    { month: "Jan 2024", trades: 52, revenue: 10400 },
-    { month: "Feb 2024", trades: 58, revenue: 11600 },
-    { month: "Mar 2024", trades: 65, revenue: 13000 }
+    { month: "Oct 2023", trades: 42, activeUsers: 35, averageRating: 4.3 },
+    { month: "Nov 2023", trades: 45, activeUsers: 40, averageRating: 4.4 },
+    { month: "Dec 2023", trades: 48, activeUsers: 42, averageRating: 4.5 },
+    { month: "Jan 2024", trades: 52, activeUsers: 45, averageRating: 4.6 },
+    { month: "Feb 2024", trades: 58, activeUsers: 49, averageRating: 4.7 },
+    { month: "Mar 2024", trades: 65, activeUsers: 52, averageRating: 4.8 }
   ];
 
   const topTraders = [
-    { name: "Sarah Manager", trades: 45, rating: 4.9, revenue: 9200 },
-    { name: "Emily Brown", trades: 38, rating: 4.8, revenue: 7600 },
-    { name: "Jane Smith", trades: 32, rating: 4.7, revenue: 6400 },
-    { name: "Tom Director", trades: 28, rating: 4.6, revenue: 5600 },
-    { name: "Alex Johnson", trades: 25, rating: 4.5, revenue: 5000 }
+    { name: "Sarah Manager", trades: 45, rating: 4.9 },
+    { name: "Emily Brown", trades: 38, rating: 4.8 },
+    { name: "Jane Smith", trades: 32, rating: 4.7 },
+    { name: "Tom Director", trades: 28, rating: 4.6 },
+    { name: "Alex Johnson", trades: 25, rating: 4.5 }
   ];
 
   const mostReportedUsers = [
-    { name: "David Wilson", reports: 8, reason: "Suspicious Activity", status: "Under Review" },
-    { name: "Mike Johnson", reports: 5, reason: "Payment Issues", status: "Resolved" },
-    { name: "John Doe", reports: 3, reason: "Inappropriate Behavior", status: "Pending" },
-    { name: "Unknown User", reports: 2, reason: "Spam", status: "Resolved" }
+    { name: "David Wilson", reports: 8, reason: "Harassment or bullying", status: "Under Review" },
+    { name: "Mike Johnson", reports: 5, reason: "Disrespectful or rude language", status: "Resolved" },
+    { name: "John Doe", reports: 3, reason: "Spam or scam activity", status: "Pending" },
+    { name: "Unknown User", reports: 2, reason: "Inappropriate requests", status: "Resolved" }
   ];
 
   const reportReasons = [
-    { reason: "Suspicious Activity", count: 8, percentage: 44 },
-    { reason: "Payment Issues", count: 5, percentage: 28 },
-    { reason: "Inappropriate Behavior", count: 3, percentage: 17 },
-    { reason: "Spam", count: 2, percentage: 11 }
+    { reason: "Harassment or bullying", count: 12, percentage: 35 },
+    { reason: "Disrespectful or rude language", count: 8, percentage: 24 },
+    { reason: "Spam or scam activity", count: 6, percentage: 18 },
+    { reason: "Inappropriate requests", count: 4, percentage: 12 },
+    { reason: "Trade Issues", count: 3, percentage: 9 },
+    { reason: "Profile Content", count: 1, percentage: 2 }
   ];
 
-  // Filter activities based on search and filter
-  const filteredActivities = allActivities.filter(activity => {
-    const matchesSearch = activity.message.toLowerCase().includes(activitySearch.toLowerCase()) ||
-                         activity.details.toLowerCase().includes(activitySearch.toLowerCase());
-    const matchesFilter = activityFilter === "all" || activity.type === activityFilter;
-    return matchesSearch && matchesFilter;
-  });
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "completed":
-        return "text-green-400 bg-green-500/20 border-green-500/30";
-      case "pending":
-        return "text-yellow-400 bg-yellow-500/20 border-yellow-500/30";
-      case "rejected":
-        return "text-red-400 bg-red-500/20 border-red-500/30";
-      case "active":
-        return "text-blue-400 bg-blue-500/20 border-blue-500/30";
-      case "under_review":
-        return "text-orange-400 bg-orange-500/20 border-orange-500/30";
-      case "resolved":
-        return "text-green-400 bg-green-500/20 border-green-500/30";
-      default:
-        return "text-gray-400 bg-gray-500/20 border-gray-500/30";
-    }
-  };
 
   const statCards = [
     {
@@ -386,14 +116,6 @@ export default function AdminDashboard() {
       color: "red"
     },
     {
-      title: "Total Completed Trades",
-      value: stats.totalCompletedTrades.toLocaleString(),
-      icon: TrendingUp,
-      change: "+15%",
-      changeType: "positive",
-      color: "purple"
-    },
-    {
       title: "Active Users This Month",
       value: stats.activeUsersThisMonth.toLocaleString(),
       icon: Activity,
@@ -426,60 +148,6 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-[#0A0028] border border-white/10 rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
-          <p className="text-sm text-white/60 mt-1">Latest user registrations and platform activity</p>
-        </div>
-        
-        <div className="divide-y divide-white/5">
-          {recentActivity.map((activity, index) => {
-            const Icon = activity.icon;
-            return (
-              <div key={activity.id} className="px-6 py-4 hover:bg-white/5 transition-colors duration-200">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 mt-1">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[#906EFF]/20 to-[#906EFF]/10 rounded-xl flex items-center justify-center border border-[#906EFF]/20">
-                      <Icon className="w-5 h-5 text-[#906EFF]" />
-        </div>
-      </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-sm font-medium text-white truncate">
-                        {activity.message}
-                      </h4>
-                      <span className="text-xs text-white/50 font-mono bg-white/5 px-2 py-1 rounded-md">
-                        #{String(activity.id).padStart(3, '0')}
-                    </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-                      <span className="text-xs text-white/60 font-medium">{activity.timestamp}</span>
-                      <span className="text-xs text-white/40">•</span>
-                      <span className="text-xs text-white/60 capitalize">{activity.type.replace('_', ' ')}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="px-6 py-3 bg-white/5 border-t border-white/10">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-white/60">Showing {recentActivity.length} recent activities</span>
-            <button
-              onClick={() => setShowActivityModal(true)}
-              className="text-xs text-[#906EFF] hover:text-[#906EFF]/80 font-medium transition-colors"
-            >
-              View All Activity →
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Charts / Reports Summary */}
       <div className="mt-8">
@@ -513,7 +181,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-semibold text-white">Number of Trades per Month</h3>
-                <p className="text-sm text-white/60">Monthly trade volume and revenue</p>
+                <p className="text-sm text-white/60">Monthly trade volume and user engagement</p>
               </div>
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-green-400" />
@@ -521,29 +189,51 @@ export default function AdminDashboard() {
               </div>
             </div>
             
-            {/* Simple Bar Chart */}
-            <div className="space-y-3">
-              {tradesPerMonth.slice(-6).map((data, index) => (
-                <div key={index} className="flex items-center gap-4">
-                  <div className="w-16 text-xs text-white/60 font-medium">{data.month}</div>
-                  <div className="flex-1 bg-white/5 rounded-full h-6 relative overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-[#906EFF] to-[#6DDFFF] rounded-full transition-all duration-500"
-                      style={{ width: `${(data.trades / 65) * 100}%` }}
-                    ></div>
-                    <div className="absolute inset-0 flex items-center justify-between px-3">
-                      <span className="text-xs text-white font-medium">{data.trades}</span>
-                      <span className="text-xs text-white/60">${data.revenue.toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {/* Data Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-3 px-2 text-sm font-medium text-white/80">Month</th>
+                    <th className="text-left py-3 px-2 text-sm font-medium text-white/80">Trades</th>
+                    <th className="text-left py-3 px-2 text-sm font-medium text-white/80">Active Users</th>
+                    <th className="text-left py-3 px-2 text-sm font-medium text-white/80">Average Rating</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tradesPerMonth.map((data, index) => (
+                    <tr key={index} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="py-3 px-2 text-sm text-white/90 font-medium">{data.month}</td>
+                      <td className="py-3 px-2 text-sm text-white">{data.trades}</td>
+                      <td className="py-3 px-2 text-sm text-white">{data.activeUsers}</td>
+                      <td className="py-3 px-2 text-sm text-white flex items-center gap-1">
+                        <span>{data.averageRating}</span>
+                        <span className="text-yellow-400">⭐</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             
             <div className="mt-4 pt-4 border-t border-white/10">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/60">Total Trades: <span className="text-white font-medium">342</span></span>
-                <span className="text-white/60">Total Revenue: <span className="text-white font-medium">$68,400</span></span>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-white/60">Total Trades:</span>
+                  <span className="text-white font-medium">342</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Total Active Users:</span>
+                  <span className="text-white font-medium">263</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Average User Rating:</span>
+                  <span className="text-white font-medium">4.55 / 5</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Growth:</span>
+                  <span className="text-green-400 font-medium">+23% growth in trade activity</span>
+                </div>
               </div>
             </div>
           </div>
@@ -576,7 +266,7 @@ export default function AdminDashboard() {
                     
                     <div className="flex items-center justify-between text-xs text-white/60">
                       <span>{trader.trades} trades</span>
-                      <span>${trader.revenue.toLocaleString()} revenue</span>
+                      <span>{trader.rating} rating</span>
                     </div>
                   </div>
                 </div>
@@ -664,139 +354,14 @@ export default function AdminDashboard() {
             
             <div className="mt-6 pt-4 border-t border-white/10">
               <div className="flex justify-between text-sm">
-                <span className="text-white/60">Total Reports: <span className="text-white font-medium">18</span></span>
-                <span className="text-white/60">Avg per User: <span className="text-white font-medium">2.3</span></span>
+                <span className="text-white/60">Total Reports: <span className="text-white font-medium">34</span></span>
+                <span className="text-white/60">Avg per User: <span className="text-white font-medium">4.3</span></span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Activity Modal */}
-      {showActivityModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0A0028] border border-white/10 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-white">All Activity</h2>
-                <p className="text-sm text-white/60 mt-1">Complete activity log with filtering and search</p>
-              </div>
-              <button
-                onClick={() => setShowActivityModal(false)}
-                className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Search and Filter */}
-            <div className="px-6 py-4 border-b border-white/10 bg-white/5">
-              <div className="flex gap-4">
-                {/* Search */}
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
-                  <input
-                    type="text"
-                    placeholder="Search activities..."
-                    value={activitySearch}
-                    onChange={(e) => setActivitySearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-[#906EFF]/50 focus:ring-1 focus:ring-[#906EFF]/20"
-                  />
-        </div>
-
-                {/* Filter */}
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
-                  <select
-                    value={activityFilter}
-                    onChange={(e) => setActivityFilter(e.target.value)}
-                    className="pl-10 pr-8 py-2 bg-[#0A0028] border border-white/20 rounded-lg text-white focus:outline-none focus:border-[#906EFF]/50 focus:ring-1 focus:ring-[#906EFF]/20 appearance-none"
-                    style={{ colorScheme: 'dark' }}
-                  >
-                    <option value="all" className="bg-[#0A0028] text-white">All Types</option>
-                    <option value="user_registration" className="bg-[#0A0028] text-white">User Registration</option>
-                    <option value="trade_created" className="bg-[#0A0028] text-white">Trade Created</option>
-                    <option value="trade_completed" className="bg-[#0A0028] text-white">Trade Completed</option>
-                    <option value="report_submitted" className="bg-[#0A0028] text-white">Report Submitted</option>
-                    <option value="system_alert" className="bg-[#0A0028] text-white">System Alert</option>
-                  </select>
-          </div>
-        </div>
-      </div>
-
-            {/* Activity List */}
-            <div className="overflow-y-auto max-h-[60vh]">
-              <div className="divide-y divide-white/5">
-                {filteredActivities.length === 0 ? (
-                  <div className="px-6 py-12 text-center">
-                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Search className="w-8 h-8 text-white/40" />
-                    </div>
-                    <h3 className="text-lg font-medium text-white mb-2">No activities found</h3>
-                    <p className="text-white/60">Try adjusting your search or filter criteria</p>
-                  </div>
-                ) : (
-                  filteredActivities.map((activity) => {
-                    const Icon = activity.icon;
-                    return (
-                      <div key={activity.id} className="px-6 py-4 hover:bg-white/5 transition-colors duration-200">
-                        <div className="flex items-start gap-4">
-                          <div className="flex-shrink-0 mt-1">
-                            <div className="w-10 h-10 bg-gradient-to-br from-[#906EFF]/20 to-[#906EFF]/10 rounded-xl flex items-center justify-center border border-[#906EFF]/20">
-                              <Icon className="w-5 h-5 text-[#906EFF]" />
-                            </div>
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-sm font-medium text-white">
-                                {activity.message}
-                              </h4>
-                              <div className="flex items-center gap-2">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(activity.status)}`}>
-                                  {activity.status.replace('_', ' ')}
-                                </span>
-                                <span className="text-xs text-white/50 font-mono bg-white/5 px-2 py-1 rounded-md">
-                                  #{String(activity.id).padStart(3, '0')}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            <p className="text-xs text-white/70 mb-2">{activity.details}</p>
-                            
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-                              <span className="text-xs text-white/60 font-medium">{activity.timestamp}</span>
-                              <span className="text-xs text-white/40">•</span>
-                              <span className="text-xs text-white/60 capitalize">{activity.type.replace('_', ' ')}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-white/10 bg-white/5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-white/60">
-                  Showing {filteredActivities.length} of {allActivities.length} activities
-                </span>
-                <button
-                  onClick={() => setShowActivityModal(false)}
-                  className="px-4 py-2 bg-[#906EFF] text-white text-sm font-medium rounded-lg hover:bg-[#906EFF]/80 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
