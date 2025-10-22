@@ -10,7 +10,7 @@ import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export default function Step1({ step1Data, onDataSubmit, onNext }) {
+export default function Step1({ step1Data, onDataSubmit, onNext, onShowOtpPage }) {
   const { data: session, status } = useSession();
 
   const [firstName, setFirstName] = useState(step1Data?.firstname || "");
@@ -29,6 +29,7 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
   const [emailError, setEmailError] = useState("");
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   useEffect(() => {
     if (step1Data) {
@@ -100,10 +101,50 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
     return true;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!validateForm()) return;
+
+    // Save data first
     onDataSubmit?.({ firstName, lastName, email, username, password });
-    onNext?.();
+
+    // Send OTP
+    setIsSendingOtp(true);
+    setErrorMessage("");
+
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      if (!baseUrl) {
+        setErrorMessage("Configuration Error: Backend URL not found.");
+        setIsSendingOtp(false);
+        return;
+      }
+
+      const response = await fetch(`${baseUrl}/api/send-verification-otp/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data.error || "Failed to send verification code");
+        setIsSendingOtp(false);
+        return;
+      }
+
+      // Success - show OTP page
+      onShowOtpPage?.(email);
+    } catch (error) {
+      console.error("Send OTP error:", error);
+      setErrorMessage("Network error. Please try again.");
+    } finally {
+      setIsSendingOtp(false);
+    }
   };
 
   const isFormValid = () => {
@@ -116,7 +157,9 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
       repeatPassword &&
       isEmailValid(email) &&
       password === repeatPassword &&
-      passwordRules.every((rule) => rule.test.test(password))
+      passwordRules.every((rule) => rule.test.test(password)) &&
+      !usernameError &&
+      !emailError
     );
   };
 
@@ -133,56 +176,41 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
   const debouncedEmail = useDebounce(email, 500);
 
   const checkAvailability = async (field, value) => {
-  // 1. Check for the BASE_URL
-  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  if (!baseUrl) {
-    console.error("NEXT_PUBLIC_BACKEND_URL is not set!");
-    // Set a general error state to prevent submission
-    setErrorMessage("Configuration Error: Backend URL not found.");
-    return true; // Treat as 'exists' to block submission
-  }
-
-  try {
-    const response = await fetch(`${baseUrl}/api/validate-field/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ field, value }),
-    });
-
-    // 2. Throw an error if the API call was unsuccessful (e.g., 404, 500)
-    if (!response.ok) {
-      // Read the body for a Django error, but continue to throw
-      const errorText = await response.text();
-      throw new Error(
-        `API call failed with status: ${
-          response.status
-        }. Response: ${errorText.substring(0, 100)}...`
-      );
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+    if (!baseUrl) {
+      console.error("NEXT_PUBLIC_BACKEND_URL is not set!");
+      setErrorMessage("Configuration Error: Backend URL not found.");
+      return true;
     }
 
-    const data = await response.json();
-    // ❌ REMOVE THESE 3 LINES - THEY DON'T BELONG HERE:
-    // console.log("✅ Trade request created:", data);
-    // onNext(data.tradereq_id);
-    return data.exists;
-  } catch (error) {
-    // This catch block handles both the initial 'Failed to fetch'
-    // and the 'API call failed' errors we throw above.
-    console.error(`Error checking ${field} for value "${value}":`, error);
+    try {
+      const response = await fetch(`${baseUrl}/api/validate-field/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ field, value }),
+      });
 
-    // This is the key fix: if fetch fails, assume the worst (network down)
-    // and prevent the user from continuing without confirmation.
-    setErrorMessage(
-      `Network Error: Could not verify ${field} availability. Please check server or try again.`
-    );
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `API call failed with status: ${
+            response.status
+          }. Response: ${errorText.substring(0, 100)}...`
+        );
+      }
 
-    // Returning true means "it exists" and will block the user.
-    // This is a safer default when a critical network check fails.
-    return true;
-  }
-};
+      const data = await response.json();
+      return data.exists;
+    } catch (error) {
+      console.error(`Error checking ${field} for value "${value}":`, error);
+      setErrorMessage(
+        `Network Error: Could not verify ${field} availability. Please check server or try again.`
+      );
+      return true;
+    }
+  };
 
   useEffect(() => {
     if (!debouncedUsername || debouncedUsername.length < 3) {
@@ -211,7 +239,6 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
     };
     checkEmail();
   }, [debouncedEmail]);
-  // ✅ END: Updated Validation Logic
 
   return (
     <div
@@ -396,10 +423,11 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
 
         <div className="flex justify-center mb-[47.5px]">
           <Button
-            className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-normal transition rounded-[15px]"
+            className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm sm:text-[20px] font-normal transition rounded-[15px]"
             onClick={handleContinue}
+            disabled={!isFormValid() || isSendingOtp}
           >
-            Continue
+            {isSendingOtp ? "Verifying email..." : "Continue"}
           </Button>
         </div>
 
@@ -407,11 +435,11 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
           <span>1 of 6</span>
           <ChevronRight
             className={`w-5 h-5 ${
-              isFormValid()
+              isFormValid() && !isSendingOtp
                 ? "cursor-pointer text-gray-300 hover:text-white"
                 : "text-gray-500 cursor-not-allowed"
             }`}
-            onClick={handleContinue}
+            onClick={isFormValid() && !isSendingOtp ? handleContinue : undefined}
           />
         </div>
       </div>

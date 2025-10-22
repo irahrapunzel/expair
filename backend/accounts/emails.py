@@ -1,7 +1,38 @@
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.core.mail import send_mail
+from django.conf import settings
+import random
 
+def generate_otp():
+    """Generate 6-digit OTP"""
+    return str(random.randint(100000, 999999))
+
+def send_otp_email(email, otp_code):
+    """Send OTP verification email"""
+    subject = "Expair - Verify Your Email"
+    message = f"""
+    Hello,
+    
+    Your verification code is: {otp_code}
+    
+    This code will expire in 90 seconds.
+    
+    If you didn't request this, please ignore this email.
+    
+    Best regards,
+    Expair Team
+    """
+    
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False,
+    )
+    
 def send_support_emails(ticket):
     """
     Sends:

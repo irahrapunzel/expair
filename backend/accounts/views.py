@@ -34,7 +34,7 @@ CustomUser = get_user_model()
 from .models import (
     Evaluation, GenSkill, ReputationSystem, TradeDetail, TradeHistory, UserInterest, User, VerificationStatus, UserCredential,
     SpecSkill, UserSkill, TradeRequest, TradeInterest, PasswordResetToken,
-    Conversation, Message, DeletedConversation, Report, SupportTicket
+    Conversation, Message, DeletedConversation, Report, SupportTicket, UserVerification
 )
 from .serializers import (
     ProfileUpdateSerializer, UserCredentialSerializer,
@@ -44,7 +44,7 @@ from .serializers import (
 
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from .emails import send_support_emails
+from .emails import send_support_emails, generate_otp, send_otp_email
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -598,88 +598,60 @@ def explore_feed(request):
 def me(request):
     print("=== DJANGO ME VIEW DEBUG ===")
     print(f"Request method: {request.method}")
-    print(f"Request path: {request.path}")
-    print(f"Authorization header: {request.META.get('HTTP_AUTHORIZATION', 'MISSING')}")
     print(f"User authenticated: {request.user.is_authenticated}")
-    print(f"User type: {type(request.user)}")
-    print(f"User: {request.user}")
     
-    if request.user.is_authenticated:
-        print(f"User ID: {request.user.id}")
-        print(f"User fields: {[f.name for f in request.user._meta.fields]}")
-        print(f"Username: {getattr(request.user, 'username', 'N/A')}")
-        print(f"Email: {getattr(request.user, 'email', 'N/A')}")
-        print(f"First name: {getattr(request.user, 'first_name', 'N/A')}")
-        print(f"Last name: {getattr(request.user, 'last_name', 'N/A')}")
-    else:
-        print("User is NOT authenticated!")
-        print(f"Anonymous user: {request.user}")
+    if not request.user.is_authenticated:
         return Response({"detail": "Authentication credentials were not provided."}, status=401)
     
-    target = request.user if getattr(request.user, "id", None) else None
-    if not target:
-        uid = request.query_params.get("user_id") if request.method == "GET" else request.data.get("user_id")
-        if uid:
-            target = get_object_or_404(User, pk=int(uid))
-
-    if not target:
-        return Response({"detail": "Authentication required or user_id missing."}, status=401)
-
+    target = request.user
+    
     if request.method == "GET":
         return Response(_public_user_payload(target, request), status=200)
 
     # ---- PATCH logic starts here ----
     data = request.data.copy()
-    data.pop("user_id", None)  # not a serializer field; only used to resolve target
 
-    # ✅ Ignore string "profilePic" unless it's an actual file in request.FILES
+    # Ignore string fields unless they're actual files
     if "profilePic" in data and not request.FILES.get("profilePic"):
-        print("Ignoring profilePic field since no file was uploaded")
         data.pop("profilePic")
 
-    # ✅ Ignore userVerifyId unless it's a real file
-    if "userVerifyId" in data and not request.FILES.get("userVerifyId"):
-        print("Ignoring userVerifyId field since no file was uploaded")
-        data.pop("userVerifyId")
+    # Handle id_document separately (goes to UserVerification)
+    if "id_document" in data and not request.FILES.get("id_document"):
+        data.pop("id_document")
 
     serializer = ProfileUpdateSerializer(instance=target, data=data, partial=True)
     serializer.is_valid(raise_exception=True)
     
-    # Save ONCE — ProfileUpdateSerializer.update() already flips is_verified=False
+    # Save - ProfileUpdateSerializer handles UserVerification updates
     updated = serializer.save()
-
-    # Safety: if a file really came in via multipart, keep it unverified and persist the flag
-    if request.FILES.get("userVerifyId"):
-        updated.is_verified = False
-        updated.save(update_fields=["is_verified"])
 
     return Response(_public_user_payload(updated, request), status=200)
 
 def _public_user_payload(user, request=None):
     """
-    Helper function to build user payload
+    Helper function to build user payload - UPDATED for UserVerification
     """
-    # ✅ FIXED: profilePic is now a Cloudinary URL, use directly
+    # profilePic is now a Cloudinary URL, use directly
     pic = user.profilePic if user.profilePic else None
-
-    # ✅ FIXED: userVerifyId is now a Cloudinary URL, use directly
-    verify_url = user.userVerifyId if user.userVerifyId else None
 
     # Handle links field
     links_array = user.links or []
 
-    # Enum status
-    status = getattr(user, "verification_status", None)
-    if not status:
-        if bool(getattr(user, "is_verified", False)):
-            status = "VERIFIED"
-        elif getattr(user, "userVerifyId", None):
-            status = "PENDING"
-        else:
-            status = "UNVERIFIED"
-
-    if status == "UNVERIFIED" and getattr(user, "userVerifyId", None) and not bool(getattr(user, "is_verified", False)):
-        status = "PENDING"
+    # Get verification data from related UserVerification model
+    try:
+        verification = user.verification
+        email_verified = verification.email_verified
+        id_verification_status = verification.id_verification_status
+        id_document_url = verification.id_document if verification.id_document else None
+        is_fully_verified = verification.is_fully_verified
+        verification_progress = verification.verification_progress
+    except UserVerification.DoesNotExist:
+        # Fallback if verification record doesn't exist
+        email_verified = False
+        id_verification_status = VerificationStatus.UNVERIFIED
+        id_document_url = None
+        is_fully_verified = False
+        verification_progress = 0
     
     # Interests
     interests = []
@@ -704,21 +676,25 @@ def _public_user_payload(user, request=None):
         "ratingCount": int(user.ratingCount or 0),
         "rating": float(user.avgStars or 0),
         "reviews": int(user.ratingCount or 0),
-        "profilePic": pic,  # ✅ Already a Cloudinary URL
+        "profilePic": pic,
         "created_at": user.created_at,
         "level": int(user.level or 0),
         "tot_XpPts": int(user.tot_XpPts or 0),
         "tot_xppts": int(user.tot_XpPts or 0),
         "totalXp": int(user.tot_XpPts or 0),
-        "verification_status": status,
-        "is_verified": bool(getattr(user, "is_verified", False)),
-        "userVerifyId": verify_url,  
+        
+        # Verification fields from UserVerification model
+        "email_verified": email_verified,
+        "id_verification_status": id_verification_status,
+        "is_fully_verified": is_fully_verified,
+        "verification_progress": verification_progress,
+        "id_document": id_document_url,
     }
     
     return payload
 
 @api_view(["GET", "PATCH"])
-@permission_classes([IsAuthenticated])  # require login for PATCH
+@permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def user_detail(request, user_id: int):
     user = get_object_or_404(User, pk=user_id)
@@ -727,84 +703,84 @@ def user_detail(request, user_id: int):
         return Response(_public_user_payload(user, request), status=200)
 
     elif request.method == "PATCH":
-        # Only allow self-edit unless admin logic is added later
+        # Only allow self-edit
         if request.user.id != user.id:
             return Response({"detail": "You cannot edit another user's profile."}, status=403)
 
         data = request.data.copy()
-        data.pop("user_id", None)  # prevent spoofing
+        data.pop("user_id", None)
 
-        # ✅ Ignore profilePic unless it's a real file
+        # Ignore profilePic unless it's a real file
         if "profilePic" in data and not request.FILES.get("profilePic"):
-            print("Ignoring profilePic field since no file was uploaded")
             data.pop("profilePic")
 
-        # ✅ Ignore userVerifyId unless it's a real file
-        if "userVerifyId" in data and not request.FILES.get("userVerifyId"):
-            print("Ignoring userVerifyId field since no file was uploaded")
-            data.pop("userVerifyId")
+        # Ignore id_document unless it's a real file
+        if "id_document" in data and not request.FILES.get("id_document"):
+            data.pop("id_document")
 
         # Handle password safely
         if "password" in data:
             user.set_password(data["password"])
             data.pop("password")
 
+        # Handle links (store as JSON array)
+        if "links" in data:
+            try:
+                if isinstance(data["links"], str):
+                    data["links"] = json.loads(data["links"])
+            except Exception:
+                return Response({"error": "Invalid format for links"}, status=400)
+
         serializer = ProfileUpdateSerializer(instance=user, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         updated = serializer.save()
 
         return Response(_public_user_payload(updated, request), status=200)
+
 @api_view(["GET", "PATCH"])
-@permission_classes([IsAuthenticated])  # require login for PATCH
+@permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def user_detail_by_username(request, username: str):
-    try:
-        user = User.objects.get(username__iexact=username)
-    except User.DoesNotExist:
-        return Response({"detail": "Not found."}, status=404)
+    # Use get_object_or_404 for cleaner lookup, matching user_detail
+    user = get_object_or_404(User, username__iexact=username)
 
     if request.method == "GET":
         return Response(_public_user_payload(user, request), status=200)
 
     elif request.method == "PATCH":
-        # Only allow self-edit unless you want admins to override this
+        # Only allow self-edit
         if request.user.id != user.id:
             return Response({"detail": "You cannot edit another user's profile."}, status=403)
 
         data = request.data.copy()
-        data.pop("user_id", None)  # prevent spoofing
+        data.pop("user_id", None)
 
-        # ✅ Ignore profilePic unless it's a real file
+        # Ignore profilePic unless it's a real file
         if "profilePic" in data and not request.FILES.get("profilePic"):
-            print("Ignoring profilePic field since no file was uploaded")
             data.pop("profilePic")
 
-        # ✅ Ignore userVerifyId unless it's a real file
-        if "userVerifyId" in data and not request.FILES.get("userVerifyId"):
-            print("Ignoring userVerifyId field since no file was uploaded")
-            data.pop("userVerifyId")
+        # CHANGED: Match user_detail by checking for "id_document"
+        if "id_document" in data and not request.FILES.get("id_document"):
+            data.pop("id_document")
 
         # Handle password safely
         if "password" in data:
             user.set_password(data["password"])
             data.pop("password")
 
-        # Handle links (store as JSON string)
+        # Handle links (store as JSON array)
         if "links" in data:
             try:
                 if isinstance(data["links"], str):
                     data["links"] = json.loads(data["links"])
-                # now guaranteed to be a Python list
             except Exception:
                 return Response({"error": "Invalid format for links"}, status=400)
-
 
         serializer = ProfileUpdateSerializer(instance=user, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         updated = serializer.save()
 
         return Response(_public_user_payload(updated, request), status=200)
-
 
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])
 @permission_classes([AllowAny])
@@ -1243,6 +1219,7 @@ def complete_registration(request):
     """
     Complete user registration with profile, interests, and skills.
     Supports file uploads to Cloudinary and full FormData payload.
+    UPDATED: Now handles UserVerification model separately
     """
     import json
 
@@ -1318,11 +1295,13 @@ def complete_registration(request):
             last_name=last_name,
             bio=bio,
             location=location,
-            links=links_array,  # Store as JSON array
+            links=links_array,
         )
         print(f"User created successfully with ID: {user.id}")
+        
+        # UserVerification is automatically created by the post_save signal
 
-        # ✅ Handle profilePic upload to Cloudinary
+        # Handle profilePic upload to Cloudinary
         profilePic = request.FILES.get("profilePic")
         if profilePic:
             try:
@@ -1340,13 +1319,11 @@ def complete_registration(request):
                 print(f"[ERROR] Cloudinary upload failed for profilePic: {e}")
                 import traceback
                 traceback.print_exc()
-                # Don't fail registration if photo upload fails
         else:
             # Check if this is a Google user with profile picture URL
             google_image_url = request.data.get("google_image_url")
             if google_image_url:
                 try:
-                    
                     # Download the Google profile picture
                     response = requests.get(google_image_url, timeout=10)
                     response.raise_for_status()
@@ -1362,35 +1339,40 @@ def complete_registration(request):
                     )
                     user.profilePic = upload_result['secure_url']
                     print(f"[SUCCESS] Google profile picture uploaded to Cloudinary: {upload_result['secure_url']}")
-                    
                 except Exception as e:
                     print(f"[ERROR] Failed to download/upload Google profile picture: {e}")
-                    # Continue without profile picture
             
-        # ✅ Handle userVerifyId upload to Cloudinary
-        userVerifyId = request.FILES.get("userVerifyId")
-        if userVerifyId:
+        # Handle ID verification document upload to Cloudinary
+        id_document_file = request.FILES.get("id_document")
+        id_type = request.data.get("id_type", "Government ID")
+        
+        if id_document_file:
             try:
                 # Determine resource type (image or raw for PDFs)
-                resource_type = "image" if userVerifyId.content_type.startswith("image/") else "raw"
+                resource_type = "image" if id_document_file.content_type.startswith("image/") else "raw"
                 
                 upload_result = cloudinary.uploader.upload(
-                    userVerifyId,
+                    id_document_file,
                     folder="media/user_verifications",
                     public_id=f"user_{user.id}_verification",
                     resource_type=resource_type,
                     overwrite=True,
                     invalidate=True
                 )
-                user.userVerifyId = upload_result['secure_url']
-                user.verification_status = VerificationStatus.PENDING
-                user.is_verified = False
+                
+                # Get the UserVerification record (created by signal)
+                verification = user.verification
+                verification.id_document = upload_result['secure_url']
+                verification.id_type = id_type
+                verification.id_verification_status = VerificationStatus.PENDING
+                verification.id_submitted_at = django_timezone.now()
+                verification.save()
+                
                 print(f"[SUCCESS] Verification ID uploaded to Cloudinary: {upload_result['secure_url']}")
             except Exception as e:
-                print(f"[ERROR] Cloudinary upload failed for userVerifyId: {e}")
+                print(f"[ERROR] Cloudinary upload failed for id_document: {e}")
                 import traceback
                 traceback.print_exc()
-                # Don't fail registration if ID upload fails
         
         # Save user with uploaded file URLs
         user.save()
@@ -1435,7 +1417,7 @@ def complete_registration(request):
             "interests_added": interests_added,
             "skills_added": skills_added,
             "profilePic_uploaded": bool(user.profilePic),
-            "verification_id_uploaded": bool(user.userVerifyId)
+            "verification_id_uploaded": bool(id_document_file)
         }, status=201)
 
     except Exception as e:
@@ -3972,6 +3954,90 @@ def     ted_trades(request):
             "completed_trades": [],
             "count": 0
         }, status=500)
+        
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+def user_verification(request, user_id: int):
+    """
+    Get or update user verification details
+    GET: Returns verification status and details
+    PATCH: Update verification document/type (for users) or verification status (for admins)
+    """
+    user = get_object_or_404(User, pk=user_id)
+    
+    # Users can only access their own verification
+    if request.user.id != user.id:
+        return Response({"detail": "You cannot access another user's verification."}, status=403)
+    
+    try:
+        verification = user.verification
+    except UserVerification.DoesNotExist:
+        # Create verification record if it doesn't exist
+        verification = UserVerification.objects.create(user=user)
+    
+    if request.method == 'GET':
+        from .serializers import UserVerificationSerializer
+        serializer = UserVerificationSerializer(verification)
+        return Response(serializer.data, status=200)
+    
+    elif request.method == 'PATCH':
+        data = request.data.copy()
+        
+        # Handle ID document upload
+        id_document_file = request.FILES.get("id_document")
+        if id_document_file:
+            try:
+                resource_type = "image" if id_document_file.content_type.startswith("image/") else "raw"
+                
+                upload_result = cloudinary.uploader.upload(
+                    id_document_file,
+                    folder="media/user_verifications",
+                    public_id=f"user_{user.id}_verification",
+                    resource_type=resource_type,
+                    overwrite=True,
+                    invalidate=True
+                )
+                
+                verification.id_document = upload_result['secure_url']
+                verification.id_submitted_at = django_timezone.now()
+                verification.id_verification_status = VerificationStatus.PENDING
+                
+                print(f"[SUCCESS] Verification document uploaded: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Upload failed: {e}")
+                return Response({"error": f"Upload failed: {str(e)}"}, status=500)
+        
+        # Update id_type if provided
+        if "id_type" in data:
+            verification.id_type = data["id_type"]
+        
+        verification.save()
+        
+        serializer = UserVerificationSerializer(verification)
+        return Response(serializer.data, status=200)
+    
+    data = request.data.copy()
+    data.pop("user_id", None)
+
+    # Ignore profilePic unless it's a real file
+    if "profilePic" in data and not request.FILES.get("profilePic"):
+        data.pop("profilePic")
+
+    # Ignore id_document unless it's a real file
+    if "id_document" in data and not request.FILES.get("id_document"):
+        data.pop("id_document")
+
+    # Handle password safely
+    if "password" in data:
+        user.set_password(data["password"])
+        data.pop("password")
+
+    serializer = ProfileUpdateSerializer(instance=user, data=data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    updated = serializer.save()
+
+    return Response(_public_user_payload(updated, request), status=200)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -4405,3 +4471,135 @@ def get_completed_trades(request):
             "completed_trades": [],
             "count": 0
         }, status=500)
+        
+# 1. Send OTP (when user submits Step 1)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_verification_otp(request):
+    """Send OTP to email for verification"""
+    email = request.data.get('email')
+    
+    if not email:
+        return Response({"error": "Email is required"}, status=400)
+    
+    # Check if email already verified
+    if User.objects.filter(email=email, verification__email_verified=True).exists():
+        return Response({"error": "Email already registered and verified"}, status=400)
+    
+    try:
+        # Generate OTP
+        otp_code = generate_otp()
+        
+        # Create or get user (partial user for registration flow)
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={'username': email.split('@')[0]}  # Temporary username
+        )
+        
+        # Update verification record
+        verification, _ = UserVerification.objects.get_or_create(user=user)
+        verification.email_verification_otp = otp_code
+        verification.email_otp_created_at = django_timezone.now()
+        verification.save()
+        
+        # Send email
+        send_otp_email(email, otp_code)
+        
+        return Response({
+            "message": "OTP sent successfully",
+            "email": email
+        }, status=200)
+        
+    except Exception as e:
+        print(f"Send OTP error: {str(e)}")
+        return Response({"error": "Failed to send OTP"}, status=500)
+
+
+# 2. Verify OTP
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    """Verify OTP code"""
+    email = request.data.get('email')
+    otp_code = request.data.get('otp')
+    
+    if not email or not otp_code:
+        return Response({"error": "Email and OTP are required"}, status=400)
+    
+    try:
+        user = User.objects.get(email=email)
+        verification = user.verification
+        
+        # Check if OTP exists
+        if not verification.email_verification_otp:
+            return Response({"error": "No OTP found. Please request a new one."}, status=400)
+        
+        # Check if OTP expired (90 seconds)
+        time_diff = (django_timezone.now() - verification.email_otp_created_at).total_seconds()
+        if time_diff > 90:
+            return Response({"error": "OTP expired. Please request a new one."}, status=400)
+        
+        # Check if OTP matches
+        if verification.email_verification_otp != otp_code:
+            return Response({"error": "Invalid OTP code"}, status=400)
+        
+        # Mark email as verified
+        verification.email_verified = True
+        verification.email_verified_at = django_timezone.now()
+        verification.email_verification_otp = None  # Clear OTP
+        verification.email_otp_created_at = None
+        verification.save()
+        
+        return Response({
+            "message": "Email verified successfully",
+            "email": email
+        }, status=200)
+        
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+    except Exception as e:
+        print(f"Verify OTP error: {str(e)}")
+        return Response({"error": "Verification failed"}, status=500)
+
+
+# 3. Resend OTP
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_otp(request):
+    """Resend OTP code"""
+    email = request.data.get('email')
+    
+    if not email:
+        return Response({"error": "Email is required"}, status=400)
+    
+    try:
+        user = User.objects.get(email=email)
+        verification = user.verification
+        
+        # Check cooldown (90 seconds)
+        if verification.email_otp_created_at:
+            time_diff = (django_timezone.now() - verification.email_otp_created_at).total_seconds()
+            if time_diff < 90:
+                remaining = int(90 - time_diff)
+                return Response({
+                    "error": f"Please wait {remaining} seconds before requesting a new code"
+                }, status=429)
+        
+        # Generate new OTP
+        otp_code = generate_otp()
+        verification.email_verification_otp = otp_code
+        verification.email_otp_created_at = django_timezone.now()
+        verification.save()
+        
+        # Send email
+        send_otp_email(email, otp_code)
+        
+        return Response({
+            "message": "New OTP sent successfully"
+        }, status=200)
+        
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+    except Exception as e:
+        print(f"Resend OTP error: {str(e)}")
+        return Response({"error": "Failed to resend OTP"}, status=500)

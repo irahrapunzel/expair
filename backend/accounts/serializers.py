@@ -1,12 +1,12 @@
 import cloudinary.uploader
 from rest_framework import serializers
-from .models import TradeDetail, User, Conversation, Message
+from .models import TradeDetail, User, Conversation, Message, UserVerification, VerificationStatus
 from .models import GenSkill, UserInterest
 from rest_framework import serializers
 from .models import SpecSkill, UserSkill 
-from .models import VerificationStatus, IdType
 from .models import User, UserCredential
 from .models import Report
+from django.utils import timezone
 
 import os
 from django.core.files.storage import default_storage
@@ -14,16 +14,85 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 import json
 
-class IdTypeSerializer(serializers.ModelSerializer):
+
+class UserVerificationSerializer(serializers.ModelSerializer):
+    """Serializer for UserVerification model"""
     class Meta:
-        model = IdType
-        fields = ['id', 'name', 'short_name', 'description', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        model = UserVerification
+        fields = [
+            'verification_id',
+            'email_verified',
+            'email_verification_token',
+            'email_verified_at',
+            'id_document',
+            'id_type',
+            'id_verification_status',
+            'id_submitted_at',
+            'id_verified_at',
+            'rejection_reason',
+            'rejected_at',
+            'is_fully_verified',
+            'verification_progress',
+        ]
+        read_only_fields = [
+            'verification_id',
+            'email_verification_token',
+            'email_verified_at',
+            'id_verified_at',
+            'rejected_at',
+            'is_fully_verified',
+            'verification_progress',
+        ]
+
+    def validate_id_document(self, f):
+        if not f:
+            return f
+        ct = (getattr(f, "content_type", "") or "").lower()
+        if not (ct.startswith("image/") or ct == "application/pdf"):
+            raise serializers.ValidationError("Only image or PDF files are allowed.")
+        if getattr(f, "size", 0) > 15 * 1024 * 1024:
+            raise serializers.ValidationError("File too large (max 15MB).")
+        return f
+
+    def update(self, instance, validated_data):
+        new_file = validated_data.pop("id_document", None)
+        if new_file:
+            try:
+                resource_type = "image" if new_file.content_type.startswith("image/") else "raw"
+                upload_result = cloudinary.uploader.upload(
+                    new_file,
+                    folder="media/user_verifications",
+                    resource_type=resource_type,
+                    overwrite=True,
+                    invalidate=True
+                )
+                instance.id_document = upload_result['secure_url']
+                instance.id_verification_status = VerificationStatus.PENDING
+                instance.id_submitted_at = serializers.DateTimeField().to_representation(serializers.DateTimeField().to_internal_value("now"))
+                instance.save()
+                print(f"[DEBUG] Uploaded verification document: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Cloudinary upload failed: {e}")
+                raise serializers.ValidationError(f"Failed to upload ID document: {str(e)}")
+
+        # Allow other updatable fields
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save()
+        return instance
+
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     profilePic = serializers.ImageField(required=False, allow_null=True)
-    userVerifyId = serializers.FileField(required=False, allow_null=True)
+    id_document = serializers.FileField(required=False, allow_null=True, write_only=True)
+    id_type = serializers.CharField(required=False, allow_blank=True, write_only=True)
     links = serializers.JSONField(required=False)
+    
+    # Read-only verification fields from UserVerification
+    email_verified = serializers.BooleanField(source='verification.email_verified', read_only=True)
+    id_verification_status = serializers.CharField(source='verification.id_verification_status', read_only=True)
+    is_fully_verified = serializers.BooleanField(source='verification.is_fully_verified', read_only=True)
+    verification_progress = serializers.IntegerField(source='verification.verification_progress', read_only=True)
 
     class Meta:
         model = User
@@ -31,15 +100,24 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "first_name", "last_name", "bio",
             "username", "email", "profilePic", 
             'tot_XpPts',
-            "userVerifyId", 
+            "id_document",
+            "id_type",
             "location",
-            "links",              
-            "is_verified",
-            "verification_status",
+            "links",
+            "email_verified",
+            "id_verification_status",
+            "is_fully_verified",
+            "verification_progress",
         ]
-        read_only_fields = ["is_verified", "verification_status"]
+        read_only_fields = [
+            "email_verified",
+            "id_verification_status",
+            "is_fully_verified",
+            "verification_progress",
+        ]
 
-    def validate_userVerifyId(self, f):
+    def validate_id_document(self, f):
+        """Validate ID document file"""
         if not f:
             return f
         ct = (getattr(f, "content_type", "") or "").lower()
@@ -83,7 +161,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             cleaned.append(s)
 
         return cleaned
-
+    
     def update(self, instance, validated_data):
         if "links" in validated_data:
             print("[DEBUG] validated_data['links'] =", validated_data["links"])
@@ -94,7 +172,6 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         new_pic = validated_data.pop("profilePic", None)
         if new_pic:
             try:
-                # Upload to Cloudinary with folder structure
                 upload_result = cloudinary.uploader.upload(
                     new_pic,
                     folder="media/profile_pics",
@@ -102,34 +179,43 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
                     overwrite=True,
                     invalidate=True
                 )
-                # Save the Cloudinary secure URL
                 instance.profilePic = upload_result['secure_url']
                 print(f"[DEBUG] Uploaded profilePic to Cloudinary: {upload_result['secure_url']}")
             except Exception as e:
                 print(f"[ERROR] Cloudinary upload failed for profilePic: {e}")
                 raise serializers.ValidationError(f"Failed to upload profile picture: {str(e)}")
 
-        # --- handle userVerifyId with Cloudinary ---
-        new_file = validated_data.pop("userVerifyId", None)
-        if new_file:
+        # --- handle id_document with Cloudinary (goes to UserVerification) ---
+        new_id_file = validated_data.pop("id_document", None)
+        new_id_type = validated_data.pop("id_type", None)
+        
+        if new_id_file:
             try:
                 # Determine resource type (image or raw for PDFs)
-                resource_type = "image" if new_file.content_type.startswith("image/") else "raw"
+                resource_type = "image" if new_id_file.content_type.startswith("image/") else "raw"
                 
                 # Upload to Cloudinary
                 upload_result = cloudinary.uploader.upload(
-                    new_file,
+                    new_id_file,
                     folder="media/user_verifications",
                     resource_type=resource_type,
                     overwrite=True,
                     invalidate=True
                 )
-                instance.userVerifyId = upload_result['secure_url']
-                instance.verification_status = VerificationStatus.PENDING
-                instance.is_verified = False
-                print(f"[DEBUG] Uploaded userVerifyId to Cloudinary: {upload_result['secure_url']}")
+                
+                # Get or create UserVerification record
+                verification, created = UserVerification.objects.get_or_create(user=instance)
+                
+                # Update verification record
+                verification.id_document = upload_result['secure_url']
+                verification.id_type = new_id_type or verification.id_type or "Government ID"
+                verification.id_verification_status = VerificationStatus.PENDING
+                verification.id_submitted_at = timezone.now()
+                verification.save()
+                
+                print(f"[DEBUG] Uploaded id_document to Cloudinary: {upload_result['secure_url']}")
             except Exception as e:
-                print(f"[ERROR] Cloudinary upload failed for userVerifyId: {e}")
+                print(f"[ERROR] Cloudinary upload failed for id_document: {e}")
                 raise serializers.ValidationError(f"Failed to upload verification document: {str(e)}")
         
         # --- handle links ---
@@ -146,33 +232,18 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 class UserSerializer(serializers.ModelSerializer):
-    id_type_name = serializers.CharField(source='id_type.name', read_only=True)
-    id_type_short_name = serializers.CharField(source='id_type.short_name', read_only=True)
+    # Include verification fields from related UserVerification
+    email_verified = serializers.BooleanField(source='verification.email_verified', read_only=True)
+    id_verification_status = serializers.CharField(source='verification.id_verification_status', read_only=True)
+    is_fully_verified = serializers.BooleanField(source='verification.is_fully_verified', read_only=True)
     
     class Meta:
         model = User
         fields = '__all__'
         extra_kwargs = {'password': {'write_only': True}}
 
-    def validate_userVerifyId(self, f):
-        if not f:
-            return f
-        allowed = ('image/', 'application/pdf')
-        # Some storages don’t set content_type; guard for that
-        ct = getattr(f, 'content_type', '') or ''
-        if not any(ct.startswith(a) for a in allowed):
-            raise serializers.ValidationError("User ID must be an image or a PDF.")
-        # Optional size limit: 5MB
-        if f.size > 5 * 1024 * 1024:
-            raise serializers.ValidationError("File too large (max 5MB).")
-        return f
-    
     def create(self, validated_data):
-        # If the sign-in/registration form includes an ID file,
-        # new users should start as PENDING (not UNVERIFIED)
-        if validated_data.get("userVerifyId"):
-            validated_data["verification_status"] = VerificationStatus.PENDING
-            validated_data["is_verified"] = False
+        # UserVerification is auto-created by signal
         return super().create(validated_data)
     
 class GenSkillSerializer(serializers.ModelSerializer):

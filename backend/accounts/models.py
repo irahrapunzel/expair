@@ -7,6 +7,8 @@ from django.conf import settings
 from django.utils import timezone
 import os
 import binascii
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class PasswordResetToken(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_reset_tokens')
@@ -38,9 +40,75 @@ class PasswordResetToken(models.Model):
 
 class VerificationStatus(models.TextChoices):
     UNVERIFIED = "UNVERIFIED", "Unverified"
-    PENDING    = "PENDING",    "Pending"
-    VERIFIED   = "VERIFIED",   "Verified"
-    REJECTED   = "REJECTED",   "Rejected"
+    PENDING = "PENDING", "Pending"
+    VERIFIED = "VERIFIED", "Verified"
+    REJECTED = "REJECTED", "Rejected"
+
+class UserVerification(models.Model):
+    """
+    Separate table for user verification details.
+    Tracks email verification and ID verification separately.
+    """
+    verification_id = models.AutoField(primary_key=True, db_column='verification_id')
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='verification',
+        db_column='user_id'
+    )
+    
+    # Email Verification
+    email_verified = models.BooleanField(default=False, db_column='email_verified')
+    email_verification_otp = models.CharField(
+        max_length=7, 
+        null=True, 
+        blank=True,
+        db_column='email_verification_otp'
+    )
+    email_otp_created_at = models.DateTimeField(null=True, blank=True, db_column='email_otp_created_at')
+    email_verified_at = models.DateTimeField(null=True, blank=True, db_column='email_verified_at') 
+    
+    # ID Verification
+    id_document = models.TextField(null=True, blank=True, db_column='id_link')  # Cloudinary URL
+    id_type = models.CharField(max_length=100, db_column='id_type')
+    id_verification_status = models.CharField(
+        max_length=20,
+        choices=VerificationStatus.choices,
+        default=VerificationStatus.UNVERIFIED,
+        db_column='id_verification_status'
+    )
+    id_submitted_at = models.DateTimeField(null=True, blank=True, db_column='id_submitted_at')
+    id_verified_at = models.DateTimeField(null=True, blank=True, db_column='id_verified_at')
+    
+    # Rejection details (if admin rejects)
+    rejection_reason = models.TextField(null=True, blank=True, db_column='rejection_reason')
+    rejected_at = models.DateTimeField(null=True, blank=True, db_column='rejected_at')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
+    updated_at = models.DateTimeField(auto_now=True, db_column='updated_at')
+    
+    class Meta:
+        db_table = 'user_verification_tbl'
+        managed = True
+    
+    def __str__(self):
+        return f"Verification for {self.user.username}"
+    
+    @property
+    def is_fully_verified(self):
+        """User is fully verified if both email AND ID are verified"""
+        return self.email_verified and self.id_verification_status == VerificationStatus.VERIFIED
+    
+    @property
+    def verification_progress(self):
+        """Returns verification progress percentage"""
+        progress = 0
+        if self.email_verified:
+            progress += 50
+        if self.id_verification_status == VerificationStatus.VERIFIED:
+            progress += 50
+        return progress
 
 class UserManager(models.Manager):
     """Custom manager for User model that provides create_user method"""
@@ -87,19 +155,9 @@ class User(AbstractUser):
     tot_XpPts = models.IntegerField(default=0, db_column='tot_xppts')
     level = models.IntegerField(default=1, db_column='level')
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
-    userVerifyId = models.TextField(
-        null=True, 
-        blank=True, 
-        db_column='userverifyid'
-    )
-    is_verified = models.BooleanField(default=False, db_column='is_verified')
+    
     links = models.JSONField(default=list, blank=True, null=True)
-    verification_status = models.CharField(
-        max_length=20, 
-        choices=VerificationStatus.choices,
-        default=VerificationStatus.UNVERIFIED,
-        db_column="verification_status",
-    )
+    
     is_active = models.BooleanField(default=True, db_column='is_active') 
 
     # Django AbstractUser fields that don't exist in your database
@@ -122,7 +180,35 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+    # Helper properties for backwards compatibility
+    @property
+    def is_verified(self):
+        """Check if user is fully verified (email + ID)"""
+        try:
+            return self.verification.is_fully_verified
+        except UserVerification.DoesNotExist:
+            return False
     
+    @property
+    def verification_status(self):
+        """Get ID verification status"""
+        try:
+            return self.verification.id_verification_status
+        except UserVerification.DoesNotExist:
+            return VerificationStatus.UNVERIFIED
+
+@receiver(post_save, sender=User)
+def create_user_verification(sender, instance, created, **kwargs):
+    """Automatically create UserVerification record when User is created"""
+    if created:
+        UserVerification.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_verification(sender, instance, **kwargs):
+    """Save UserVerification when User is saved"""
+    if hasattr(instance, 'verification'):
+        instance.verification.save()
+        
 class GenSkill(models.Model):
     genSkills_id = models.AutoField(primary_key=True, db_column='genskills_id')
     genCateg = models.CharField(max_length=100, unique=True, db_column='gencateg')
