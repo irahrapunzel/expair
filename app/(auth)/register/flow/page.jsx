@@ -10,6 +10,8 @@ import Step5 from "./steps/step5";
 import Step6 from "./steps/step6";
 import Onboarding1 from "./steps/onboarding1";
 import Onboarding2 from "./steps/onboarding2";
+import OTPVerification from "./steps/OTPVerification";
+
 import { useRouter } from "next/navigation";
 
 export default function RegisterFlow() {
@@ -17,7 +19,8 @@ export default function RegisterFlow() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [isRegistering, setIsRegistering] = useState(false);
-  
+  const [otpEmail, setOtpEmail] = useState("");
+
   // ✅ NEW: Store the trade request ID
   const [tradereqId, setTradereqId] = useState(null);
 
@@ -101,7 +104,7 @@ export default function RegisterFlow() {
       sessionStorage.removeItem('registrationComplete');
       sessionStorage.removeItem('userEmail');
       sessionStorage.removeItem('postRegistrationFlow');
-      
+
       console.log("✅ Registration complete! Redirecting to home...");
       router.push("/home");
     } catch (error) {
@@ -146,6 +149,17 @@ export default function RegisterFlow() {
           step1Data={step1Data}
           onDataSubmit={handleStep1Submit}
           onNext={nextStep}
+          onShowOtpPage={(email) => {
+            setOtpEmail(email);
+            setStep("otp");
+          }}
+        />
+      )}
+      {step === "otp" && (
+        <OTPVerification
+          email={otpEmail}
+          onVerified={() => setStep(2)}  // Move to Step 2 after verification
+          onBack={() => setStep(1)}      // Back to Step 1 if needed
         />
       )}
       {step === 2 && (
@@ -242,7 +256,7 @@ export default function RegisterFlow() {
               console.log("=== SUBMITTING REGISTRATION ===");
               console.log("Calling complete-registration API...");
 
-              const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL 
+              const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL
                 ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/complete-registration/`
                 : "/api/dj/complete-registration/";
 
@@ -272,7 +286,7 @@ export default function RegisterFlow() {
               }
 
               console.log("✅ Sign-in successful, session created");
-              
+
               // Mark that we're in post-registration flow
               sessionStorage.setItem('postRegistrationFlow', 'true');
 
@@ -300,7 +314,7 @@ export default function RegisterFlow() {
           onPrev={() => setStep(6)}
         />
       )}
-      
+
       {/* Step 8: Best Picks */}
       {step === 8 && (
         <Onboarding2
