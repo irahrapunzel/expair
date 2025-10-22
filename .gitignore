@@ -41,6 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Python virtualenv
+.venv/
 venv/
 backend/venv/
 */venv/
