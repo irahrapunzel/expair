@@ -1,7 +1,6 @@
-from django.core.mail import EmailMultiAlternatives
+
+from django.core.mail import EmailMultiAlternatives, send_mail
 from django.template.loader import render_to_string
-from django.conf import settings
-from django.core.mail import send_mail
 from django.conf import settings
 import random
 
@@ -9,29 +8,56 @@ def generate_otp():
     """Generate 6-digit OTP"""
     return str(random.randint(100000, 999999))
 
-def send_otp_email(email, otp_code):
-    """Send OTP verification email"""
-    subject = "Expair - Verify Your Email"
-    message = f"""
-    Hello,
+def send_otp_email(user, otp_code):
+    """
+    Send OTP verification email with HTML template
     
-    Your verification code is: {otp_code}
+    Args:
+        user: User object (can be partial user during registration)
+        otp_code: 6-digit OTP string
+    """
+    # Prepare context for template
+    context = {
+        'user': user,
+        'otp_code': otp_code,
+    }
     
-    This code will expire in 90 seconds.
+    # Render HTML template (similar to password reset)
+    html_message = render_to_string('emails/otp_verification_email.html', context)
     
-    If you didn't request this, please ignore this email.
-    
-    Best regards,
-    Expair Team
+    # Plain text fallback
+    plain_message = f"""
+Hello{f', {user.first_name}' if user.first_name else ''},
+
+Thank you for signing up with Expair! To complete your registration, please use the verification code below:
+
+Verification Code: {otp_code}
+
+⏱️ This code expires in 90 seconds
+
+Enter this code in the registration page to verify your email address and continue setting up your account.
+
+If you didn't create an account with Expair, you can safely ignore this email.
+
+Best regards,
+Expair Team
+
+---
+This is an automated message. Please do not reply.
+© 2025 Expair. All rights reserved.
     """
     
+    # Send email using send_mail (just like forgot_password)
     send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [email],
+        subject='Expair - Verify Your Email',
+        message=plain_message.strip(),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
         fail_silently=False,
+        html_message=html_message,
     )
+    
+    print(f"[DEBUG] OTP email sent to {user.email} with code: {otp_code}")
     
 def send_support_emails(ticket):
     """

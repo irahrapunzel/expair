@@ -1258,12 +1258,30 @@ def complete_registration(request):
             "error": "Username, email, and password are required"
         }, status=400)
 
-    # Check if user already exists
-    if User.objects.filter(username=username).exists():
-        return Response({"error": "Username already exists"}, status=400)
-    
-    if User.objects.filter(email=email).exists():
-        return Response({"error": "Email already exists"}, status=400)
+    # Check if user already exists (from OTP flow)
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({
+            "error": "Email not found in verification records. Please restart registration."
+        }, status=400)
+
+    # Verify email was verified
+    if not user.verification.email_verified:
+        return Response({"error": "Please verify your email first"}, status=400)
+
+    # ✅ Update the existing verified user
+    user.username = username
+    user.first_name = first_name
+    user.last_name = last_name
+    user.bio = bio
+    user.location = location
+    user.links = links_array
+    if password:
+        user.set_password(password)
+    user.save()
+    print(f"[INFO] Updated existing user from OTP flow: {user.id}")
+
 
     # Handling genSkills_ids (Array of IDs)
     genSkills_ids_raw = request.data.get("genSkills_ids", "[]")
@@ -1286,17 +1304,6 @@ def complete_registration(request):
         return Response({"error": "genSkills_ids should be an array"}, status=400)
 
     try:
-        # Create user using the custom manager
-        user = User.objects.create_user(
-            username=username,
-            email=email, 
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-            bio=bio,
-            location=location,
-            links=links_array,
-        )
         print(f"User created successfully with ID: {user.id}")
         
         # UserVerification is automatically created by the post_save signal
@@ -4447,7 +4454,6 @@ def get_completed_trades(request):
                     "level": other_user.level,
                     "rating": float(other_user.avgStars or 0)
                 },
-                # ✅ Gagamitin na natin ang mga bago at tamang variables
                 "reqname": user_perspective_needed,
                 "exchange": user_perspective_offered,
                 "total_xp": total_xp,
@@ -4476,44 +4482,70 @@ def get_completed_trades(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def send_verification_otp(request):
-    """Send OTP to email for verification"""
+    """Send OTP to email for verification - with complete Step 1 data"""
     email = request.data.get('email')
+    username = request.data.get('username')
+    first_name = request.data.get('first_name', '')
+    last_name = request.data.get('last_name', '')
+    password = request.data.get('password')
     
-    if not email:
-        return Response({"error": "Email is required"}, status=400)
-    
-    # Check if email already verified
-    if User.objects.filter(email=email, verification__email_verified=True).exists():
-        return Response({"error": "Email already registered and verified"}, status=400)
+    if not email or not username:
+        return Response({"error": "Email and username are required"}, status=400)
     
     try:
-        # Generate OTP
+        # Check if user already exists
+        existing_user = User.objects.filter(Q(username=username) | Q(email=email)).first()
+        
+        if existing_user:
+            # Check if already verified
+            if existing_user.verification.email_verified:
+                return Response({"error": "Email already registered and verified"}, status=400)
+            
+            # User exists but not verified - update their info and resend OTP
+            user = existing_user
+            user.username = username
+            user.first_name = first_name
+            user.last_name = last_name
+            user.email = email
+            if password:
+                user.set_password(password)
+            user.save()
+            print(f"[INFO] Updated existing unverified user: {user.id}")
+        else:
+            # Create new user with correct username
+            user = User.objects.create(
+                email=email,
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            if password:
+                user.set_password(password)
+                user.save()
+            print(f"[INFO] Created new user for OTP: {user.id}")
+        
+        # Generate and store OTP
         otp_code = generate_otp()
-        
-        # Create or get user (partial user for registration flow)
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={'username': email.split('@')[0]}  # Temporary username
-        )
-        
-        # Update verification record
         verification, _ = UserVerification.objects.get_or_create(user=user)
         verification.email_verification_otp = otp_code
         verification.email_otp_created_at = django_timezone.now()
+        verification.email_verified = False
         verification.save()
         
         # Send email
-        send_otp_email(email, otp_code)
+        send_otp_email(user, otp_code)
         
         return Response({
             "message": "OTP sent successfully",
-            "email": email
+            "email": email,
+            "username": username
         }, status=200)
         
     except Exception as e:
-        print(f"Send OTP error: {str(e)}")
-        return Response({"error": "Failed to send OTP"}, status=500)
-
+        print(f"[ERROR] Send OTP error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({"error": "Failed to send OTP. Please try again."}, status=500)
 
 # 2. Verify OTP
 @api_view(['POST'])
@@ -4534,32 +4566,40 @@ def verify_otp(request):
         if not verification.email_verification_otp:
             return Response({"error": "No OTP found. Please request a new one."}, status=400)
         
-        # Check if OTP expired (90 seconds)
+        # Check if OTP expired (5 minutes)
+        if not verification.email_otp_created_at:
+            return Response({"error": "OTP session expired. Please request a new one."}, status=400)
+            
         time_diff = (django_timezone.now() - verification.email_otp_created_at).total_seconds()
-        if time_diff > 90:
+        if time_diff > 300:
             return Response({"error": "OTP expired. Please request a new one."}, status=400)
         
-        # Check if OTP matches
-        if verification.email_verification_otp != otp_code:
+        # Check if OTP matches (case-insensitive, strip whitespace)
+        if verification.email_verification_otp.strip() != otp_code.strip():
             return Response({"error": "Invalid OTP code"}, status=400)
         
-        # Mark email as verified
+        # ✅ Mark email as verified
         verification.email_verified = True
         verification.email_verified_at = django_timezone.now()
-        verification.email_verification_otp = None  # Clear OTP
+        verification.email_verification_otp = None  # Clear OTP for security
         verification.email_otp_created_at = None
         verification.save()
         
+        print(f"[SUCCESS] Email verified for user: {user.email}")
+        
         return Response({
             "message": "Email verified successfully",
-            "email": email
+            "email": email,
+            "verified": True
         }, status=200)
         
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=404)
     except Exception as e:
-        print(f"Verify OTP error: {str(e)}")
-        return Response({"error": "Verification failed"}, status=500)
+        print(f"[ERROR] Verify OTP error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({"error": "Verification failed. Please try again."}, status=500)
 
 
 # 3. Resend OTP
@@ -4576,11 +4616,11 @@ def resend_otp(request):
         user = User.objects.get(email=email)
         verification = user.verification
         
-        # Check cooldown (90 seconds)
+        # Check cooldown (5 minutes)
         if verification.email_otp_created_at:
             time_diff = (django_timezone.now() - verification.email_otp_created_at).total_seconds()
-            if time_diff < 90:
-                remaining = int(90 - time_diff)
+            if time_diff < 300:
+                remaining = int(300 - time_diff)
                 return Response({
                     "error": f"Please wait {remaining} seconds before requesting a new code"
                 }, status=429)
@@ -4591,8 +4631,10 @@ def resend_otp(request):
         verification.email_otp_created_at = django_timezone.now()
         verification.save()
         
-        # Send email
-        send_otp_email(email, otp_code)
+        # Send email with HTML template
+        send_otp_email(user, otp_code)
+        
+        print(f"[SUCCESS] OTP resent to {user.email}")
         
         return Response({
             "message": "New OTP sent successfully"
@@ -4601,5 +4643,7 @@ def resend_otp(request):
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=404)
     except Exception as e:
-        print(f"Resend OTP error: {str(e)}")
-        return Response({"error": "Failed to resend OTP"}, status=500)
+        print(f"[ERROR] Resend OTP error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({"error": "Failed to resend OTP. Please try again."}, status=500)
