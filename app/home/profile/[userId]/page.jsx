@@ -3546,12 +3546,30 @@ export default function ProfilePage() {
                                 </div>
                               </Link>
                               <div className="flex flex-col items-start gap-[5px]">
-                                <Link
-                                  href={`/home/profile/${session.user.username}`}
-                                  className="text-[16px] text-white hover:text-[#D78DE5] transition-colors cursor-pointer"
-                                >
-                                  <span>{trade.name}</span>
-                                </Link>
+                                <div className="flex items-center gap-2">
+                                  <Link
+                                    href={`/home/profile/${session.user.username}`}
+                                    className="text-[16px] text-white hover:text-[#D78DE5] transition-colors cursor-pointer"
+                                  >
+                                    <span>{trade.name}</span>
+                                  </Link>
+                                  {(user.is_verified ||
+                                    verificationStatus?.toLowerCase() === "verified") && (
+                                    <div className="relative group">
+                                      <div
+                                        className="w-[1.2em] h-[1.2em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
+                                        style={{
+                                          WebkitMask:
+                                            "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                                          mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                                        }}
+                                      />
+                                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                                        Verified User
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-[15px]">
                                   <div className="flex items-center gap-[5px]">
                                     <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
@@ -3739,14 +3757,32 @@ export default function ProfilePage() {
                                 </div>
                               </Link>
                               <div className="flex flex-col gap-[5px]">
-                                <Link
-                                  href={`/home/profile/${trade.username}`}
-                                  className="hover:text-[#0038FF] transition-colors"
-                                >
-                                  <span className="text-base font-medium cursor-pointer">
-                                    {trade.name}
-                                  </span>
-                                </Link>
+                                <div className="flex items-center gap-2">
+                                  <Link
+                                    href={`/home/profile/${trade.username}`}
+                                    className="hover:text-[#0038FF] transition-colors"
+                                  >
+                                    <span className="text-base font-medium cursor-pointer">
+                                      {trade.name}
+                                    </span>
+                                  </Link>
+                                  {(user.is_verified ||
+                                    verificationStatus?.toLowerCase() === "verified") && (
+                                    <div className="relative group">
+                                      <div
+                                        className="w-[1.2em] h-[1.2em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
+                                        style={{
+                                          WebkitMask:
+                                            "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                                          mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                                        }}
+                                      />
+                                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                                        Verified User
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="flex gap-[15px] items-center text-sm text-white/90">
                                   <div className="flex gap-1 items-center">
                                     <Icon

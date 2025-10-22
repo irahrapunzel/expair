@@ -372,6 +372,7 @@ export default function HomePage() {
           rating: item.rating || 0,
           ratingCount: item.ratingCount || 0,
           level: item.level || 1,
+          isVerified: item.is_verified || item.isVerified || false,
         }));  
 
         const uniqueItems = Array.from(
@@ -624,6 +625,7 @@ export default function HomePage() {
               offering={trade.exchange}
               totalXp={trade.total_xp}
               deadline={trade.deadline_formatted}
+              isVerified={trade.other_user.is_verified || trade.other_user.isVerified || false}
             />
           ))
         )}
@@ -885,6 +887,7 @@ export default function HomePage() {
                 username={item.username}
                 tradereqId={item.tradereq_id}
                 onInterestedClick={() => handleInterestedClick(item)}
+                isVerified={item.isVerified}
               />
             ))
           )}

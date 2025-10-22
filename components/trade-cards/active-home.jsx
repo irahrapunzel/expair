@@ -10,7 +10,8 @@ export default function ActiveTradeHome({
   username,
   offering, 
   totalXp, 
-  deadline 
+  deadline,
+  isVerified = false,
 }) {
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
@@ -73,17 +74,34 @@ export default function ActiveTradeHome({
           
           <div className="flex items-center gap-[8px]">
             {/* Clickable Name */}
-            {username ? (
-              <Link 
-                href={`/home/profile/${username}`} 
-                className="hover:text-[#0038FF] transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <p className="text-base cursor-pointer">{name}</p>
-              </Link>
-            ) : (
-              <p className="text-base">{name}</p>
-            )}
+            <div className="flex items-center gap-2">
+              {username ? (
+                <Link 
+                  href={`/home/profile/${username}`} 
+                  className="hover:text-[#0038FF] transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p className="text-base cursor-pointer">{name}</p>
+                </Link>
+              ) : (
+                <p className="text-base">{name}</p>
+              )}
+              {isVerified && (
+                <div className="relative group">
+                  <div
+                    className="w-[1.2em] h-[1.2em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
+                    style={{
+                      WebkitMask:
+                        "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                      mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                    }}
+                  />
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                    Verified User
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-[4px]">
             </div>
           </div>

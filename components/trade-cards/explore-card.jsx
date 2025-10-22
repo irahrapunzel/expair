@@ -22,6 +22,7 @@ export default function ExploreCard({
   username,
   tradereqId,
   onInterestedClick,
+  isVerified = false,
 }) {
   const { data: session } = useSession();
   const [showMenu, setShowMenu] = useState(false);
@@ -151,18 +152,35 @@ export default function ExploreCard({
             )}
 
             <div className="flex flex-col gap-[5px]">
-              {username ? (
-                <Link
-                  href={`/home/profile/${username}`}
-                  className="hover:text-[#0038FF] transition-colors"
-                >
-                  <span className="text-base font-medium cursor-pointer">
-                    {name}
-                  </span>
-                </Link>
-              ) : (
-                <span className="text-base font-medium">{name}</span>
-              )}
+              <div className="flex items-center gap-2">
+                {username ? (
+                  <Link
+                    href={`/home/profile/${username}`}
+                    className="hover:text-[#0038FF] transition-colors"
+                  >
+                    <span className="text-base font-medium cursor-pointer">
+                      {name}
+                    </span>
+                  </Link>
+                ) : (
+                  <span className="text-base font-medium">{name}</span>
+                )}
+                {isVerified && (
+                  <div className="relative group">
+                    <div
+                      className="w-[1.2em] h-[1.2em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
+                      style={{
+                        WebkitMask:
+                          "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                        mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                      }}
+                    />
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                      Verified User
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex gap-[15px] items-center text-sm text-white/90">
                 {/* Rating */}

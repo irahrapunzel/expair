@@ -41,183 +41,156 @@ export default function ReportsPage() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportData, setExportData] = useState("");
   const [viewMode, setViewMode] = useState("table"); // table or grid
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [selectedReportForRejection, setSelectedReportForRejection] = useState(null);
+  const [rejectionDescription, setRejectionDescription] = useState("");
+  const [showReportDetailModal, setShowReportDetailModal] = useState(false);
+  const [selectedReportDetail, setSelectedReportDetail] = useState(null);
 
-  // Enhanced reports data with ID and Type columns
+  // Enhanced reports data based on modal structure
   const reports = [
     {
       id: 1,
       reportId: "RPT-2024-001",
-      type: "Harassment",
       reporterName: "John Doe",
-      reporterId: "USR-12345",
-      reporterEmail: "john.doe@example.com",
+      reporterId: "U1032",
       reportedUserName: "Jane Smith",
-      reportedUserId: "USR-67890",
-      reportedUserEmail: "jane.smith@example.com",
-      reason: "Harassment in chat messages",
-      description: "User has been sending inappropriate messages and making threats in the trading chat room.",
-      evidence: ["chat_screenshot_1.png", "chat_screenshot_2.png"],
-      date: "2025/10/11",
-      time: "14:30",
+      reportedUserId: "U1033",
+      category: "User Behavior",
+      issue: "Harassment or bullying",
+      additionalDetails: "User has been sending inappropriate messages and making threats in the trading chat room. Screenshots provided.",
+      dateReported: "2024-01-15",
       status: "Pending",
       priority: "High",
       assignedTo: "Admin Team",
       lastUpdated: "2 hours ago",
-      resolution: null,
+      rejectionDescription: null,
       actions: []
     },
     {
       id: 2,
       reportId: "RPT-2024-002",
-      type: "Fraud",
       reporterName: "Mike Johnson",
-      reporterId: "USR-23456",
-      reporterEmail: "mike.johnson@example.com",
+      reporterId: "U1034",
       reportedUserName: "David Wilson",
-      reportedUserId: "USR-78901",
-      reportedUserEmail: "david.wilson@example.com",
-      reason: "Fake trading",
-      description: "User is advertising fake trading services and scamming other users.",
-      evidence: ["profile_screenshot.png", "message_log.txt"],
-      date: "2025/10/05",
-      time: "09:15",
+      reportedUserId: "U1036",
+      category: "Trade Issues",
+      issue: "Payment Issues",
+      additionalDetails: "User failed to complete agreed trade and kept the items without payment. Trade agreement and payment proof provided.",
+      dateReported: "2024-01-10",
       status: "Reviewed",
       priority: "Critical",
       assignedTo: "Security Team",
       lastUpdated: "1 day ago",
-      resolution: "User temporarily suspended pending investigation",
+      rejectionDescription: null,
       actions: ["Warning Issued", "Account Flagged"]
     },
     {
       id: 3,
       reportId: "RPT-2024-003",
-      type: "Content Violation",
       reporterName: "Emily Brown",
-      reporterId: "USR-34567",
-      reporterEmail: "emily.brown@example.com",
+      reporterId: "U1035",
       reportedUserName: "Sarah Manager",
-      reportedUserId: "USR-89012",
-      reportedUserEmail: "sarah.manager@example.com",
-      reason: "Inappropriate content",
-      description: "User posted inappropriate content in their profile and trade descriptions.",
-      evidence: ["profile_content.png"],
-      date: "2025/09/10",
-      time: "16:45",
+      reportedUserId: "U1037",
+      category: "Profile Content",
+      issue: "Inappropriate requests",
+      additionalDetails: "User posted inappropriate content in their profile and trade descriptions. Screenshots of profile content provided.",
+      dateReported: "2024-01-08",
       status: "Pending",
       priority: "Medium",
       assignedTo: "Content Team",
       lastUpdated: "3 hours ago",
-      resolution: null,
+      rejectionDescription: null,
       actions: []
     },
     {
       id: 4,
       reportId: "RPT-2024-004",
-      type: "Spam",
       reporterName: "Tom Director",
-      reporterId: "USR-45678",
-      reporterEmail: "tom.director@example.com",
-      reportedUserName: "Lisa Thompson",
-      reportedUserId: "USR-90123",
-      reportedUserEmail: "lisa.thompson@example.com",
-      reason: "Spam messaging",
-      description: "User is sending repetitive promotional messages to multiple users.",
-      evidence: ["message_history.json"],
-      date: "2025/10/06",
-      time: "11:20",
+      reporterId: "U1038",
+      reportedUserName: "Alex Johnson",
+      reportedUserId: "U1039",
+      category: "User Behavior",
+      issue: "Spam or scam activity",
+      additionalDetails: "User is sending repetitive promotional messages to multiple users. Message history logs provided.",
+      dateReported: "2024-01-05",
       status: "Resolved",
       priority: "Low",
       assignedTo: "Moderation Team",
       lastUpdated: "5 days ago",
-      resolution: "User warned and spam messages removed",
+      rejectionDescription: null,
       actions: ["Warning Issued", "Messages Removed"]
     },
     {
       id: 5,
       reportId: "RPT-2024-005",
-      type: "Identity Fraud",
-      reporterName: "Anna Davis",
-      reporterId: "USR-56789",
-      reporterEmail: "anna.davis@example.com",
-      reportedUserName: "Chris Evans",
-      reportedUserId: "USR-01234",
-      reportedUserEmail: "chris.evans@example.com",
-      reason: "Profile fraud",
-      description: "User is using fake identity documents and impersonating another person.",
-      evidence: ["document_comparison.pdf", "verification_failure.log"],
-      date: "2025/08/08",
-      time: "13:10",
-      status: "Reviewed",
+      reporterName: "Jane Smith",
+      reporterId: "U1033",
+      reportedUserName: "Mike Johnson",
+      reportedUserId: "U1034",
+      category: "Safety & Privacy",
+      issue: "Disrespectful or rude language",
+      additionalDetails: "User is using fake identity documents and impersonating another person. Document comparison and verification failure logs provided.",
+      dateReported: "2024-01-03",
+      status: "Rejected",
       priority: "Critical",
       assignedTo: "Security Team",
       lastUpdated: "2 days ago",
-      resolution: "Account suspended pending verification",
+      rejectionDescription: "Insufficient evidence provided. Please provide more detailed documentation.",
       actions: ["Account Suspended", "Documents Flagged"]
     },
     {
       id: 6,
       reportId: "RPT-2024-006",
-      type: "Trade Violation",
-      reporterName: "Bob Wilson",
-      reporterId: "USR-67890",
-      reporterEmail: "bob.wilson@example.com",
-      reportedUserName: "Alice Cooper",
-      reportedUserId: "USR-12345",
-      reportedUserEmail: "alice.cooper@example.com",
-      reason: "Trade violation",
-      description: "User failed to complete agreed trade and kept the items without payment.",
-      evidence: ["trade_agreement.pdf", "payment_proof.png"],
-      date: "2025/09/12",
-      time: "10:30",
+      reporterName: "Sarah Manager",
+      reporterId: "U1037",
+      reportedUserName: "Tom Director",
+      reportedUserId: "U1038",
+      category: "Trade Issues",
+      issue: "Payment Issues",
+      additionalDetails: "User failed to complete agreed trade and kept the items without payment. Trade agreement and payment proof provided.",
+      dateReported: "2024-01-01",
       status: "Pending",
       priority: "High",
       assignedTo: "Trade Support",
       lastUpdated: "1 hour ago",
-      resolution: null,
+      rejectionDescription: null,
       actions: []
     },
     {
       id: 7,
       reportId: "RPT-2024-007",
-      type: "Harassment",
-      reporterName: "Grace Lee",
-      reporterId: "USR-78901",
-      reporterEmail: "grace.lee@example.com",
-      reportedUserName: "Frank Miller",
-      reportedUserId: "USR-23456",
-      reportedUserEmail: "frank.miller@example.com",
-      reason: "Harassment",
-      description: "User has been stalking and sending threatening messages outside the platform.",
-      evidence: ["external_messages.png", "threat_screenshots.png"],
-      date: "2025/10/10",
-      time: "15:45",
+      reporterName: "David Wilson",
+      reporterId: "U1036",
+      reportedUserName: "Emily Brown",
+      reportedUserId: "U1035",
+      category: "User Behavior",
+      issue: "Harassment or bullying",
+      additionalDetails: "User has been stalking and sending threatening messages outside the platform. External messages and threat screenshots provided.",
+      dateReported: "2023-12-28",
       status: "Resolved",
       priority: "Critical",
       assignedTo: "Security Team",
       lastUpdated: "3 days ago",
-      resolution: "User permanently banned and reported to authorities",
+      rejectionDescription: null,
       actions: ["Permanent Ban", "Legal Action"]
     },
     {
       id: 8,
       reportId: "RPT-2024-008",
-      type: "Behavioral",
-      reporterName: "Henry Ford",
-      reporterId: "USR-89012",
-      reporterEmail: "henry.ford@example.com",
-      reportedUserName: "Diana Prince",
-      reportedUserId: "USR-34567",
-      reportedUserEmail: "diana.prince@example.com",
-      reason: "Inappropriate behavior",
-      description: "User is exhibiting aggressive behavior in trade negotiations.",
-      evidence: ["negotiation_log.txt"],
-      date: "2025/10/01",
-      time: "12:15",
-      status: "Pending",
+      reporterName: "Alex Johnson",
+      reporterId: "U1039",
+      reportedUserName: "John Doe",
+      reportedUserId: "U1032",
+      category: "Others",
+      issue: "Inappropriate requests",
+      additionalDetails: "User is exhibiting aggressive behavior in trade negotiations. Negotiation logs provided.",
+      dateReported: "2023-12-25",
+      status: "Rejected",
       priority: "Medium",
       assignedTo: "Community Team",
       lastUpdated: "4 hours ago",
-      resolution: null,
+      rejectionDescription: "Report does not meet our community guidelines criteria. No further action required.",
       actions: []
     },
   ];
@@ -225,6 +198,27 @@ export default function ReportsPage() {
   const handleReviewAction = (action, reportId) => {
     console.log(`Action: ${action} on report: ${reportId}`);
     // Implement review logic here
+  };
+
+  const handleRejectReport = (reportId) => {
+    const report = reports.find(r => r.id === reportId);
+    setSelectedReportForRejection(report);
+    setShowRejectionModal(true);
+  };
+
+  const handleSubmitRejection = () => {
+    if (rejectionDescription.trim()) {
+      console.log(`Rejecting report ${selectedReportForRejection.reportId} with description: ${rejectionDescription}`);
+      // Here you would update the report status and rejection description
+      setShowRejectionModal(false);
+      setRejectionDescription("");
+      setSelectedReportForRejection(null);
+    }
+  };
+
+  const handleViewReportDetail = (report) => {
+    setSelectedReportDetail(report);
+    setShowReportDetailModal(true);
   };
 
   // Helper functions
@@ -326,20 +320,19 @@ export default function ReportsPage() {
       reports: dataToExport.map(report => ({
         id: report.id,
         reportId: report.reportId,
-        type: report.type,
         reporterName: report.reporterName,
-        reporterEmail: report.reporterEmail,
+        reporterId: report.reporterId,
         reportedUserName: report.reportedUserName,
-        reportedUserEmail: report.reportedUserEmail,
-        reason: report.reason,
-        description: report.description,
-        date: report.date,
-        time: report.time,
+        reportedUserId: report.reportedUserId,
+        category: report.category,
+        issue: report.issue,
+        additionalDetails: report.additionalDetails,
+        dateReported: report.dateReported,
         status: report.status,
         priority: report.priority,
         assignedTo: report.assignedTo,
         lastUpdated: report.lastUpdated,
-        resolution: report.resolution,
+        rejectionDescription: report.rejectionDescription,
         actions: report.actions
       }))
     };
@@ -379,11 +372,13 @@ export default function ReportsPage() {
         const query = searchQuery.toLowerCase();
         return (
           report.reportId.toLowerCase().includes(query) ||
-          report.type.toLowerCase().includes(query) ||
+          report.category.toLowerCase().includes(query) ||
           report.reporterName.toLowerCase().includes(query) ||
+          report.reporterId.toLowerCase().includes(query) ||
           report.reportedUserName.toLowerCase().includes(query) ||
-          report.reason.toLowerCase().includes(query) ||
-          report.description.toLowerCase().includes(query) ||
+          report.reportedUserId.toLowerCase().includes(query) ||
+          report.issue.toLowerCase().includes(query) ||
+          report.additionalDetails.toLowerCase().includes(query) ||
           report.assignedTo.toLowerCase().includes(query)
         );
       }
@@ -414,6 +409,8 @@ export default function ReportsPage() {
         return "text-green-400 bg-green-500/20 border-green-500/30";
       case "Reviewed":
         return "text-blue-400 bg-blue-500/20 border-blue-500/30";
+      case "Rejected":
+        return "text-red-400 bg-red-500/20 border-red-500/30";
       case "Pending":
       default:
         return "text-yellow-400 bg-yellow-500/20 border-yellow-500/30";
@@ -430,7 +427,7 @@ export default function ReportsPage() {
             <p className="text-white/60">Monitor, review, and manage user reports and violations</p>
           </div>
           <div className="flex items-center gap-3">
-            <button 
+            {/*<button 
               onClick={() => setIsLoading(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition-colors"
             >
@@ -443,7 +440,7 @@ export default function ReportsPage() {
             >
               <Download className="w-4 h-4" />
               Export
-            </button>
+            </button>*/}
           </div>
         </div>
 
@@ -505,7 +502,7 @@ export default function ReportsPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
               <input
                 type="text"
-                placeholder="Search reports by ID, type, users, or description..."
+                placeholder="Search reports by ID, category, users, issue, or details..."
                 className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-[#906EFF]/50 focus:ring-1 focus:ring-[#906EFF]/20"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -550,7 +547,7 @@ export default function ReportsPage() {
         {/* Filter Tabs */}
         <div className="mt-6 border-t border-white/10 pt-6">
           <div className="flex gap-1 bg-white/5 p-1 rounded-lg">
-            {["All", "Pending", "Reviewed", "Resolved"].map((filter) => (
+            {["All", "Pending", "Reviewed", "Resolved", "Rejected"].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
@@ -582,25 +579,34 @@ export default function ReportsPage() {
                   />
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
-                  ID
+                  Report ID
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
-                  Type
+                  Reporter Name
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
-                  Reporter
+                  Reporter ID
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
-                  Reported User
+                  Reported User Name
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
-                  Reason
+                  Reported User ID
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
+                  Issue
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
+                  Additional Details
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
+                  Date Reported
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
                   Priority
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
-                  Date
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/80 uppercase tracking-wider">
                   Status
@@ -613,7 +619,7 @@ export default function ReportsPage() {
             <tbody className="divide-y divide-white/10">
               {filteredReports.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-6 py-12 text-center">
+                  <td colSpan="13" className="px-6 py-12 text-center">
                     <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                       <FileText className="w-8 h-8 text-white/40" />
                     </div>
@@ -625,9 +631,10 @@ export default function ReportsPage() {
                 filteredReports.map((report) => (
                   <tr
                     key={report.id}
-                    className="hover:bg-white/5 transition-colors"
+                    className="hover:bg-white/5 transition-colors cursor-pointer"
+                    onClick={() => handleViewReportDetail(report)}
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedReports.includes(report.id)}
@@ -638,29 +645,33 @@ export default function ReportsPage() {
                     <td className="px-6 py-4 text-sm font-medium text-[#906EFF]">
                       {report.reportId}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getTypeColor(report.type)}`}>
-                        {getTypeIcon(report.type)}
-                        {report.type}
-                      </div>
+                    <td className="px-6 py-4 text-sm text-white">
+                      {report.reporterName}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-white/70">
+                      {report.reporterId}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-white">
+                      {report.reportedUserName}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-white/70">
+                      {report.reportedUserId}
                     </td>
                     <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">{report.reporterName}</div>
-                        <div className="text-xs text-white/60">{report.reporterEmail}</div>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getTypeColor(report.category)}`}>
+                        {report.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-white/70">
+                      {report.issue}
+                    </td>
+                    <td className="px-6 py-4 max-w-xs">
+                      <div className="text-sm text-white/70 truncate" title={report.additionalDetails}>
+                        {report.additionalDetails}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">{report.reportedUserName}</div>
-                        <div className="text-xs text-white/60">{report.reportedUserEmail}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="max-w-xs">
-                        <div className="text-sm text-white truncate">{report.reason}</div>
-                        <div className="text-xs text-white/60 truncate">{report.description}</div>
-                      </div>
+                    <td className="px-6 py-4 text-sm text-white/70">
+                      {report.dateReported}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(report.priority)}`}>
@@ -668,17 +679,11 @@ export default function ReportsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm text-white">{report.date}</div>
-                        <div className="text-xs text-white/60">{report.time}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}>
                         {report.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       {report.status === "Pending" && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -708,11 +713,11 @@ export default function ReportsPage() {
                             </DropdownMenuItem>
 
                             <DropdownMenuItem
-                              onClick={() => handleReviewAction("dismiss", report.id)}
-                              className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium text-gray-400 hover:text-white hover:bg-gray-500/30 rounded-md transition-all duration-150 cursor-pointer"
+                              onClick={() => handleRejectReport(report.id)}
+                              className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium text-red-400 hover:text-white hover:bg-red-500/30 rounded-md transition-all duration-150 cursor-pointer"
                             >
                               <XCircle className="w-3.5 h-3.5" />
-                              Dismiss
+                              Reject
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -727,6 +732,12 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-1">
                           <CheckCircle className="w-4 h-4 text-green-400" />
                           <span className="text-xs text-green-400">Resolved</span>
+                        </div>
+                      )}
+                      {report.status === "Rejected" && (
+                        <div className="flex items-center gap-1">
+                          <XCircle className="w-4 h-4 text-red-400" />
+                          <span className="text-xs text-red-400">Rejected</span>
                         </div>
                       )}
                     </td>
@@ -846,6 +857,269 @@ export default function ReportsPage() {
                 >
                   Close
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {showRejectionModal && selectedReportForRejection && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-[#0A0028] border border-white/10 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Reject Report</h2>
+                <p className="text-sm text-white/60 mt-1">Provide a reason for rejecting this report</p>
+              </div>
+              <button
+                onClick={() => setShowRejectionModal(false)}
+                className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Report Info */}
+            <div className="px-6 py-4 border-b border-white/10 bg-white/5">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-white/60">Report ID:</span>
+                  <span className="text-white font-medium ml-2">{selectedReportForRejection.reportId}</span>
+                </div>
+                <div>
+                  <span className="text-white/60">Reporter:</span>
+                  <span className="text-white font-medium ml-2">{selectedReportForRejection.reporterName}</span>
+                </div>
+                <div>
+                  <span className="text-white/60">Reported User:</span>
+                  <span className="text-white font-medium ml-2">{selectedReportForRejection.reportedUserName}</span>
+                </div>
+                <div>
+                  <span className="text-white/60">Category:</span>
+                  <span className="text-white font-medium ml-2">{selectedReportForRejection.category}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rejection Form */}
+            <div className="px-6 py-4">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-white/80 mb-2">
+                  Rejection Description *
+                </label>
+                <textarea
+                  value={rejectionDescription}
+                  onChange={(e) => setRejectionDescription(e.target.value)}
+                  placeholder="Please provide a detailed reason for rejecting this report..."
+                  className="w-full h-32 px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-[#906EFF]/50 focus:ring-1 focus:ring-[#906EFF]/20 resize-none"
+                  required
+                />
+                <p className="text-xs text-white/60 mt-2">
+                  This description will be sent to the reporter explaining why their report was rejected.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-white/10 bg-white/5">
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowRejectionModal(false)}
+                  className="px-4 py-2 bg-white/10 text-white/80 border border-white/20 rounded-lg hover:bg-white/20 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitRejection}
+                  disabled={!rejectionDescription.trim()}
+                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Reject Report
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Detail Modal */}
+      {showReportDetailModal && selectedReportDetail && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0A0028] border border-white/10 rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Report Details</h2>
+                <p className="text-sm text-white/60 mt-1">Complete report information and investigation details</p>
+              </div>
+              <button
+                onClick={() => setShowReportDetailModal(false)}
+                className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Report Information */}
+            <div className="px-6 py-4 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Report Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white mb-4">Report Information</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Report ID:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.reportId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Date Reported:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.dateReported}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Status:</span>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(selectedReportDetail.status)}`}>
+                        {selectedReportDetail.status}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Priority:</span>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(selectedReportDetail.priority)}`}>
+                        {selectedReportDetail.priority}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Assigned To:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.assignedTo}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Last Updated:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.lastUpdated}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Category & Issue */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white mb-4">Category & Issue</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Category:</span>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getTypeColor(selectedReportDetail.category)}`}>
+                        {selectedReportDetail.category}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Issue:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.issue}</span>
+                    </div>
+                  </div>
+
+                  {/* Additional Details */}
+                  <div className="mt-4">
+                    <span className="text-white/60 block mb-2">Additional Details:</span>
+                    <div className="bg-white/5 p-4 rounded-lg">
+                      <p className="text-white/80 text-sm leading-relaxed">
+                        {selectedReportDetail.additionalDetails}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reporter Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white mb-4">Reporter Information</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Reporter Name:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.reporterName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Reporter ID:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.reporterId}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reported User Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white mb-4">Reported User Information</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Reported User Name:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.reportedUserName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/60">Reported User ID:</span>
+                      <span className="text-white font-medium">{selectedReportDetail.reportedUserId}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions Taken */}
+                {selectedReportDetail.actions && selectedReportDetail.actions.length > 0 && (
+                  <div className="space-y-4 lg:col-span-2">
+                    <h3 className="text-lg font-semibold text-white mb-4">Actions Taken</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedReportDetail.actions.map((action, index) => (
+                        <span key={index} className="px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs rounded-lg">
+                          {action}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Rejection Description */}
+                {selectedReportDetail.rejectionDescription && (
+                  <div className="space-y-4 lg:col-span-2">
+                    <h3 className="text-lg font-semibold text-white mb-4">Rejection Description</h3>
+                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg">
+                      <p className="text-red-400 text-sm leading-relaxed">
+                        {selectedReportDetail.rejectionDescription}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-white/10 bg-white/5">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-white/60">
+                  <p>• Use the actions dropdown in the main table to manage this report</p>
+                  <p>• All actions and status changes are logged for audit purposes</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {selectedReportDetail.status === "Pending" && (
+                    <>
+                      <button
+                        onClick={() => handleReviewAction("warn", selectedReportDetail.id)}
+                        className="px-4 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/30 transition-colors"
+                      >
+                        Issue Warning
+                      </button>
+                      <button
+                        onClick={() => handleRejectReport(selectedReportDetail.id)}
+                        className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
+                      >
+                        Reject Report
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setShowReportDetailModal(false)}
+                    className="px-4 py-2 bg-[#906EFF] text-white text-sm font-medium rounded-lg hover:bg-[#906EFF]/80 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
