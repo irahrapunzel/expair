@@ -12,22 +12,20 @@ const inter = Inter({ subsets: ["latin"] });
 
 export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
   const { data: session } = useSession();
-  const [profilePicFile, setProfilePicFile] = useState(
-    step3Data.profilePicFile || null
-  );
+  const [profilePicFile, setProfilePicFile] = useState(step3Data.profilePicFile || null);
   const [profilePreview, setProfilePreview] = useState("/defaultavatar.png");
   const [isGoogleUser, setIsGoogleUser] = useState(false);
 
   const [userIDFile, setUserIDFile] = useState(step3Data.userIDFile || null);
-  const [userIDFileName, setUserIDFileName] = useState(
-    step3Data.userIDFileName || ""
-  );
+  const [userIDFileName, setUserIDFileName] = useState(step3Data.userIDFileName || "");
 
-  const [introduction, setIntroduction] = useState(
-    step3Data.introduction || ""
-  );
+  const [introduction, setIntroduction] = useState(step3Data.introduction || "");
   const [links, setLinks] = useState(step3Data.links || [""]); // keep as array
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+
+  const [birthdate, setBirthdate] = useState(step3Data.birthdate || "");
+  const [nationality, setNationality] = useState(step3Data.nationality || "");
+  const [idType, setIdType] = useState(step3Data.id_type || "");
 
   const [user, setUser] = useState({
     id: null,
@@ -69,6 +67,9 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
       setUserIDFile(step3Data.userIDFile || null);
       setIntroduction(step3Data.introduction || "");
       setLinks(step3Data.links || [""]);
+      setBirthdate(step3Data.birthdate || "");
+      setNationality(step3Data.nationality || "");
+      setIdType(step3Data.id_type || "");
     }
   }, [step3Data]);
 
@@ -97,6 +98,9 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
       userIDFileName,
       introduction,
       links: filteredLinks, // Keep as array
+      birthdate,
+      nationality,
+      id_type: idType,
     });
     onNext();
   };
@@ -109,6 +113,9 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
       userIDFileName,
       introduction,
       links: filteredLinks,
+      birthdate,
+      nationality,
+      id_type: idType,
     });
   };
 
@@ -118,10 +125,10 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
       user.verification_status
         ? user.verification_status
         : user.is_verified
-        ? "VERIFIED"
-        : user.userVerifyId
-        ? "PENDING"
-        : "UNVERIFIED"
+          ? "VERIFIED"
+          : user.userVerifyId
+            ? "PENDING"
+            : "UNVERIFIED"
     ).toLowerCase();
     setVerificationStatus(s);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
@@ -285,11 +292,17 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                       {userIDFileName}
                     </span>
                     <div className="flex items-center gap-3">
+                      {idType && (
+                        <span className="text-xs text-blue-300 bg-blue-900/50 px-2 py-0.5 rounded-full">
+                          {idType}
+                        </span>
+                      )}
                       <button
                         onClick={() => {
                           setUserIDFile(null);
                           setUserIDFileName("");
                           setIdPreviewUrl(null);
+                          setIdType("");
                         }}
                         className="text-red-400 hover:text-red-300 text-sm"
                       >
@@ -302,10 +315,18 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                 {showVerificationModal && (
                   <VerificationModal
                     onClose={() => setShowVerificationModal(false)}
+
+                    birthdate={birthdate}
+                    nationality={nationality}
+                    idType={idType}
+                    onBirthdateChange={setBirthdate}
+                    onNationalityChange={setNationality}
+                    onIdTypeChange={setIdType}
+
                     handleIdFileChange={(file) => {
                       if (file) {
-                        setUserIDFile(file);
-                        setUserIDFileName(file.name);
+                        setUserIDFile(file); // Ito yung file object
+                        setUserIDFileName(file.name); // Ito yung file name
                         setIdPreviewUrl(URL.createObjectURL(file));
                       } else {
                         setUserIDFile(null);

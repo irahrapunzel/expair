@@ -21,7 +21,6 @@ export default function RegisterFlow() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [otpEmail, setOtpEmail] = useState("");
 
-  // ✅ NEW: Store the trade request ID
   const [tradereqId, setTradereqId] = useState(null);
 
   // Hold step data
@@ -32,20 +31,27 @@ export default function RegisterFlow() {
     username: "",
     password: "",
   });
+
   const [step2Data, setStep2Data] = useState({
     searchQuery: "",
     marker: null,
   });
+
   const [step3Data, setStep3Data] = useState({
     profilePicFile: null,
     introduction: "",
     links: [],
     userIDFile: null,
     userIDFileName: "",
+    birthdate: "",
+    nationality: "",
+    id_type: "",
   });
+
   const [step4Data, setStep4Data] = useState({
     selectedCategories: [],
   });
+  
   const [step5Data, setStep5Data] = useState([]);
   const [step6Data, setStep6Data] = useState({});
 
@@ -236,8 +242,17 @@ export default function RegisterFlow() {
               if (step3Data.links && step3Data.links.length > 0) {
                 formData.append("links", JSON.stringify(step3Data.links));
               }
+              if (step3Data.birthdate) {
+                formData.append("birthdate", step3Data.birthdate);
+              }
+              if (step3Data.nationality) {
+                formData.append("nationality", step3Data.nationality);
+              }
               if (step3Data.userIDFile) {
-                formData.append("userVerifyId", step3Data.userIDFile);
+                formData.append("id_document", step3Data.userIDFile);
+              }
+              if (step3Data.id_type) {
+                formData.append("id_type", step3Data.id_type); 
               }
 
               // Add interests from step5 (general skills)

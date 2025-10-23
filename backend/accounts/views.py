@@ -683,12 +683,13 @@ def _public_user_payload(user, request=None):
         "tot_xppts": int(user.tot_XpPts or 0),
         "totalXp": int(user.tot_XpPts or 0),
         
-        # Verification fields from UserVerification model
         "email_verified": email_verified,
         "id_verification_status": id_verification_status,
         "is_fully_verified": is_fully_verified,
         "verification_progress": verification_progress,
         "id_document": id_document_url,
+        "birthdate": user.birthdate,
+        "nationality": user.nationality,
     }
     
     return payload
@@ -1235,6 +1236,8 @@ def complete_registration(request):
     password = request.data.get("password", "")
     bio = request.data.get("bio", "")
     location = request.data.get("location", "")
+    birthdate = request.data.get("birthdate", None)
+    nationality = request.data.get("nationality", "")
     
     # Handle links as JSON array
     links_raw = request.data.get("links", "[]")
@@ -1277,6 +1280,11 @@ def complete_registration(request):
     user.bio = bio
     user.location = location
     user.links = links_array
+    if birthdate:
+        user.birthdate = birthdate
+    if nationality:
+        user.nationality = nationality
+        
     if password:
         user.set_password(password)
     user.save()
@@ -1356,12 +1364,11 @@ def complete_registration(request):
         if id_document_file:
             try:
                 # Determine resource type (image or raw for PDFs)
-                resource_type = "image" if id_document_file.content_type.startswith("image/") else "raw"
-                
+                resource_type = "image" if id_document_file.content_type.startswith("image/") else "raw"                
                 upload_result = cloudinary.uploader.upload(
                     id_document_file,
                     folder="media/user_verifications",
-                    public_id=f"user_{user.id}_verification",
+                    public_id=f"user_{username}_verification",
                     resource_type=resource_type,
                     overwrite=True,
                     invalidate=True
