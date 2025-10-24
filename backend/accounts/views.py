@@ -4251,22 +4251,26 @@ def api_explore_feed(request):
     return Response({"trades": []}, status=200)
 
     # ...existing code...
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_interested_trades(request):
     """
     Returns trades the authenticated user has expressed interest in.
-    Each item includes a reliable 'offer' value preferring a specific specName,
-    then genCateg, then a global SpecSkill fallback (never a hyphen).
+    ✅ ONLY shows PENDING interests (not cancelled, not accepted)
+    Fixed to return proper nested structure matching frontend expectations.
     """
     user = request.user
 
-    # Get all TradeInterest records for this user with related trade and requester
+    # ✅ Filter to ONLY show PENDING interests
+    # - CANCELLED interests should not appear
+    # - ACCEPTED interests should appear in "Trades for confirmation" instead
     interests_qs = TradeInterest.objects.filter(
-        interested_user=user
+        interested_user=user,
+        status=TradeInterest.InterestStatus.PENDING  # ✅ Only PENDING
     ).select_related('trade_request__requester').order_by('-created_at')
 
-    # Global fallback (specific skill from DB)
+    # Global fallback for offer field
     any_spec = SpecSkill.objects.first()
     fallback_spec_name = getattr(any_spec, "specName", "") if any_spec else ""
 
@@ -4275,9 +4279,8 @@ def get_user_interested_trades(request):
         tr = interest.trade_request
         requester = tr.requester
 
-        # Determine offer: prefer requester's specific skill name -> genCateg -> fallback
+        # Determine offer from requester's skills
         offer = ""
-        spec_name = ""
         try:
             first_us = UserSkill.objects.filter(user=requester).select_related("specSkills__genSkills_id").first()
             if first_us and getattr(first_us, "specSkills", None):
@@ -4291,25 +4294,29 @@ def get_user_interested_trades(request):
 
         if not offer:
             offer = fallback_spec_name
-            spec_name = spec_name or fallback_spec_name
 
+        # ✅ Build proper structure matching frontend expectations
         result.append({
+            "id": interest.trade_interests_id,
             "interest_id": interest.trade_interests_id,
-            "interest_status": interest.status,
-            "tradereq_id": tr.tradereq_id,
-            "reqname": tr.reqname,
-            "deadline": tr.reqdeadline.isoformat() if tr.reqdeadline else "",
-            "trade_status": tr.status,
-            "requester_id": requester.id,
-            "requester_username": requester.username,
-            "requester_name": f"{requester.first_name} {requester.last_name}".strip() or requester.username,
+            "status": interest.status,
+            "name": f"{requester.first_name} {requester.last_name}".strip() or requester.username,
             "rating": float(requester.avgStars or 0),
-            "ratingCount": int(requester.ratingCount or 0),
-            "level": int(requester.level or 0),
-            "profilePicUrl": requester.profilePic if requester.profilePic else None,
-            "offer": offer,
-            "specName": spec_name,
+            "reviews": str(requester.ratingCount or 0),
+            "level": str(requester.level or 1),
+            "needs": tr.reqname,
+            "offers": offer,
+            "until": tr.reqdeadline.strftime('%B %d') if tr.reqdeadline else "No deadline",
             "created_at": interest.created_at.isoformat() if getattr(interest, "created_at", None) else None,
+            
+            # ✅ Add nested requester object for profile links
+            "requester": {
+                "id": requester.id,
+                "username": requester.username,
+                "profile_pic": requester.profilePic if requester.profilePic else None,
+                "first_name": requester.first_name,
+                "last_name": requester.last_name,
+            }
         })
 
     return Response({"interested_trades": result, "count": len(result)}, status=200)
