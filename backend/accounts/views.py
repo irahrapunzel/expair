@@ -4364,18 +4364,18 @@ def trade_again(request):
         
         if not previous_trade:
             return Response({
-                "error": "No previous trade found with this user"
+                "error": "No previous completed trade found with this user to base a new trade on."
             }, status=404)
         
         # ✅ CREATE NEW TRADE REQUEST
-        # Use previous trade info as reference
+        # ✅ Use previous trade info as requested
         new_trade = TradeRequest.objects.create(
             requester=request.user,
             responder=partner,
-            reqname=f"Trade with {partner.first_name or partner.username}",
-            reqdeadline=None,  # They can set this later
+            reqname=previous_trade.reqname,  # ✅ Retain previous request name
+            reqdeadline=None,  # Set to None as no details are provided
             status=TradeRequest.Status.PENDING,  # ✅ Goes straight to "Trades for confirmation"
-            exchange=None  # Will be set after details are added
+            exchange=previous_trade.exchange  # ✅ Retain previous exchange name
         )
         
         print(f"✅ Created new trade request {new_trade.tradereq_id} between {request.user.username} and {partner.username}")
