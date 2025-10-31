@@ -148,8 +148,10 @@ class User(AbstractUser):
         blank=True, 
         db_column='profilepic'
     )
-    bio = models.CharField(max_length=150, null=True, blank=True, db_column='bio')  # Match DB varchar(150)
-    location = models.CharField(max_length=300, null=True, blank=True, db_column='location')  # Match DB varchar(300)
+    bio = models.CharField(max_length=150, null=True, blank=True, db_column='bio')
+    location = models.CharField(max_length=300, null=True, blank=True, db_column='location')  
+    birthdate = models.DateField(null=True, blank=True, db_column='birthdate')
+    nationality = models.CharField(max_length=100, null=True, blank=True, db_column='nationality')
     ratingCount = models.IntegerField(default=0, db_column='ratingcount')
     avgStars = models.DecimalField(max_digits=3, decimal_places=2, default=0.00, db_column='avgstars')
     tot_XpPts = models.IntegerField(default=0, db_column='tot_xppts')

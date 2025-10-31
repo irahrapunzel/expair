@@ -104,6 +104,8 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "id_type",
             "location",
             "links",
+            "birthdate",
+            "nationality",
             "email_verified",
             "id_verification_status",
             "is_fully_verified",
@@ -224,7 +226,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             instance.links = links
 
         # apply the rest of the fields
-        for f in ("first_name", "last_name", "bio", "username", "email", "location"):
+        for f in ("first_name", "last_name", "bio", "username", "email", "location", "birthdate", "nationality"):
             if f in validated_data:
                 setattr(instance, f, validated_data[f])
 

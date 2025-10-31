@@ -19,6 +19,9 @@ export default function CompletedTradesPage() {
     const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
     const [selectedTrade, setSelectedTrade] = useState(null);
 
+    const [evaluationData, setEvaluationData] = useState(null);
+    const [loadingEvaluation, setLoadingEvaluation] = useState(false);
+
     // State for real data
     const [completedTrades, setCompletedTrades] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -116,8 +119,9 @@ export default function CompletedTradesPage() {
                                 }
 
                                 // Fetch the rating that the PARTNER gave to YOU
+                                // ✅ *** FIX 1: Changed /user/ to /users/ ***
                                 const reputationResponse = await fetch(
-                                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/user/${session.user.id}/reviews/`,
+                                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${session.user.id}/reviews/`,
                                     {
                                         headers: {
                                             'Authorization': `Bearer ${token}`,
@@ -207,6 +211,39 @@ export default function CompletedTradesPage() {
             isMounted = false;
         };
     }, [session]);
+
+    const fetchEvaluationData = async (tradereqId) => {
+        const token = session?.access || session?.accessToken;
+        if (!token) return;
+
+        setLoadingEvaluation(true);
+        try {
+            // ✅ *** FIX 2: Changed URL to match urls.py ***
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${tradereqId}/evaluation/`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Evaluation data:", data);
+                setEvaluationData(data.evaluation); // This matches the backend response
+            } else {
+                console.error("Failed to fetch evaluation data");
+                setEvaluationData(null);
+            }
+        } catch (error) {
+            console.error("Error fetching evaluation:", error);
+            setEvaluationData(null);
+        } finally {
+            setLoadingEvaluation(false);
+        }
+    };
 
     const getTradeDetailTags = (trade) => {
         const tags = [];
@@ -460,9 +497,10 @@ export default function CompletedTradesPage() {
                                         <div className="flex items-center gap-[15px]">
                                             <button
                                                 className="min-w-[170px] h-[40px] flex justify-center items-center rounded-[15px] border-2 border-[#28CC84] bg-[#120A2A] shadow-[0_0_15px_#28CC84] cursor-pointer"
-                                                onClick={(e) => {
+                                                onClick={async (e) => {
                                                     e.stopPropagation();
                                                     setSelectedTrade(trade);
+                                                    await fetchEvaluationData(trade.tradereq_id);
                                                     setShowEvaluationDialog(true);
                                                 }}
                                             >
@@ -564,7 +602,7 @@ export default function CompletedTradesPage() {
 
                                         {/* Action Buttons */}
                                         <div className="flex flex-wrap items-center gap-[15px] justify-end">
-                                        
+
 
                                             {/* Partner Rating Badge */}
                                             {trade.partnerRating && (
@@ -578,9 +616,10 @@ export default function CompletedTradesPage() {
                                             <div className="h-[55px] flex items-center">
                                                 <button
                                                     className="flex justify-center items-center cursor-pointer"
-                                                    onClick={(e) => {
+                                                    onClick={async (e) => {
                                                         e.stopPropagation();
                                                         setSelectedTrade(trade);
+                                                        await fetchEvaluationData(trade.tradereq_id);
                                                         setShowEvaluationDialog(true);
                                                     }}
                                                 >
@@ -596,15 +635,23 @@ export default function CompletedTradesPage() {
                 </div>
             )}
 
-            {/* Evaluation Dialog */}
-            {showEvaluationDialog && (
+            {showEvaluationDialog && selectedTrade && (
                 <ActiveEvaluationDialog
                     isOpen={showEvaluationDialog}
-                    onClose={() => setShowEvaluationDialog(false)}
+                    onClose={() => {
+                        setShowEvaluationDialog(false);
+                        setEvaluationData(null);
+                    }}
                     tradeData={{
                         requestTitle: selectedTrade?.requested,
                         offerTitle: selectedTrade?.offering,
-                        feedback: `This completed trade for ${selectedTrade?.requested} in exchange for ${selectedTrade?.offering} was well-balanced, with a high skill level required and moderate time commitment. The task complexity was fairly challenging, which made this a valuable and rewarding exchange for both parties. Overall, it was a great match that delivered meaningful growth and results.`
+                        taskComplexity: evaluationData?.taskComplexity || 0,
+                        timeCommitment: evaluationData?.timeCommitment || 0,
+                        skillLevel: evaluationData?.skillLevel || 0,
+                        tradeScore: evaluationData?.tradeScore || 0,
+                        feedback: evaluationData?.feedback ||
+                            `This completed trade for ${selectedTrade?.requested} in exchange for ${selectedTrade?.offering} was well-balanced.`,
+                        isLoading: loadingEvaluation
                     }}
                 />
             )}

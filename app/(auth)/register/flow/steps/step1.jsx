@@ -126,6 +126,10 @@ export default function Step1({ step1Data, onDataSubmit, onNext, onShowOtpPage }
         },
         body: JSON.stringify({
           email: email,
+          username: username,        
+          first_name: firstName,     
+          last_name: lastName,     
+          password: password, 
         }),
       });
 

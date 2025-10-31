@@ -13,7 +13,7 @@ export default function OTPVerification({ email, onVerified, onBack }) {
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
-  const [countdown, setCountdown] = useState(90);
+  const [countdown, setCountdown] = useState(300);
   const [canResend, setCanResend] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -115,7 +115,7 @@ export default function OTPVerification({ email, onVerified, onBack }) {
       }
 
       // Reset countdown and disable resend button
-      setCountdown(90);
+      setCountdown(300);
       setCanResend(false);
       setSuccessMessage("New code sent successfully!");
       setOtpCode("");

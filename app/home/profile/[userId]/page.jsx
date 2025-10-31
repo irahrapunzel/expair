@@ -243,10 +243,10 @@ export default function ProfilePage() {
       user.verification_status
         ? user.verification_status
         : user.is_verified
-        ? "VERIFIED"
-        : user.userVerifyId
-        ? "PENDING"
-        : "UNVERIFIED"
+          ? "VERIFIED"
+          : user.userVerifyId
+            ? "PENDING"
+            : "UNVERIFIED"
     ).toLowerCase();
     setVerificationStatus(s);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
@@ -381,8 +381,7 @@ export default function ProfilePage() {
         tradereq_id: trade.tradereq_id,
         name:
           (isOwnProfile
-            ? `${session?.user?.first_name || ""} ${
-                session?.user?.last_name || ""
+            ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
               }`.trim()
             : `${user?.firstname || ""} ${user?.lastname || ""}`.trim()) ||
           session?.user?.username ||
@@ -420,9 +419,9 @@ export default function ProfilePage() {
             })) || [],
         until: trade.deadline
           ? new Date(trade.deadline).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-            })
+            month: "long",
+            day: "numeric",
+          })
           : "No deadline",
       }));
       console.log("🧩 Transformed trades:", transformed);
@@ -550,9 +549,9 @@ export default function ProfilePage() {
           profilePic: data.profilePic || null,
           joined: data.created_at
             ? new Date(data.created_at).toLocaleString(undefined, {
-                month: "long",
-                year: "numeric",
-              })
+              month: "long",
+              year: "numeric",
+            })
             : "",
           rating: Number(data.avgStars ?? data.rating) || 0,
           reviews: Number(data.ratingCount ?? data.reviews) || 0,
@@ -1050,10 +1049,10 @@ export default function ProfilePage() {
       user.verification_status
         ? user.verification_status
         : user.is_verified
-        ? "VERIFIED"
-        : user.userVerifyId
-        ? "PENDING"
-        : "UNVERIFIED"
+          ? "VERIFIED"
+          : user.userVerifyId
+            ? "PENDING"
+            : "UNVERIFIED"
     ).toLowerCase();
     setVerificationStatus(s);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
@@ -1077,65 +1076,72 @@ export default function ProfilePage() {
     }
   };
 
-  async function handleSubmitVerification() {
-    try {
-      if (!idFile) {
-        alert("Please choose a file first.");
-        return;
-      }
-      const fd = new FormData();
-      fd.append("userVerifyId", idFile);
-      if (user?.id) fd.append("user_id", String(user.id)); // works even without auth cookie
-
-      const headers = { Accept: "application/json" };
-      if (session?.access) {
-        headers.Authorization = `Bearer ${session.access}`;
-      }
-
-      const res = await fetch(`${API_BASE}/me/`, {
-        method: "PATCH",
-        credentials: "include",
-        headers, // DO NOT set Content-Type when sending FormData
-        body: fd,
-      });
-
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`Upload failed (${res.status}): ${txt.slice(0, 120)}`);
-      }
-
-      const updated = await res.json();
-      // reflect backend response in local state
-      setUser((prev) => ({
-        ...prev,
-        userVerifyId: updated.userVerifyId || prev.userVerifyId || null,
-        is_verified: Boolean(updated.is_verified),
-        verification_status:
-          updated.verification_status ?? prev?.verification_status ?? null,
-      }));
-
-      // frontend UX: immediately show "pending"
-      setVerificationStatus("pending");
-
-      setVerificationStatus(
-        (
-          updated.verification_status ||
-          (updated.is_verified
-            ? "VERIFIED"
-            : updated.userVerifyId
-            ? "PENDING"
-            : "UNVERIFIED")
-        ).toLowerCase()
-      );
-
-      setShowVerificationPopup(false);
-      setIdFile(null);
-      setIdPreviewUrl(null);
-    } catch (e) {
-      console.error("[verify upload] error", e);
-      alert(e.message || "Upload failed.");
+async function handleSubmitVerification(submittedData) {
+  try {
+    if (!idFile) {
+      alert("Please choose a file first.");
+      return;
     }
+    const fd = new FormData();
+    fd.append("id_document", idFile);
+
+    if (user?.id) fd.append("user_id", String(user.id));
+    
+    // ✅ Include birthdate and nationality from the modal
+    if (submittedData?.birthdate) {
+      fd.append("birthdate", submittedData.birthdate);
+    }
+    if (submittedData?.nationality) {
+      fd.append("nationality", submittedData.nationality);
+    }
+    if (submittedData?.id_type) {
+      fd.append("id_type", submittedData.id_type);
+    }
+
+    const headers = { Accept: "application/json" };
+    if (session?.access) {
+      headers.Authorization = `Bearer ${session.access}`;
+    }
+
+    const res = await fetch(`${API_BASE}/me/`, {
+      method: "PATCH",
+      credentials: "include",
+      headers, // DO NOT set Content-Type when sending FormData
+      body: fd,
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Upload failed (${res.status}): ${txt.slice(0, 120)}`);
+    }
+
+    const updated = await res.json();
+    
+    console.log("[DEBUG] Verification response:", updated);
+
+    // ✅ Update local user state with all verification fields
+    setUser((prev) => ({
+      ...prev,
+      id_document: updated.id_document || prev.id_document || null,
+      is_verified: Boolean(updated.is_fully_verified),
+      verification_status: updated.id_verification_status ?? "PENDING",
+      birthdate: updated.birthdate || prev.birthdate,
+      nationality: updated.nationality || prev.nationality,
+    }));
+
+    // ✅ Immediately set status to "pending" for UI
+    setVerificationStatus("pending");
+    
+    console.log("[SUCCESS] Verification status set to pending");
+
+    setShowVerificationPopup(false);
+    setIdFile(null);
+    setIdPreviewUrl(null);
+  } catch (e) {
+    console.error("[verify upload] error", e);
+    alert(e.message || "Upload failed.");
   }
+}
 
   // Helper function to find differences between original and current skills
   const getSkillsDifferences = () => {
@@ -1268,9 +1274,9 @@ export default function ProfilePage() {
         return prev.map((g) =>
           g.category === addSkillCategory
             ? {
-                ...g,
-                skills: [...new Set([...g.skills, ...selectedSpecificSkills])],
-              }
+              ...g,
+              skills: [...new Set([...g.skills, ...selectedSpecificSkills])],
+            }
             : g
         );
       }
@@ -1464,9 +1470,8 @@ export default function ProfilePage() {
         if (isOwnProfile) {
           url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/posted-trades/`;
         } else {
-          url = `${
-            process.env.NEXT_PUBLIC_BACKEND_URL
-          }/posted-trades/${encodeURIComponent(slug)}/`;
+          url = `${process.env.NEXT_PUBLIC_BACKEND_URL
+            }/posted-trades/${encodeURIComponent(slug)}/`;
         }
 
         console.log("[Profile] Fetching posted trades from:", url);
@@ -1487,11 +1492,10 @@ export default function ProfilePage() {
           reqname: trade.reqname,
           deadline: trade.deadline,
           name: isOwnProfile
-            ? `${session?.user?.first_name || ""} ${
-                session?.user?.last_name || ""
+            ? `${session?.user?.first_name || ""} ${session?.user?.last_name || ""
               }`.trim() || session?.user?.username
             : `${user?.firstname || ""} ${user?.lastname || ""}`.trim() ||
-              user?.username,
+            user?.username,
           username: isOwnProfile ? session?.user?.username : user?.username,
           rating: isOwnProfile ? session?.user?.rating || 0 : user?.rating || 0,
           reviews: isOwnProfile
@@ -1501,8 +1505,8 @@ export default function ProfilePage() {
           offer: trade.offer || "Skills & Services",
           profilePic: isOwnProfile
             ? session?.user?.image ||
-              session?.user?.profilePic ||
-              user?.profilePic
+            session?.user?.profilePic ||
+            user?.profilePic
             : trade.profilePic || user?.profilePic,
         }));
 
@@ -1563,8 +1567,8 @@ export default function ProfilePage() {
   const displayName = isOwnProfile
     ? "You"
     : `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
-      user?.username ||
-      "User";
+    user?.username ||
+    "User";
 
   // Function to get general skill ID from category name
   const getGeneralSkillIdForInterest = async (categoryName) => {
@@ -1944,17 +1948,17 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState(() =>
       Array.isArray(credentialsToEdit) && credentialsToEdit
         ? credentialsToEdit.map((cred) => ({
-            // Map backend fields to frontend fields
-            title: cred.credential_title || "",
-            org: cred.issuer || "",
-            issueDate: cred.issue_date || "",
-            expiryDate: cred.expiry_date || "",
-            id: cred.cred_id || "",
-            url: cred.cred_url || "",
-            skills: cred.skills || [],
-            skillCategory: "",
-            usercred_id: cred.usercred_id, // Keep the backend ID for updates
-          }))
+          // Map backend fields to frontend fields
+          title: cred.credential_title || "",
+          org: cred.issuer || "",
+          issueDate: cred.issue_date || "",
+          expiryDate: cred.expiry_date || "",
+          id: cred.cred_id || "",
+          url: cred.cred_url || "",
+          skills: cred.skills || [],
+          skillCategory: "",
+          usercred_id: cred.usercred_id, // Keep the backend ID for updates
+        }))
         : [defaultCredential]
     );
 
@@ -2769,22 +2773,22 @@ export default function ProfilePage() {
             )}
             {(user.is_verified ||
               verificationStatus?.toLowerCase() === "verified") && (
-              <div className="relative group">
-                <div
-                  className="w-[1.8em] h-[1.8em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
-                  style={{
-                    WebkitMask:
-                      "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
-                    mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
-                  }}
-                />
+                <div className="relative group">
+                  <div
+                    className="w-[1.8em] h-[1.8em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
+                    style={{
+                      WebkitMask:
+                        "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                      mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                    }}
+                  />
 
-                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
-                  This user has uploaded their ID and been verified by Expair.
-                  You can get verified too on your profile.
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                    This user has uploaded their ID and been verified by Expair.
+                    You can get verified too on your profile.
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
           {/* Username + Joined Date */}
           <div className="flex text-white/50 text-[16px] mb-[20px] gap-[25px]">
@@ -3021,8 +3025,8 @@ export default function ProfilePage() {
                         skillsSaving
                           ? "bg-[#0038FF]/70"
                           : hasUnsavedSkillsChanges()
-                          ? "bg-[#0038FF] hover:bg-[#1a4dff]"
-                          : "bg-white/20 cursor-not-allowed"
+                            ? "bg-[#0038FF] hover:bg-[#1a4dff]"
+                            : "bg-white/20 cursor-not-allowed"
                       )}
                     >
                       {skillsSaving ? "Saving..." : "Save"}
@@ -3251,8 +3255,8 @@ export default function ProfilePage() {
                         interestsSaving
                           ? "bg-[#0038FF]/70"
                           : hasUnsavedInterestChanges()
-                          ? "bg-[#0038FF] hover:bg-[#1a4dff]"
-                          : "bg-white/20 cursor-not-allowed"
+                            ? "bg-[#0038FF] hover:bg-[#1a4dff]"
+                            : "bg-white/20 cursor-not-allowed"
                       )}
                     >
                       {interestsSaving ? "Saving..." : "Save"}
@@ -3555,20 +3559,20 @@ export default function ProfilePage() {
                                   </Link>
                                   {(user.is_verified ||
                                     verificationStatus?.toLowerCase() === "verified") && (
-                                    <div className="relative group">
-                                      <div
-                                        className="w-[1.2em] h-[1.2em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
-                                        style={{
-                                          WebkitMask:
-                                            "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
-                                          mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
-                                        }}
-                                      />
-                                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
-                                        Verified User
+                                      <div className="relative group">
+                                        <div
+                                          className="w-[1.2em] h-[1.2em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
+                                          style={{
+                                            WebkitMask:
+                                              "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                                            mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                                          }}
+                                        />
+                                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                                          Verified User
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-[15px]">
                                   <div className="flex items-center gap-[5px]">
@@ -3669,7 +3673,7 @@ export default function ProfilePage() {
                               </span>
                               <div className="flex -space-x-2">
                                 {trade.interested &&
-                                trade.interested.length > 0 ? (
+                                  trade.interested.length > 0 ? (
                                   trade.interested.map((person) => (
                                     <div
                                       key={person.id}
@@ -3712,7 +3716,7 @@ export default function ProfilePage() {
                             >
                               <span className="text-[13px] text-white">
                                 {!trade.interested ||
-                                trade.interested.length === 0
+                                  trade.interested.length === 0
                                   ? "No offers"
                                   : "View"}
                               </span>
@@ -3768,20 +3772,20 @@ export default function ProfilePage() {
                                   </Link>
                                   {(user.is_verified ||
                                     verificationStatus?.toLowerCase() === "verified") && (
-                                    <div className="relative group">
-                                      <div
-                                        className="w-[1.2em] h-[1.2em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
-                                        style={{
-                                          WebkitMask:
-                                            "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
-                                          mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
-                                        }}
-                                      />
-                                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
-                                        Verified User
+                                      <div className="relative group">
+                                        <div
+                                          className="w-[1.2em] h-[1.2em] bg-gradient-to-tr from-[#FF19FB] via-[#7B00FF] to-[#6DDFFF]"
+                                          style={{
+                                            WebkitMask:
+                                              "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                                            mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
+                                          }}
+                                        />
+                                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                                          Verified User
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
                                 </div>
                                 <div className="flex gap-[15px] items-center text-sm text-white/90">
                                   <div className="flex gap-1 items-center">
@@ -4068,9 +4072,8 @@ export default function ProfilePage() {
                           style={{
                             width:
                               user.reviews > 0
-                                ? `${
-                                    (reviewRatings[rating] / user.reviews) * 100
-                                  }%`
+                                ? `${(reviewRatings[rating] / user.reviews) * 100
+                                }%`
                                 : "0%",
                           }}
                           className="h-full bg-[#906EFF] rounded-full"
