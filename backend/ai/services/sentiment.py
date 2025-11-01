@@ -1,6 +1,7 @@
 import json
 import os
 from google import genai
+from ai.config import GEMINI_PRO
 
 def analyze_sentiment(review_text: str) -> dict:
     """
@@ -17,10 +18,10 @@ def analyze_sentiment(review_text: str) -> dict:
         }
     """
     # Configure Gemini
-    api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
+    api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
-        raise Exception("GOOGLE_API_KEY or GEMINI_API_KEY not configured")
-    
+        raise Exception("GEMINI_API_KEY not configured")
+
     client = genai.Client(api_key=api_key)
     
     # Build sentiment analysis prompt
@@ -45,7 +46,7 @@ Respond ONLY with valid JSON:
 
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash-exp',
+            model=GEMINI_PRO,
             contents=prompt
         )
         result_text = response.text.strip()

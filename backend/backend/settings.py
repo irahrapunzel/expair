@@ -135,9 +135,10 @@ AUTH_USER_MODEL = 'accounts.User'
 
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
-print(f"=== DATABASE CONFIG DEBUG ===")
-print(f"DATABASE_URL exists: {DATABASE_URL is not None}")
-print(f"DATABASE_URL value: {DATABASE_URL}")
+if os.environ.get("RUN_MAIN") == "true":
+    print(f"=== DATABASE CONFIG DEBUG ===")
+    print(f"DATABASE_URL exists: {DATABASE_URL is not None}")
+    print(f"DATABASE_URL value: {DATABASE_URL}")
 
 if DATABASE_URL:
     try:
@@ -303,12 +304,10 @@ CSRF_TRUSTED_ORIGINS = [
 
 ]
 
-# Gemini / Google AI key (used by backend/ai)
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+# Gemini API key for AI
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 # OTP Email Configuration
 OTP_EMAIL_SENDER = 'noreply@expair.com'
 OTP_EMAIL_SUBJECT = 'Your Expair Verification Code'
 OTP_EMAIL_TOKEN_VALIDITY = 600  # 10 minutes
-
-

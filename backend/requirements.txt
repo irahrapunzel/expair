@@ -1,25 +1,42 @@
-asgiref==3.9.1
-certifi==2025.8.3
-charset-normalizer==3.4.3
-cloudinary==1.44.1
-django-cloudinary-storage==0.3.0
-dj-database-url==3.0.1
+# Core Django & runtime
 Django==4.2.16
-django-otp==1.6.1
+asgiref==3.9.1
+tzdata==2025.2
+sqlparse==0.5.3
+
+# Django ecosystem & middleware
 django-cors-headers==4.7.0
+django-cloudinary-storage==0.3.0
+django-otp==1.6.1
+whitenoise[brotli]==6.7.0
+
+# REST API & authentication
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
-gunicorn==23.0.0
-whitenoise[brotli]==6.7.0
-pillow==11.3.0
-psycopg2-binary==2.9.10
 PyJWT==2.10.1
+
+# Database & connection helpers
+psycopg2-binary==2.9.10
+dj-database-url==3.0.1
+
+# Media & image processing
+cloudinary==1.44.1
+pillow==11.3.0
+
+# Server
+gunicorn==23.0.0
+
+# HTTP / networking / compatibility
 requests==2.32.5
-sqlparse==0.5.3
-tzdata==2025.2
-python-dotenv==1.0.1
-pydantic==2.12.1
-packaging==25.0
+certifi==2025.8.3
+charset-normalizer==3.4.3
 six==1.17.0
+
+# Environment & dev utilities
+python-dotenv==1.2.1
+
+# AI, ML, & related utilities
 google-genai>=1.0.0
 numpy>=1.26.0
+pydantic==2.12.1
+packaging==25.0
