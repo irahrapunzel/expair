@@ -1,7 +1,7 @@
 import json
 import os
 from google import genai
-from ai.config import GEMINI_PRO
+from ai.config import GEMINI_FLASH
 
 def analyze_sentiment(review_text: str) -> dict:
     """
@@ -46,7 +46,7 @@ Respond ONLY with valid JSON:
 
     try:
         response = client.models.generate_content(
-            model=GEMINI_PRO,
+            model=GEMINI_FLASH,
             contents=prompt
         )
         result_text = response.text.strip()
