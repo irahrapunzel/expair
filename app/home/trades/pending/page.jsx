@@ -255,7 +255,8 @@ export default function PendingTradesPage() {
                   day: "numeric",
                 })
                 : "No deadline",
-              status: trade.status,
+              status: trade.status,  
+              accepted_user: trade.accepted_user,
             })
           );
           setPostedTrades(transformedPostedTrades);
@@ -686,6 +687,9 @@ export default function PendingTradesPage() {
               console.log('interested_users:', trade.interested_users);
               console.log('interested:', trade.interested);
 
+              // ✅ Check for the accepted_user object
+              console.log('accepted_user:', trade.accepted_user);
+
               if (trade.all_interested_users) {
                 console.log(
                   'all_interested_users with ACCEPTED:',
@@ -902,6 +906,9 @@ export default function PendingTradesPage() {
                           content={
                             <>
                               Trade Locked: You have an accepted offer pending with{" "}
+                              {/* ✅ *** ITO ANG AYOS ***
+                                  Ginagamit na natin ang 'trade.accepted_user.name'
+                              */}
                               {trade.accepted_user?.name || "another user"}.
                               <br /><br />
                               You can't view or consider new offers until you resolve the current one.
@@ -1102,9 +1109,9 @@ export default function PendingTradesPage() {
                       <span className="text-sm text-white/80 font-medium">Needs</span>
                       <div
                         className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
-                        title={trade.needs}
+                        title={trade.offers}
                       >
-                        {trade.needs}
+                        {trade.offers}
                       </div>
                     </div>
 
@@ -1115,9 +1122,9 @@ export default function PendingTradesPage() {
                       </span>
                       <div
                         className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
-                        title={trade.offers}
+                        title={trade.needs}
                       >
-                        {trade.offers}
+                        {trade.needs}
                       </div>
                     </div>
                   </div>
@@ -1435,6 +1442,8 @@ export default function PendingTradesPage() {
                       </div>
                     ) : (
                       // Collapsed View
+                      
+                      
                       <div
                         className="flex flex-col justify-between h-full"
                         onClick={(e) => {

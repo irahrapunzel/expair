@@ -1,13 +1,12 @@
 from django.contrib.auth.models import AbstractUser
-from django.db import models
 from django.contrib.auth.hashers import make_password
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from django.db.models.signals import post_save, pre_save
 from django.conf import settings
 from django.utils import timezone
 import os
 import binascii
-from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 class PasswordResetToken(models.Model):
@@ -38,6 +37,56 @@ class PasswordResetToken(models.Model):
         db_table = 'password_reset_token_tbl'
         managed = True
 
+class Notification(models.Model):
+    class NotificationType(models.TextChoices):
+        TRADE_INTEREST = "TRADE_INTEREST", "Trade Interest"
+        TRADE_ACCEPTED = "TRADE_ACCEPTED", "Trade Accepted"
+        TRADE_CONFIRMED = "TRADE_CONFIRMED", "Trade Confirmed"
+        PROOF_SUBMITTED = "PROOF_SUBMITTED", "Proof Submitted"
+        PROOF_APPROVED = "PROOF_APPROVED", "Proof Approved"
+        VERIF_ACCEPTED = "VERIF_ACCEPTED", "Verification Accepted"
+        VERIF_REJECTED = "VERIF_REJECTED", "Verification Rejected"
+
+    notification_id = models.AutoField(primary_key=True)
+    
+    # The user who this notification is FOR
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='notifications'
+    )
+    
+    # The user who TRIGGERED the notification (e.g., submitted proof, sent interest)
+    # Can be null for system notifications (e.g., verification)
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='sent_notifications', 
+        null=True, 
+        blank=True
+    )
+    
+    message = models.TextField()
+    notification_type = models.CharField(
+        max_length=50, 
+        choices=NotificationType.choices,
+        default=NotificationType.TRADE_INTEREST
+    )
+    is_read = models.BooleanField(default=False)
+    
+    # A link to navigate to on click (e.g., /home/trades/pending/123)
+    link = models.CharField(max_length=255, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'notifications_tbl'
+        managed = True
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Notification for {self.recipient.username} ({self.notification_type})"
+    
 class VerificationStatus(models.TextChoices):
     UNVERIFIED = "UNVERIFIED", "Unverified"
     PENDING = "PENDING", "Pending"
@@ -109,6 +158,47 @@ class UserVerification(models.Model):
         if self.id_verification_status == VerificationStatus.VERIFIED:
             progress += 50
         return progress
+    
+@receiver(pre_save, sender=UserVerification)
+def store_old_verification_status(sender, instance, **kwargs):
+    """Store the old verification status before saving."""
+    if instance.pk:
+        try:
+            instance._old_status = UserVerification.objects.get(pk=instance.pk).id_verification_status
+        except UserVerification.DoesNotExist:
+            instance._old_status = None
+    else:
+        instance._old_status = None
+
+@receiver(post_save, sender=UserVerification)
+def create_verification_notification(sender, instance, created, **kwargs):
+    """Send notification when verification status changes to VERIFIED or REJECTED."""
+    
+    # Don't run on creation, only on updates
+    if created or not hasattr(instance, '_old_status'):
+        return
+
+    old_status = instance._old_status
+    new_status = instance.id_verification_status
+    
+    # Check if status has changed to a final state
+    if old_status != new_status:
+        if new_status == VerificationStatus.VERIFIED:
+            Notification.objects.create(
+                recipient=instance.user,
+                sender=None, # System notification
+                message="Your application for user verification has been successfully accepted.",
+                notification_type=Notification.NotificationType.VERIF_ACCEPTED,
+                link="/home/profile" 
+            )
+        elif new_status == VerificationStatus.REJECTED:
+            Notification.objects.create(
+                recipient=instance.user,
+                sender=None, # System notification
+                message="Your application for user verification has been rejected.",
+                notification_type=Notification.NotificationType.VERIF_REJECTED,
+                link="/home/profile" 
+            )
 
 class UserManager(models.Manager):
     """Custom manager for User model that provides create_user method"""

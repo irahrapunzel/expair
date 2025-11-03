@@ -5,7 +5,7 @@ from .models import GenSkill, UserInterest
 from rest_framework import serializers
 from .models import SpecSkill, UserSkill 
 from .models import User, UserCredential
-from .models import Report
+from .models import Report, Notification
 from django.utils import timezone
 
 import os
@@ -14,6 +14,25 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 import json
 
+class NotificationSerializer(serializers.ModelSerializer):
+    sender_username = serializers.CharField(source='sender.username', read_only=True, allow_null=True)
+    sender_profile_pic = serializers.CharField(source='sender.profilePic', read_only=True, allow_null=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            'notification_id',
+            'recipient',
+            'sender',
+            'sender_username',
+            'sender_profile_pic',
+            'message',
+            'notification_type',
+            'is_read',
+            'link',
+            'created_at',
+        ]
+        read_only_fields = ['recipient', 'sender', 'created_at']
 
 class UserVerificationSerializer(serializers.ModelSerializer):
     """Serializer for UserVerification model"""

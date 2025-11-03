@@ -34,12 +34,12 @@ CustomUser = get_user_model()
 from .models import (
     Evaluation, GenSkill, ReputationSystem, TradeDetail, TradeHistory, UserInterest, User, VerificationStatus, UserCredential,
     SpecSkill, UserSkill, TradeRequest, TradeInterest, PasswordResetToken,
-    Conversation, Message, DeletedConversation, Report, SupportTicket, UserVerification
+    Conversation, Message, DeletedConversation, Report, SupportTicket, UserVerification, Notification
 )
 from .serializers import (
     ProfileUpdateSerializer, UserCredentialSerializer,
     SpecSkillSerializer, UserSkillBulkSerializer,
-    UserSerializer, GenSkillSerializer, UserInterestBulkSerializer, ReportSerializer
+    UserSerializer, GenSkillSerializer, UserInterestBulkSerializer, ReportSerializer, NotificationSerializer
 )
 
 from django.core.mail import EmailMultiAlternatives
@@ -1815,6 +1815,18 @@ def express_trade_interest(request):
             status=TradeInterest.InterestStatus.PENDING
         ).count()
         
+        # Notification to requester about new interest
+        try:
+            Notification.objects.create(
+                recipient=trade_request.requester,
+                sender=request.user,
+                message=f"{request.user.first_name or request.user.username} is interested in your trade request for \"{trade_request.reqname}\"",
+                notification_type=Notification.NotificationType.TRADE_INTEREST,
+                link=f"/home/trades/posted/" # Link to the posted trades page
+            )
+        except Exception as e:
+            print(f"Failed to create TRADE_INTEREST notification: {e}")
+        
         print(f"Trade status remains: {trade_request.status} (unchanged)")
         print(f"Requester: {trade_request.requester.username}")
         print(f"Interested User: {request.user.username}")
@@ -2261,6 +2273,18 @@ def accept_trade_interest(request, interest_id):
                     'responder': trade_request.responder,
                 }
             )
+            
+            # Notification to interested user about acceptance
+            try:
+                Notification.objects.create(
+                    recipient=trade_interest.interested_user, # Notify the user who was accepted
+                    sender=request.user, # The requester
+                    message=f"{request.user.first_name or request.user.username} accepted your trade for \"{trade_request.reqname}\". Add details to the trade now!",
+                    notification_type=Notification.NotificationType.TRADE_ACCEPTED,
+                    link=f"/home/trades/pending/"
+                )
+            except Exception as e:
+                print(f"Failed to create TRADE_ACCEPTED notification: {e}")
 
             return Response({
                 "message": "Trade interest accepted successfully - proceed to evaluation",
@@ -2656,6 +2680,24 @@ def confirm_trade_evaluation(request, tradereq_id):
             evaluation.save()
             print(f"Evaluation saved successfully")
             
+            # Notification to the other user about confirmation
+            partner_user = None
+            if request.user == trade_request.requester:
+                partner_user = trade_request.responder
+            else:
+                partner_user = trade_request.requester
+            
+            try:
+                Notification.objects.create(
+                    recipient=partner_user, # Notify the partner
+                    sender=request.user,
+                    message=f"{request.user.first_name or request.user.username} confirmed your trade for \"{trade_request.reqname}\"",
+                    notification_type=Notification.NotificationType.TRADE_CONFIRMED,
+                    link=f"/home/trades/active/"
+                )
+            except Exception as e:
+                print(f"Failed to create TRADE_CONFIRMED notification: {e}")
+                
             # Check if both users have confirmed
             both_confirmed = (
                 evaluation.requester_evaluation_status == Evaluation.EvaluationStatus.CONFIRMED and 
@@ -3322,6 +3364,8 @@ def upload_trade_proof(request):
     # ✅ Append new proof items to the existing list, don't overwrite
     try:
         with transaction.atomic():
+            partner_user = None
+            
             if is_requester:
                 existing_proof = trade_history.requester_proof or []
                 trade_history.requester_proof = existing_proof + proof_items
@@ -3332,7 +3376,20 @@ def upload_trade_proof(request):
                 trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
 
             trade_history.save()
-
+            
+            # Notification to partner about proof submission
+            if partner_user:
+                try:
+                    Notification.objects.create(
+                        recipient=partner_user, # Notify the partner
+                        sender=request.user,
+                        message=f"{request.user.first_name or request.user.username} finished their output for \"{trade_request.reqname}\". Check out and evaluate their proof!",
+                        notification_type=Notification.NotificationType.PROOF_SUBMITTED,
+                        link=f"/home/trades/active/"
+                    )
+                except Exception as e:
+                    print(f"Failed to create PROOF_SUBMITTED notification: {e}")
+                    
         return Response({
             "message": "Proof uploaded successfully.",
             "files_uploaded": len(uploaded_files),
@@ -3551,6 +3608,7 @@ def approve_partner_proof(request, tradereq_id):
         
         # Determine which proof to approve
         current_user_is_requester = (request.user == trade_request.requester)
+        partner_user = None
         
         with transaction.atomic():
             if current_user_is_requester:
@@ -3572,6 +3630,18 @@ def approve_partner_proof(request, tradereq_id):
                 trade_history.responder_proof_status == TradeHistory.ProofStatus.APPROVED
             )
             
+            # Notification to partner about proof approval
+            if partner_user:
+                try:
+                    Notification.objects.create(
+                        recipient=partner_user, # Notify the partner
+                        sender=request.user,
+                        message=f"{request.user.first_name or request.user.username} approved your output proof. Don’t forget to rate them!",
+                        notification_type=Notification.NotificationType.PROOF_APPROVED,
+                        link=f"/home/trades/active/"
+                    )
+                except Exception as e:
+                    print(f"Failed to create PROOF_APPROVED notification: {e}")
         
         return Response({
             "message": "Proof approved successfully",
@@ -4661,3 +4731,76 @@ def resend_otp(request):
         import traceback
         traceback.print_exc()
         return Response({"error": "Failed to resend OTP. Please try again."}, status=500)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_notifications(request):
+    """
+    Get all unread notifications for the current user, plus the unread count.
+    """
+    try:
+        notifications = Notification.objects.filter(
+            recipient=request.user, 
+            is_read=False
+        ).order_by('-created_at')
+        
+        unread_count = notifications.count()
+        
+        serializer = NotificationSerializer(notifications, many=True)
+        
+        return Response({
+            "count": unread_count,
+            "notifications": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"Error in list_notifications: {str(e)}")
+        return Response({"error": "Failed to fetch notifications"}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_all_as_read(request):
+    """
+    Mark all unread notifications for the current user as read.
+    """
+    try:
+        updated_count = Notification.objects.filter(
+            recipient=request.user, 
+            is_read=False
+        ).update(is_read=True)
+        
+        return Response({
+            "message": "All notifications marked as read.",
+            "updated_count": updated_count
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"Error in mark_all_as_read: {str(e)}")
+        return Response({"error": "Failed to mark notifications as read"}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_one_as_read(request, notification_id):
+    """
+    Mark a single notification as read.
+    """
+    try:
+        notification = Notification.objects.get(
+            notification_id=notification_id,
+            recipient=request.user
+        )
+        if not notification.is_read:
+            notification.is_read = True
+            notification.save()
+            
+        return Response({
+            "message": "Notification marked as read.",
+            "notification_id": notification_id
+        }, status=status.HTTP_200_OK)
+        
+    except Notification.DoesNotExist:
+        return Response({"error": "Notification not found or access denied"}, status=404)
+    except Exception as e:
+        return Response({"error": "Failed to mark notification as read"}, status=500)

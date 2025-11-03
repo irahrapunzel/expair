@@ -93,6 +93,11 @@ urlpatterns = [
     
     path('validate-field/', validate_field, name='validate_field'),
 
+    # Notification Endpoints
+    path('notifications/', views.list_notifications, name='list_notifications'),
+    path('notifications/mark-all-read/', views.mark_all_as_read, name='mark_all_as_read'),
+    path('notifications/<int:notification_id>/mark-read/', views.mark_one_as_read, name='mark_one_as_read'),
+    
     # Messaging endpoints
     path('trades/<int:tradereq_id>/conversation/', views.get_or_create_conversation, name='get_or_create_conversation'),
     path('conversations/', views.list_conversations, name='list_conversations'),

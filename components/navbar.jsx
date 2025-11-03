@@ -32,8 +32,12 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [bellRect, setBellRect] = useState(null);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
-  const [notifCount, setNotifCount] = useState(5);
+
+  // State for real notifications
+  const [notifications, setNotifications] = useState([]);
+  const [notifCount, setNotifCount] = useState(0);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  
   const bellRef = useRef(null);
 
   const profileImage =
@@ -46,6 +50,44 @@ export default function Navbar() {
     (session?.user?.id ? String(session.user.id) : "me");
   const profileHref = `/home/profile/${profileSlug}`;
   const settingsHref = `/home/profile/${profileSlug}/settings`;
+
+  // Fetches notifications
+  const fetchNotifications = async () => {
+    if (!session?.access) return; // Don't fetch if not logged in
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"}/api/accounts/notifications/`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access}`, // <-- Auth header
+          },
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications);
+        setNotifCount(data.count);
+        setHasUnreadNotifications(data.count > 0);
+      } else {
+        console.error("Failed to fetch notifications");
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  // Fetch notifications on load and poll
+  useEffect(() => {
+    if (session) { // Only run when session is available
+      fetchNotifications();
+      
+      const interval = setInterval(fetchNotifications, 60000); // Poll every 60 seconds
+      return () => clearInterval(interval);
+    }
+  }, [session]); // Re-run when session changes
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -70,10 +112,28 @@ export default function Navbar() {
     setNotificationOpen(!notificationOpen);
   };
 
-  const handleAllNotificationsRead = () => {
-    setNotifCount(0);
-    setHasUnreadNotifications(false);
+  const handleAllNotificationsRead = async () => {
+    if (!session?.access) return; // Check for token
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"}/api/accounts/notifications/mark-all-read/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access}`, // <-- ADDED AUTH HEADER
+          },
+        }
+      );
+      if (res.ok) {
+        // Refresh notifications list
+        fetchNotifications();
+      }
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+    }
   };
+  // --- [END FIX] ---
 
   const handleLogout = async () => {
     try {
@@ -194,12 +254,16 @@ export default function Navbar() {
                 )}
               </div>
             </div>
+            
             <NotificationPortal
               isOpen={notificationOpen}
               onClose={() => setNotificationOpen(false)}
               onMarkAllAsRead={handleAllNotificationsRead}
               anchorRect={bellRect}
+              notifications={notifications} 
+              fetchNotifications={fetchNotifications} 
             />
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full border border-white focus:outline-none focus:ring-2 focus:ring-[#6DDFFF]">
