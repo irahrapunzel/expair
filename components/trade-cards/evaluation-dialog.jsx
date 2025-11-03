@@ -77,29 +77,29 @@ export default function EvaluationDialog({
     return "Poor trade";
   };
 
-  // ✅ FETCH AI EVALUATION
-  useEffect(() => {
-    if (!isOpen || !tradeData?.tradereq_id) return;
+ // ✅ FETCH AI EVALUATION
+useEffect(() => {
+  if (!isOpen || !tradeData?.tradereq_id) return;
+  
+  const fetchEvaluation = async () => {
+    setIsEvaluating(true);
+    setEvaluationError(null);
     
-    const fetchEvaluation = async () => {
-      setIsEvaluating(true);
-      setEvaluationError(null);
+    try {
+      // Check if evaluation already exists (TE2 - viewing saved evaluation)
+      const checkResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/evaluation/${tradeData.tradereq_id}/`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.access}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
       
-      try {
-        // Check if evaluation already exists (TE2 - viewing saved evaluation)
-        const checkResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/evaluation/${tradeData.tradereq_id}/`,
-          {
-            headers: {
-              'Authorization': `Bearer ${session?.access}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        
-        let evaluationData;
-        
-        if (checkResponse.ok) {
+      let evaluationData;
+      
+      if (checkResponse.ok) {
         // TE2: Evaluation exists, load saved data
         evaluationData = await checkResponse.json();
         console.log('✅ Loaded saved evaluation:', evaluationData);

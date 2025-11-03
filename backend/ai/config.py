@@ -1,8 +1,10 @@
 """AI module configuration - matches actual database field names"""
+import os
 
 # Gemini API Configuration
-GEMINI_PRO = "gemini-2.5-pro"
-GEMINI_FLASH = "gemini-2.5-flash"
+GEMINI_PRO = os.getenv("GEMINI_MODEL_PRO", "gemini-2.5-pro")
+GEMINI_FLASH = os.getenv("GEMINI_MODEL_FAST", "gemini-2.5-flash")
+GEMINI_EMBED = os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001")
 
 # TradeRequest field mappings (from your actual model)
 TR_PK_FIELDS = ['tradereq_id', 'id', 'pk']

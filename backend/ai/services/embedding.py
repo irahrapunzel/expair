@@ -12,6 +12,7 @@ from ai.cache import (
     get_trade_embedding,
     set_trade_embedding
 )
+from ai.config import GEMINI_EMBED
 
 # Global client instance
 _client = None
@@ -83,7 +84,7 @@ def _extract_embedding(obj: Any) -> Optional[Any]:
 
 def _generate_embedding(text: str) -> np.ndarray:
     """
-    Generate embedding using Gemini API
+    Generate embedding using Gemini API w/ configured model
     
     Args:
         text: Text to embed
@@ -92,17 +93,22 @@ def _generate_embedding(text: str) -> np.ndarray:
         1-D numpy array embedding vector
     """
     client = _get_client()
-    # Try older SDK shape first, fallback to newer
+
     try:
-        result = client.models.embed_content(model='models/gemini-embedding-001', contents=text)
-    except TypeError:
-        result = client.embeddings.create(model='text-embedding-005', input=text)
-    except Exception:
-        # last-resort attempt (some SDKs differ)
+        result = client.models.embed_content(
+            model=f'models/{GEMINI_EMBED}',
+            contents=text
+        )
+    except Exception as e:
+        print(f"⚠️ Embedding with {GEMINI_EMBED} failed: {e}")
+        # Fallback attempt
         try:
-            result = client.embeddings.create(model='textembedding-gecko-001', input=text)
-        except Exception as e:
-            raise
+            result = client.models.embed_content(
+                model='models/text-embedding-004',
+                contents=text
+            )
+        except Exception as fallback_e:
+            raise Exception(f"All embedding models failed: {e}, {fallback_e}")
 
     emb = _extract_embedding(result)
 

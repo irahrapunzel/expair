@@ -1,7 +1,7 @@
 import json
 import os
 from google import genai
-from google.genai import types
+from ai.config import GEMINI_PRO
 
 def evaluate_trade(tradereq_id: int) -> dict:
     """
@@ -19,10 +19,10 @@ def evaluate_trade(tradereq_id: int) -> dict:
     from accounts.models import TradeRequest, TradeDetail
     
     # Configure Gemini
-    api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
+    api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
-        raise Exception("GOOGLE_API_KEY or GEMINI_API_KEY not configured")
-    
+        raise Exception("GEMINI_API_KEY not configured")
+
     client = genai.Client(api_key=api_key)
     
     # Fetch trade and details
@@ -112,9 +112,8 @@ Respond ONLY with valid JSON:
 }}"""
 
     try:
-        # Use the newer google-genai SDK
         response = client.models.generate_content(
-            model='gemini-2.0-flash-exp',
+            model=GEMINI_PRO,
             contents=prompt
         )
         result_text = response.text.strip()
