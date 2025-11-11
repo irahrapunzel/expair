@@ -1,367 +1,390 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Inter } from "next/font/google";
-import { 
-  Users, 
-  FileText, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock,
-  Activity,
-  Calendar,
-  Shield,
-  Award
-} from "lucide-react";
-import AdminPageHeader from "@/components/admin/admin-page-header";
 import StatsCard from "@/components/admin/stats-card";
+import AvatarNameCell from "@/components/admin/avatar-name-cell";
+import DashboardSkeleton from "@/components/admin/dashboard-skeleton";
+import { 
+  TrendingUp, 
+  BarChart3, 
+  Users as UsersIcon, 
+  Star,
+  Package,
+  CheckCircle,
+  RefreshCw,
+  Clock
+} from "lucide-react";
 
-const inter = Inter({ subsets: ["latin"] });
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
-    totalUsersRegistered: 0,
-    verifiedUsers: 0,
-    pendingVerifications: 0,
-    totalReportsSubmitted: 0,
-    activeUsersThisMonth: 0,
-    systemHealth: "Good"
+    totalTrades: 0,
+    completedTrades: 0,
+    activeTrades: 0,
+    pendingTrades: 0
   });
-
-  const [dateRange, setDateRange] = useState("2023-2024");
+  const [trends, setTrends] = useState({
+    total_trades: { value: "0%", is_up: true },
+    completed_trades: { value: "0%", is_up: true },
+    active_trades: { value: "0%", is_up: true },
+    pending_trades: { value: "0%", is_up: true }
+  });
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [topTraders, setTopTraders] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Use hardcoded data instead of API calls
-    console.log("Loading hardcoded dashboard data...");
-    
-    // Set hardcoded stats that match the Users page data (8 users total)
-    setStats({
-      totalUsersRegistered: 8,
-      verifiedUsers: 3, // Jane Smith, Emily Brown, Sarah Manager
-      pendingVerifications: 3, // John Doe, Mike Johnson, Tom Director  
-      totalReportsSubmitted: 0,
-      activeUsersThisMonth: 8,
-      systemHealth: "Good"
-    });
+    fetchDashboardData();
   }, []);
 
-
-  // Chart data
-  const tradesPerMonth = [
-    { month: "Oct 2023", trades: 42, activeUsers: 35, averageRating: 4.3 },
-    { month: "Nov 2023", trades: 45, activeUsers: 40, averageRating: 4.4 },
-    { month: "Dec 2023", trades: 48, activeUsers: 42, averageRating: 4.5 },
-    { month: "Jan 2024", trades: 52, activeUsers: 45, averageRating: 4.6 },
-    { month: "Feb 2024", trades: 58, activeUsers: 49, averageRating: 4.7 },
-    { month: "Mar 2024", trades: 65, activeUsers: 52, averageRating: 4.8 }
-  ];
-
-  const topTraders = [
-    { name: "Sarah Manager", trades: 45, rating: 4.9 },
-    { name: "Emily Brown", trades: 38, rating: 4.8 },
-    { name: "Jane Smith", trades: 32, rating: 4.7 },
-    { name: "Tom Director", trades: 28, rating: 4.6 },
-    { name: "Alex Johnson", trades: 25, rating: 4.5 }
-  ];
-
-  const mostReportedUsers = [
-    { name: "David Wilson", reports: 8, reason: "Harassment or bullying", status: "Under Review" },
-    { name: "Mike Johnson", reports: 5, reason: "Disrespectful or rude language", status: "Resolved" },
-    { name: "John Doe", reports: 3, reason: "Spam or scam activity", status: "Pending" },
-    { name: "Unknown User", reports: 2, reason: "Inappropriate requests", status: "Resolved" }
-  ];
-
-  const reportReasons = [
-    { reason: "Harassment or bullying", count: 12, percentage: 35 },
-    { reason: "Disrespectful or rude language", count: 8, percentage: 24 },
-    { reason: "Spam or scam activity", count: 6, percentage: 18 },
-    { reason: "Inappropriate requests", count: 4, percentage: 12 },
-    { reason: "Trade Issues", count: 3, percentage: 9 },
-    { reason: "Profile Content", count: 1, percentage: 2 }
-  ];
-
-
-  const statCards = [
-    {
-      title: "Total Users Registered",
-      value: stats.totalUsersRegistered.toLocaleString(),
-      icon: Users,
-      change: "+12%",
-      changeType: "positive",
-      color: "blue"
-    },
-    {
-      title: "Verified Users",
-      value: stats.verifiedUsers.toLocaleString(),
-      icon: CheckCircle,
-      change: "+8%",
-      changeType: "positive",
-      color: "green"
-    },
-    {
-      title: "Pending Verifications",
-      value: stats.pendingVerifications,
-      icon: Clock,
-      change: "-3%",
-      changeType: "negative",
-      color: "yellow"
-    },
-    {
-      title: "Total Reports Submitted",
-      value: stats.totalReportsSubmitted.toLocaleString(),
-      icon: AlertTriangle,
-      change: "+5%",
-      changeType: "positive",
-      color: "red"
-    },
-    {
-      title: "Active Users This Month",
-      value: stats.activeUsersThisMonth.toLocaleString(),
-      icon: Activity,
-      change: "+23%",
-      changeType: "positive",
-      color: "indigo"
+  async function fetchDashboardData() {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Fetch trade statistics
+      const tradeStatsRes = await fetch(`${API_BASE}/api/admin/trade-stats/`);
+      
+      if (!tradeStatsRes.ok) {
+        throw new Error(`Trade stats failed: ${tradeStatsRes.status}`);
+      }
+      
+      const tradeStatsData = await tradeStatsRes.json();
+      
+      if (!tradeStatsData.success) {
+        throw new Error(tradeStatsData.error || "Failed to load trade stats");
+      }
+      
+      setStats({
+        totalTrades: tradeStatsData.total_trades,
+        completedTrades: tradeStatsData.completed_trades,
+        activeTrades: tradeStatsData.active_trades,
+        pendingTrades: tradeStatsData.pending_trades
+      });
+      
+      // Set real trends from backend
+      if (tradeStatsData.trends) {
+        setTrends(tradeStatsData.trends);
+      }
+      
+      setMonthlyData(tradeStatsData.monthly_breakdown || []);
+      
+      // Fetch top traders
+      const topTradersRes = await fetch(`${API_BASE}/api/admin/top-traders/?limit=5`);
+      if (topTradersRes.ok) {
+        const topTradersData = await topTradersRes.json();
+        if (topTradersData.success) {
+          setTopTraders(topTradersData.top_traders || []);
+        }
+      }
+      
+      // Fetch recent activity
+      const activityRes = await fetch(`${API_BASE}/api/admin/recent-activity/?limit=10`);
+      if (activityRes.ok) {
+        const activityData = await activityRes.json();
+        if (activityData.success) {
+          setRecentActivity(activityData.activities || []);
+        }
+      }
+      
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  ];
+  }
+
+  function getActivityIcon(type) {
+    switch (type) {
+      case 'user_registered': return '👤';
+      case 'trade_completed': return '✅';
+      case 'report_filed': return '⚠️';
+      default: return '📋';
+    }
+  }
+
+  function getActivityColor(type) {
+    switch (type) {
+      case 'user_registered': return 'text-green-400';
+      case 'trade_completed': return 'text-blue-400';
+      case 'report_filed': return 'text-yellow-400';
+      default: return 'text-white/60';
+    }
+  }
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0B0F1A] p-6">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-red-400">
+          <h2 className="text-xl font-bold mb-2">Error Loading Dashboard</h2>
+          <p>{error}</p>
+          <button
+            onClick={fetchDashboardData}
+            className="mt-4 px-4 py-2 bg-[#6DDFFF] text-black rounded-lg hover:bg-[#5DCFEF]"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`p-8 ${inter.className}`}>
-      {/* Page Title */}
-      <AdminPageHeader
-        title="Dashboard Overview"
-        subtitle="Welcome back! Here's what's happening on your platform."
-      />
+    <div className="min-h-screen bg-[#0B0F1A] p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
+          <p className="text-white/60">Overview of platform activity</p>
+        </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {statCards.map((card, index) => (
+        {/* Stats Cards with Icons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatsCard
-            key={index}
-            title={card.title}
-            value={card.value}
-            icon={card.icon}
-            change={card.change}
-            changeType={card.changeType}
-            color={card.color}
+            label="Total Trades"
+            value={stats.totalTrades}
+            trend={trends.total_trades.value}
+            trendUp={trends.total_trades.is_up}
+            trendLabel="from last month"
+            icon={Package}
           />
-        ))}
-      </div>
-
-
-      {/* Charts / Reports Summary */}
-      <div className="mt-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">Charts / Reports Summary</h2>
-          <p className="text-white/60">Analytics and insights for platform performance</p>
+          <StatsCard
+            label="Completed"
+            value={stats.completedTrades}
+            trend={trends.completed_trades.value}
+            trendUp={trends.completed_trades.is_up}
+            trendLabel="from last month"
+            icon={CheckCircle}
+          />
+          <StatsCard
+            label="Active Trades"
+            value={stats.activeTrades}
+            trend={trends.active_trades.value}
+            trendUp={trends.active_trades.is_up}
+            trendLabel="from last month"
+            icon={RefreshCw}
+          />
+          <StatsCard
+            label="Pending"
+            value={stats.pendingTrades}
+            trend={trends.pending_trades.value}
+            trendUp={trends.pending_trades.is_up}
+            trendLabel="from last month"
+            icon={Clock}
+          />
         </div>
 
-        {/* Date Range Filter */}
-        <div className="mb-6 flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-white/60" />
-            <span className="text-sm text-white/80">Date Range:</span>
-          </div>
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="px-3 py-2 bg-[#0A0028] border border-white/20 rounded-lg text-white focus:outline-none focus:border-[#906EFF]/50"
-          >
-            <option value="2023-2024" className="bg-[#0A0028] text-white">2023 - 2024</option>
-            <option value="2023" className="bg-[#0A0028] text-white">2023 Only</option>
-            <option value="2024" className="bg-[#0A0028] text-white">2024 Only</option>
-            <option value="last-6-months" className="bg-[#0A0028] text-white">Last 6 Months</option>
-          </select>
-        </div>
-
-        {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Number of Trades per Month */}
-          <div className="bg-[#0A0028] border border-white/10 rounded-xl p-6">
+          {/* Enhanced Monthly Trades Table */}
+          <div className="bg-gradient-to-br from-[#151B2B] to-[#0A0F1A] rounded-xl p-6 border border-white/10 hover:border-[#6DDFFF]/20 transition-colors">
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Number of Trades per Month</h3>
-                <p className="text-sm text-white/60">Monthly trade volume and user engagement</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-green-400" />
-                <span className="text-sm text-green-400 font-medium">+23%</span>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#6DDFFF]/10 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-[#6DDFFF]" />
+                </div>
+                <h2 className="text-xl font-semibold text-white">Trades Per Month</h2>
               </div>
             </div>
-            
-            {/* Data Table */}
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-white/10">
-                    <th className="text-left py-3 px-2 text-sm font-medium text-white/80">Month</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-white/80">Trades</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-white/80">Active Users</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-white/80">Average Rating</th>
+                    <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Month</th>
+                    <th className="text-center py-3 px-4 text-white/60 font-medium text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                        <TrendingUp className="w-4 h-4" />
+                        Trades
+                      </div>
+                    </th>
+                    <th className="text-center py-3 px-4 text-white/60 font-medium text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                        <UsersIcon className="w-4 h-4" />
+                        Users
+                      </div>
+                    </th>
+                    <th className="text-center py-3 px-4 text-white/60 font-medium text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                        <Star className="w-4 h-4" />
+                        Rating
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tradesPerMonth.map((data, index) => (
-                    <tr key={index} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                      <td className="py-3 px-2 text-sm text-white/90 font-medium">{data.month}</td>
-                      <td className="py-3 px-2 text-sm text-white">{data.trades}</td>
-                      <td className="py-3 px-2 text-sm text-white">{data.activeUsers}</td>
-                      <td className="py-3 px-2 text-sm text-white flex items-center gap-1">
-                        <span>{data.averageRating}</span>
-                        <span className="text-yellow-400">⭐</span>
+                  {monthlyData.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="text-center py-8">
+                        <div className="flex flex-col items-center gap-2">
+                          <BarChart3 className="w-8 h-8 text-white/20" />
+                          <p className="text-white/40 text-sm">No data available</p>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    monthlyData.map((row, idx) => (
+                      <tr 
+                        key={idx} 
+                        className="border-b border-white/5 hover:bg-[#6DDFFF]/5 transition-colors group"
+                      >
+                        <td className="py-4 px-4">
+                          <span className="text-white font-medium group-hover:text-[#6DDFFF] transition-colors">
+                            {row.month}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-white font-semibold text-lg">{row.trades}</span>
+                            <span className="text-xs text-[#6DDFFF] bg-[#6DDFFF]/10 px-2 py-0.5 rounded-full">
+                              {row.completed} completed
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full">
+                            <UsersIcon className="w-3.5 h-3.5 text-white/60" />
+                            <span className="text-white font-medium">{row.active_users}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          {row.average_rating > 0 ? (
+                            <div className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-500/10 rounded-full">
+                              <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                              <span className="text-yellow-400 font-semibold">{row.average_rating}</span>
+                            </div>
+                          ) : (
+                            <span className="text-white/30">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
-            
-            <div className="mt-4 pt-4 border-t border-white/10">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-white/60">Total Trades:</span>
-                  <span className="text-white font-medium">342</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Total Active Users:</span>
-                  <span className="text-white font-medium">263</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Average User Rating:</span>
-                  <span className="text-white font-medium">4.55 / 5</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Growth:</span>
-                  <span className="text-green-400 font-medium">+23% growth in trade activity</span>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Most Active Users / Top Traders */}
-          <div className="bg-[#0A0028] border border-white/10 rounded-xl p-6">
+          {/* Enhanced Top Traders */}
+          <div className="bg-gradient-to-br from-[#151B2B] to-[#0A0F1A] rounded-xl p-6 border border-white/10 hover:border-[#6DDFFF]/20 transition-colors">
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Most Active Users / Top Traders</h3>
-                <p className="text-sm text-white/60">Top performing traders by volume</p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 flex items-center justify-center">
+                  <Star className="w-5 h-5 text-yellow-400" />
+                </div>
+                <h2 className="text-xl font-semibold text-white">Top Traders</h2>
               </div>
-              <Award className="w-5 h-5 text-yellow-400" />
+              <span className="text-xs text-white/40">This month</span>
             </div>
-            
-            <div className="space-y-4">
-              {topTraders.map((trader, index) => (
-                <div key={index} className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
-                  <div className="w-8 h-8 bg-gradient-to-br from-[#906EFF]/20 to-[#906EFF]/10 rounded-full flex items-center justify-center border border-[#906EFF]/20">
-                    <span className="text-xs font-bold text-[#906EFF]">#{index + 1}</span>
+
+            <div className="space-y-2">
+              {topTraders.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="flex flex-col items-center gap-2">
+                    <UsersIcon className="w-8 h-8 text-white/20" />
+                    <p className="text-white/40 text-sm">No traders yet</p>
                   </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-sm font-medium text-white">{trader.name}</h4>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-yellow-400">★</span>
-                        <span className="text-xs text-white/80">{trader.rating}</span>
+                </div>
+              ) : (
+                topTraders.map((trader, idx) => (
+                  <div
+                    key={trader.user_id}
+                    className="relative flex items-center gap-4 p-4 bg-white/5 rounded-xl hover:bg-[#6DDFFF]/10 transition-all duration-300 group cursor-pointer border border-transparent hover:border-[#6DDFFF]/20"
+                  >
+                    {/* Rank badge */}
+                    <div className={`absolute -left-2 -top-2 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                      idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black shadow-lg shadow-yellow-500/50' :
+                      idx === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' :
+                      idx === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-black' :
+                      'bg-white/10 text-white/60'
+                    }`}>
+                      {idx + 1}
+                    </div>
+
+                    <AvatarNameCell
+                      name={trader.name}
+                      username={`@${trader.username}`}
+                      avatarUrl={trader.profile_pic}
+                    />
+
+                    <div className="ml-auto text-right">
+                      <div className="flex items-center gap-2 justify-end">
+                        <TrendingUp className="w-4 h-4 text-green-400" />
+                        <span className="text-white font-semibold text-lg">{trader.trades}</span>
+                        <span className="text-white/40 text-sm">trades</span>
+                      </div>
+                      <div className="flex items-center gap-1 justify-end mt-1">
+                        <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                        <span className="text-yellow-400 font-medium text-sm">
+                          {trader.rating.toFixed(1)}
+                        </span>
+                        <span className="text-white/30 text-xs">({trader.rating_count})</span>
+                      </div>
+                      <div className="text-xs text-white/40 mt-1">
+                        Level {trader.level} • {trader.total_xp.toLocaleString()} XP
                       </div>
                     </div>
-                    
-                    <div className="flex items-center justify-between text-xs text-white/60">
-                      <span>{trader.trades} trades</span>
-                      <span>{trader.rating} rating</span>
-                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
 
-        {/* Bottom Row - Reports */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Most Reported Users */}
-          <div className="bg-[#0A0028] border border-white/10 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Most Reported Users</h3>
-                <p className="text-sm text-white/60">Users with highest report counts</p>
-              </div>
-              <Shield className="w-5 h-5 text-red-400" />
-            </div>
-            
-            <div className="space-y-4">
-              {mostReportedUsers.map((user, index) => (
-                <div key={index} className="flex items-center gap-4 p-3 bg-white/5 rounded-lg">
-                  <div className="w-8 h-8 bg-gradient-to-br from-red-500/20 to-red-500/10 rounded-full flex items-center justify-center border border-red-500/20">
-                    <span className="text-xs font-bold text-red-400">#{index + 1}</span>
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-sm font-medium text-white">{user.name}</h4>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        user.status === 'Under Review' ? 'bg-orange-500/20 text-orange-400' :
-                        user.status === 'Resolved' ? 'bg-green-500/20 text-green-400' :
-                        'bg-yellow-500/20 text-yellow-400'
-                      }`}>
-                        {user.status}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs text-white/60">
-                      <span>{user.reports} reports</span>
-                      <span>{user.reason}</span>
-                    </div>
-                  </div>
-                </div>
-          ))}
-        </div>
-      </div>
+        {/* Enhanced Recent Activity with Timeline */}
+        <div className="bg-gradient-to-br from-[#151B2B] to-[#0A0F1A] rounded-xl p-6 border border-white/10">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-white">Recent Activity</h2>
+          </div>
 
-          {/* Most Common Report Reasons */}
-          <div className="bg-[#0A0028] border border-white/10 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Most Common Report Reasons</h3>
-                <p className="text-sm text-white/60">Breakdown of report categories</p>
-              </div>
-              <AlertTriangle className="w-5 h-5 text-orange-400" />
-            </div>
-            
+          <div className="relative">
+            {/* Timeline line */}
+            <div className="absolute left-5 top-0 bottom-0 w-px bg-gradient-to-b from-[#6DDFFF]/50 via-[#6DDFFF]/20 to-transparent" />
+
             <div className="space-y-4">
-              {reportReasons.map((reason, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-white font-medium">{reason.reason}</span>
-                    <span className="text-sm text-white/60">{reason.count} reports</span>
-                  </div>
-                  
-                  <div className="w-full bg-white/5 rounded-full h-3 relative overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        index === 0 ? 'bg-gradient-to-r from-red-500 to-red-400' :
-                        index === 1 ? 'bg-gradient-to-r from-orange-500 to-orange-400' :
-                        index === 2 ? 'bg-gradient-to-r from-yellow-500 to-yellow-400' :
-                        'bg-gradient-to-r from-gray-500 to-gray-400'
-                      }`}
-                      style={{ width: `${reason.percentage}%` }}
-                    ></div>
-                    <div className="absolute inset-0 flex items-center justify-end pr-2">
-                      <span className="text-xs text-white font-medium">{reason.percentage}%</span>
+              {recentActivity.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-white/40 text-sm">No recent activity</p>
+                </div>
+              ) : (
+                recentActivity.map((activity, idx) => (
+                  <div
+                    key={idx}
+                    className="relative flex items-start gap-4 group"
+                  >
+                    {/* Timeline dot */}
+                    <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center text-xl ${
+                      activity.type === 'user_registered' ? 'bg-green-500/20 ring-2 ring-green-500/30' :
+                      activity.type === 'trade_completed' ? 'bg-blue-500/20 ring-2 ring-blue-500/30' :
+                      'bg-yellow-500/20 ring-2 ring-yellow-500/30'
+                    }`}>
+                      {getActivityIcon(activity.type)}
+                    </div>
+
+                    <div className="flex-1 bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                      <p className={`${getActivityColor(activity.type)} font-medium mb-1`}>
+                        {activity.description}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-white/40">
+                        <span>{new Date(activity.timestamp).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span>{new Date(activity.timestamp).toLocaleTimeString()}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-6 pt-4 border-t border-white/10">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/60">Total Reports: <span className="text-white font-medium">34</span></span>
-                <span className="text-white/60">Avg per User: <span className="text-white font-medium">4.3</span></span>
-              </div>
+                ))
+              )}
             </div>
           </div>
         </div>
       </div>
-
     </div>
   );
 }

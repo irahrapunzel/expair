@@ -8,6 +8,8 @@ from .views import add_user_interests, user_interests, create_report
 from .admin_api import admin_dashboard_stats, admin_recent_activity, admin_users_list
 from django.contrib import admin
 
+from accounts import admin_api
+
 urlpatterns = [
     path('register/', views.register_user, name='register_user'),
     path('complete-registration/', views.complete_registration, name='complete_registration'),
@@ -110,9 +112,11 @@ urlpatterns = [
     path('create-support-ticket/', views.create_support_ticket, name='create_support_ticket'),
     
     # Admin API endpoints
-    path('admin/dashboard-stats/', admin_dashboard_stats, name='admin_dashboard_stats'),
-    path('admin/recent-activity/', admin_recent_activity, name='admin_recent_activity'),
-    path('admin/users/', admin_users_list, name='admin_users_list'),
+    path('admin/dashboard-stats/', admin_api.admin_dashboard_stats, name='admin_dashboard_stats'),
+    path('admin/recent-activity/', admin_api.admin_recent_activity, name='admin_recent_activity'),
+    path('admin/trade-stats/', admin_api.admin_trade_stats, name='admin_trade_stats'),
+    path('admin/top-traders/', admin_api.admin_top_traders, name='admin_top_traders'),
+    path('admin/trade-details/', admin_api.admin_trade_details, name='admin_trade_details'),
 ]
 
 
