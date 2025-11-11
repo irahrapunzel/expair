@@ -801,44 +801,112 @@ def admin_trade_details(request):
 def admin_reports_list(request):
     """
     GET /api/admin/reports-list/
-    Returns paginated list of reports with filters.
+    Returns paginated list of reports with filters and search.
     """
     try:
         search_query = request.GET.get('search', '').strip()
         status_filter = request.GET.get('status', 'all').lower()
         category_filter = request.GET.get('category', 'all').lower()
-        sort_by = request.GET.get('sort', 'newest')
+        priority_filter = request.GET.get('priority', 'all').lower()
+        
+        # Column-based sorting
+        sort_by = request.GET.get('sort', None)
+        direction = request.GET.get('direction', None)
+        
         page = int(request.GET.get('page', 1))
         per_page = int(request.GET.get('per_page', 20))
         
+        print(f"📊 admin_reports_list - status={status_filter}, category={category_filter}, priority={priority_filter}, sort={sort_by}, direction={direction}")
+        
         reports = Report.objects.select_related(
-            'reporter', 'reported_user'
-        ).order_by('-created_at')
+            'reporter', 'reported_user', 'tradereq'
+        ).all()
         
         # Apply filters
         if search_query:
             reports = reports.filter(
                 Q(reporter__username__icontains=search_query) |
                 Q(reported_user__username__icontains=search_query) |
-                Q(report_cat__icontains=search_query) |
-                Q(report_desc__icontains=search_query)
+                Q(category__icontains=search_query) |
+                Q(issue_detail__icontains=search_query) |
+                Q(description__icontains=search_query)
             )
+            print(f"🔍 After search: {reports.count()} reports")
         
-        # ✅ FIX: Use 'status' field values
+        # Status filter
         if status_filter != 'all':
-            if status_filter == 'pending':
-                reports = reports.filter(status='PENDING')
-            elif status_filter == 'resolved':
-                reports = reports.filter(status='RESOLVED')
+            reports = reports.filter(status__iexact=status_filter)
+            print(f"📌 After status filter: {reports.count()} reports")
         
+        # Category filter
         if category_filter != 'all':
-            reports = reports.filter(report_cat__iexact=category_filter)
+            reports = reports.filter(category__iexact=category_filter)
+            print(f"📁 After category filter: {reports.count()} reports")
         
-        # Sorting
-        if sort_by == 'newest':
+        # ✅ FIX: Priority filter with case-insensitive status check
+        if priority_filter != 'all':
+            filtered_report_ids = []
+            
+            for report in reports:
+                if report.reported_user:
+                    # ✅ Count PENDING reports (case-insensitive) against this user
+                    pending_count = Report.objects.filter(
+                        reported_user=report.reported_user,
+                        status__iexact='PENDING'  # ✅ Case-insensitive
+                    ).count()
+                    
+                    # 🔍 DEBUG: Log the count for this user
+                    print(f"👤 User {report.reported_user.username} has {pending_count} PENDING reports")
+                    
+                    # Match the exact same logic used in serialization
+                    if priority_filter == 'critical' and pending_count >= 5:
+                        filtered_report_ids.append(report.report_id)
+                    elif priority_filter == 'high' and 3 <= pending_count < 5:
+                        filtered_report_ids.append(report.report_id)
+                    elif priority_filter == 'medium' and pending_count == 2:
+                        filtered_report_ids.append(report.report_id)
+                    elif priority_filter == 'low' and pending_count < 2:
+                        filtered_report_ids.append(report.report_id)
+                else:
+                    # Reports without reported_user are "Low"
+                    if priority_filter == 'low':
+                        filtered_report_ids.append(report.report_id)
+            
+            # Now filter to only those report IDs
+            reports = reports.filter(report_id__in=filtered_report_ids)
+            print(f"🎯 After priority filter ({priority_filter}): {reports.count()} reports (filtered {len(filtered_report_ids)} IDs)")
+        
+        # Column sorting - only apply if both sort_by and direction are provided
+        if sort_by and direction:
+            sort_mapping = {
+                'report_id': 'report_id',
+                'reporter': 'reporter__username',
+                'reported_user': 'reported_user__username',
+                'category': 'category',
+                'issue_detail': 'issue_detail',
+                'status': 'status',
+                'created_at': 'created_at',
+                'priority': 'user_report_count'
+            }
+            
+            sort_field = sort_mapping.get(sort_by, 'created_at')
+            
+            if sort_by == 'priority':
+                reports = reports.annotate(
+                    user_report_count=Count(
+                        'reported_user__reports_received', 
+                        filter=Q(reported_user__reports_received__status__iexact='PENDING')  # ✅ Case-insensitive
+                    )
+                )
+            
+            # Apply direction
+            if direction == 'asc':
+                reports = reports.order_by(sort_field)
+            else:
+                reports = reports.order_by(f'-{sort_field}')
+        else:
+            # Default ordering by newest first if no sorting applied
             reports = reports.order_by('-created_at')
-        elif sort_by == 'oldest':
-            reports = reports.order_by('created_at')
         
         # Pagination
         total_count = reports.count()
@@ -846,26 +914,56 @@ def admin_reports_list(request):
         end_idx = start_idx + per_page
         reports_page = reports[start_idx:end_idx]
         
-        # Serialize
+        print(f"📄 Returning {len(reports_page)} reports (page {page})")
+        
+        # Serialize with priority calculation
         reports_data = []
         for report in reports_page:
+            # ✅ FIX: Consistent priority calculation with case-insensitive status
+            if report.reported_user:
+                pending_count = Report.objects.filter(
+                    reported_user=report.reported_user,
+                    status__iexact='PENDING'  # ✅ Case-insensitive
+                ).count()
+                
+                # Same logic as filter
+                if pending_count >= 5:
+                    priority = 'Critical'
+                elif pending_count >= 3:
+                    priority = 'High'
+                elif pending_count == 2:
+                    priority = 'Medium'
+                else:
+                    priority = 'Low'
+                
+                # 🔍 DEBUG: Log priority calculation
+                print(f"📊 Report #{report.report_id} → User: {report.reported_user.username}, Pending: {pending_count}, Priority: {priority}")
+            else:
+                priority = 'Low'
+            
             reports_data.append({
                 'report_id': report.report_id,
                 'reporter': {
                     'user_id': report.reporter.id,
                     'username': report.reporter.username,
-                    'profile_pic': report.reporter.profilePic or '/assets/defaultavatar.png'
+                    'profile_pic': report.reporter.profilePic or None
                 },
                 'reported_user': {
                     'user_id': report.reported_user.id,
                     'username': report.reported_user.username,
-                    'profile_pic': report.reported_user.profilePic or '/assets/defaultavatar.png'
+                    'profile_pic': report.reported_user.profilePic or None,
+                    'total_reports': pending_count if report.reported_user else 0
                 } if report.reported_user else None,
-                'category': report.report_cat,
-                'description': report.report_desc,
-                'status': report.status,  # ✅ Return actual status field
-                'created_at': report.created_at.isoformat()
+                'category': report.category or 'Other',
+                'issue_detail': report.issue_detail or '',
+                'description': report.description or '',
+                'status': report.status,
+                'priority': priority,
+                'trade_id': report.tradereq.tradereq_id if report.tradereq else None,
+                'created_at': report.created_at.isoformat() if report.created_at else None
             })
+        
+        print(f"✅ Successfully serialized {len(reports_data)} reports")
         
         return Response({
             'success': True,
@@ -886,6 +984,380 @@ def admin_reports_list(request):
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# ...existing code...
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def admin_report_detail(request, report_id):
+    """
+    GET /api/admin/report-detail/<report_id>/
+    Returns detailed information about a specific report.
+    """
+    try:
+        report = Report.objects.select_related(
+            'reporter', 'reported_user', 'tradereq'
+        ).get(report_id=report_id)
+        
+        # ✅ FIX: Calculate priority with case-insensitive status check
+        if report.reported_user:
+            pending_count = Report.objects.filter(
+                reported_user=report.reported_user,
+                status__iexact='PENDING'  # ✅ Case-insensitive
+            ).count()
+            
+            # 🔍 DEBUG: Log for investigation
+            print(f"🔍 User '{report.reported_user.username}' has {pending_count} PENDING reports")
+            
+            if pending_count >= 5:
+                priority = 'Critical'
+            elif pending_count >= 3:
+                priority = 'High'
+            elif pending_count == 2:
+                priority = 'Medium'
+            else:
+                priority = 'Low'
+        else:
+            priority = 'Low'
+        
+        # Get all reports against this user (not just pending)
+        user_reports = []
+        if report.reported_user:
+            related_reports = Report.objects.filter(
+                reported_user=report.reported_user
+            ).exclude(report_id=report_id).order_by('-created_at')[:5]
+            
+            for r in related_reports:
+                user_reports.append({
+                    'report_id': r.report_id,
+                    'category': r.category,
+                    'status': r.status,  # ✅ Include status so we can see if they're pending
+                    'created_at': r.created_at.isoformat()
+                })
+        
+        # Trade details if available
+        trade_data = None
+        if report.tradereq:
+            trade = report.tradereq
+            trade_data = {
+                'tradereq_id': trade.tradereq_id,
+                'reqname': trade.reqname,
+                'status': trade.status,
+                'created_at': trade.created_at.isoformat(),
+                'requester': {
+                    'user_id': trade.requester.id,
+                    'username': trade.requester.username
+                },
+                'responder': {
+                    'user_id': trade.responder.id,
+                    'username': trade.responder.username
+                } if trade.responder else None
+            }
+        
+        report_data = {
+            'report_id': report.report_id,
+            'reporter': {
+                'user_id': report.reporter.id,
+                'username': report.reporter.username,
+                'email': report.reporter.email,
+                'profile_pic': report.reporter.profilePic or '/assets/defaultavatar.png',
+                'created_at': report.reporter.created_at.isoformat()
+            },
+            'reported_user': {
+                'user_id': report.reported_user.id,
+                'username': report.reported_user.username,
+                'email': report.reported_user.email,
+                'profile_pic': report.reported_user.profilePic or '/assets/defaultavatar.png',
+                'total_reports': pending_count if report.reported_user else 0,
+                'created_at': report.reported_user.created_at.isoformat()
+            } if report.reported_user else None,
+            'category': report.category,
+            'issue_detail': report.issue_detail,
+            'description': report.description,
+            'status': report.status,
+            'priority': priority,
+            'created_at': report.created_at.isoformat(),
+            'trade': trade_data,
+            'related_reports': user_reports
+        }
+        
+        return Response({
+            'success': True,
+            'report': report_data
+        }, status=status.HTTP_200_OK)
+        
+    except Report.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': f'Report {report_id} not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(f"❌ Error in admin_report_detail: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def admin_report_detail(request, report_id):
+    """
+    GET /api/admin/report-detail/<report_id>/
+    Returns detailed information about a specific report.
+    """
+    try:
+        report = Report.objects.select_related(
+            'reporter', 'reported_user', 'tradereq'
+        ).get(report_id=report_id)
+        
+        # Calculate priority
+        if report.reported_user:
+            pending_count = Report.objects.filter(
+                reported_user=report.reported_user,
+                status='PENDING'
+            ).count()
+            
+            if pending_count >= 5:
+                priority = 'Critical'
+            elif pending_count >= 3:
+                priority = 'High'
+            elif pending_count == 2:
+                priority = 'Medium'
+            else:
+                priority = 'Low'
+        else:
+            priority = 'Low'
+        
+        # Get all reports against this user
+        user_reports = []
+        if report.reported_user:
+            related_reports = Report.objects.filter(
+                reported_user=report.reported_user
+            ).exclude(report_id=report_id).order_by('-created_at')[:5]
+            
+            for r in related_reports:
+                user_reports.append({
+                    'report_id': r.report_id,
+                    'category': r.category,
+                    'status': r.status,
+                    'created_at': r.created_at.isoformat()
+                })
+        
+        # Trade details if available
+        trade_data = None
+        if report.tradereq:
+            trade = report.tradereq
+            trade_data = {
+                'tradereq_id': trade.tradereq_id,
+                'reqname': trade.reqname,
+                'status': trade.status,
+                'created_at': trade.created_at.isoformat(),
+                'requester': {
+                    'user_id': trade.requester.id,
+                    'username': trade.requester.username
+                },
+                'responder': {
+                    'user_id': trade.responder.id,
+                    'username': trade.responder.username
+                } if trade.responder else None
+            }
+        
+        report_data = {
+            'report_id': report.report_id,
+            'reporter': {
+                'user_id': report.reporter.id,
+                'username': report.reporter.username,
+                'email': report.reporter.email,
+                'profile_pic': report.reporter.profilePic or '/assets/defaultavatar.png',
+                'created_at': report.reporter.created_at.isoformat()
+            },
+            'reported_user': {
+                'user_id': report.reported_user.id,
+                'username': report.reported_user.username,
+                'email': report.reported_user.email,
+                'profile_pic': report.reported_user.profilePic or '/assets/defaultavatar.png',
+                'total_reports': pending_count if report.reported_user else 0,
+                'created_at': report.reported_user.created_at.isoformat()
+            } if report.reported_user else None,
+            'category': report.category,
+            'issue_detail': report.issue_detail,
+            'description': report.description,
+            'status': report.status,
+            'priority': priority,
+            'created_at': report.created_at.isoformat(),
+            'trade': trade_data,
+            'related_reports': user_reports
+        }
+        
+        return Response({
+            'success': True,
+            'report': report_data
+        }, status=status.HTTP_200_OK)
+        
+    except Report.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': f'Report {report_id} not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(f"❌ Error in admin_report_detail: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_resolve_report(request):
+    """
+    POST /api/admin/resolve-report/
+    Resolve a report with optional action notes.
+    """
+    try:
+        report_id = request.data.get('report_id')
+        resolution_status = request.data.get('status', 'RESOLVED')
+        action_notes = request.data.get('action_notes', '')
+        
+        if not report_id:
+            return Response({
+                'success': False,
+                'error': 'Missing required field: report_id'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        report = Report.objects.get(report_id=report_id)
+        report.status = resolution_status
+        
+        # Store action notes in description if provided
+        if action_notes:
+            report.description = f"{report.description}\n\n[Admin Action]: {action_notes}"
+        
+        report.save()
+        
+        return Response({
+            'success': True,
+            'message': f'Report {report_id} resolved successfully',
+            'report': {
+                'report_id': report.report_id,
+                'status': report.status
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Report.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': f'Report {report_id} not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(f"❌ Error in admin_resolve_report: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_bulk_resolve_reports(request):
+    """
+    POST /api/admin/bulk-resolve-reports/
+    Resolve multiple reports at once.
+    """
+    try:
+        report_ids = request.data.get('report_ids', [])
+        resolution_status = request.data.get('status', 'RESOLVED')
+        action_notes = request.data.get('action_notes', '')
+        
+        if not report_ids:
+            return Response({
+                'success': False,
+                'error': 'No report IDs provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        updated_count = 0
+        for report_id in report_ids:
+            try:
+                report = Report.objects.get(report_id=report_id)
+                report.status = resolution_status
+                
+                if action_notes:
+                    report.description = f"{report.description}\n\n[Admin Bulk Action]: {action_notes}"
+                
+                report.save()
+                updated_count += 1
+            except Report.DoesNotExist:
+                print(f"⚠️ Report {report_id} not found, skipping")
+                continue
+        
+        return Response({
+            'success': True,
+            'message': f'Successfully resolved {updated_count} of {len(report_ids)} reports',
+            'updated_count': updated_count
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"❌ Error in admin_bulk_resolve_reports: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def admin_report_stats(request):
+    """
+    GET /api/admin/report-stats/
+    Returns report statistics for dashboard.
+    """
+    try:
+        total_reports = Report.objects.count()
+        pending_reports = Report.objects.filter(status='PENDING').count()
+        resolved_reports = Report.objects.filter(status='RESOLVED').count()
+        
+        # Priority breakdown
+        # Count users by their pending report count
+        user_report_counts = Report.objects.filter(
+            status='PENDING',
+            reported_user__isnull=False
+        ).values('reported_user').annotate(
+            report_count=Count('report_id')
+        )
+        
+        critical_count = sum(1 for item in user_report_counts if item['report_count'] >= 5)
+        high_count = sum(1 for item in user_report_counts if 3 <= item['report_count'] < 5)
+        medium_count = sum(1 for item in user_report_counts if item['report_count'] == 2)
+        low_count = sum(1 for item in user_report_counts if item['report_count'] == 1)
+        
+        # Category breakdown
+        category_breakdown = Report.objects.values('category').annotate(
+            count=Count('report_id')
+        ).order_by('-count')
+        
+        return Response({
+            'success': True,
+            'total_reports': total_reports,
+            'pending_reports': pending_reports,
+            'resolved_reports': resolved_reports,
+            'priority_breakdown': {
+                'critical': critical_count,
+                'high': high_count,
+                'medium': medium_count,
+                'low': low_count
+            },
+            'category_breakdown': list(category_breakdown)
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"❌ Error in admin_report_stats: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
