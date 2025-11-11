@@ -5,7 +5,18 @@ from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
 from .views import add_user_interests, user_interests, create_report
-from .admin_api import admin_dashboard_stats, admin_recent_activity, admin_users_list
+from .admin_api import (
+    admin_dashboard_stats,
+    admin_recent_activity,
+    admin_users_list,
+    admin_trade_stats,
+    admin_top_traders,
+    admin_trade_details,
+    admin_reports_list,
+    admin_update_report_status,
+    admin_verify_user,
+    admin_user_stats
+)
 from django.contrib import admin
 
 from accounts import admin_api
@@ -106,17 +117,19 @@ urlpatterns = [
     path('conversations/<int:conversation_id>/messages/', views.messages_handler, name='messages_handler'),
     path('conversations/<int:conversation_id>/delete/', views.delete_conversation, name='delete_conversation'),
 
-
     # Ticketing endpoints
     path('reports/', create_report, name='create-report'),
     path('create-support-ticket/', views.create_support_ticket, name='create_support_ticket'),
     
-    # Admin API endpoints
-    path('admin/dashboard-stats/', admin_api.admin_dashboard_stats, name='admin_dashboard_stats'),
-    path('admin/recent-activity/', admin_api.admin_recent_activity, name='admin_recent_activity'),
-    path('admin/trade-stats/', admin_api.admin_trade_stats, name='admin_trade_stats'),
-    path('admin/top-traders/', admin_api.admin_top_traders, name='admin_top_traders'),
-    path('admin/trade-details/', admin_api.admin_trade_details, name='admin_trade_details'),
+    # Admin endpoints
+    path('api/admin/dashboard-stats/', admin_dashboard_stats, name='admin_dashboard_stats'),
+    path('api/admin/trade-stats/', admin_trade_stats, name='admin_trade_stats'),
+    path('api/admin/top-traders/', admin_top_traders, name='admin_top_traders'),
+    path('api/admin/recent-activity/', admin_recent_activity, name='admin_recent_activity'),
+    path('api/admin/trade-details/', admin_trade_details, name='admin_trade_details'),
+    path('api/admin/user-stats/', admin_user_stats, name='admin_user_stats'),
+    path('api/admin/users-list/', admin_users_list, name='admin_users_list'),
+    path('api/admin/reports-list/', admin_reports_list, name='admin_reports_list'),
+    path('api/admin/update-report-status/', admin_update_report_status, name='admin_update_report_status'),
+    path('api/admin/verify-user/', admin_verify_user, name='admin_verify_user'),
 ]
-
-

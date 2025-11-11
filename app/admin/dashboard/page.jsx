@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import StatsCard from "@/components/admin/stats-card";
 import AvatarNameCell from "@/components/admin/avatar-name-cell";
 import DashboardSkeleton from "@/components/admin/dashboard-skeleton";
@@ -12,7 +12,8 @@ import {
   Package,
   CheckCircle,
   RefreshCw,
-  Clock
+  Clock,
+  AlertCircle
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -24,174 +25,254 @@ export default function AdminDashboard() {
     activeTrades: 0,
     pendingTrades: 0
   });
+  
   const [trends, setTrends] = useState({
-    total_trades: { value: "0%", is_up: true },
-    completed_trades: { value: "0%", is_up: true },
-    active_trades: { value: "0%", is_up: true },
-    pending_trades: { value: "0%", is_up: true }
+    total_trades: { value: "0%", is_up: true, is_neutral: true },
+    completed_trades: { value: "0%", is_up: true, is_neutral: true },
+    active_trades: { value: "0%", is_up: true, is_neutral: true },
+    pending_trades: { value: "0%", is_up: true, is_neutral: true }
   });
+  
   const [monthlyData, setMonthlyData] = useState([]);
   const [topTraders, setTopTraders] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  const [loading, setLoading] = useState({
+    stats: true,
+    monthly: true,
+    traders: true,
+    activity: true
+  });
+  
   const [error, setError] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(null);
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchAllData();
   }, []);
 
-  async function fetchDashboardData() {
-    setLoading(true);
+  const fetchAllData = useCallback(async () => {
+    setLoading({
+      stats: true,
+      monthly: true,
+      traders: true,
+      activity: true
+    });
     setError(null);
     
+    await Promise.all([
+      fetchTradeStats(),
+      fetchTopTraders(),
+      fetchRecentActivity()
+    ]);
+    
+    setLastRefresh(new Date());
+  }, []);
+
+  async function fetchTradeStats() {
     try {
-      // Fetch trade statistics
-      const tradeStatsRes = await fetch(`${API_BASE}/api/admin/trade-stats/`);
+      const response = await fetch(`${API_BASE}/api/admin/trade-stats/`);
       
-      if (!tradeStatsRes.ok) {
-        throw new Error(`Trade stats failed: ${tradeStatsRes.status}`);
+      if (!response.ok) {
+        throw new Error(`Trade stats failed: ${response.status}`);
       }
       
-      const tradeStatsData = await tradeStatsRes.json();
+      const data = await response.json();
       
-      if (!tradeStatsData.success) {
-        throw new Error(tradeStatsData.error || "Failed to load trade stats");
+      if (!data.success) {
+        throw new Error(data.error || "Failed to load trade stats");
       }
       
       setStats({
-        totalTrades: tradeStatsData.total_trades,
-        completedTrades: tradeStatsData.completed_trades,
-        activeTrades: tradeStatsData.active_trades,
-        pendingTrades: tradeStatsData.pending_trades
+        totalTrades: data.total_trades || 0,
+        completedTrades: data.completed_trades || 0,
+        activeTrades: data.active_trades || 0,
+        pendingTrades: data.pending_trades || 0
       });
       
-      // Set real trends from backend
-      if (tradeStatsData.trends) {
-        setTrends(tradeStatsData.trends);
+      if (data.trends) {
+        setTrends(data.trends);
       }
       
-      setMonthlyData(tradeStatsData.monthly_breakdown || []);
+      setMonthlyData(data.monthly_breakdown || []);
       
-      // Fetch top traders
-      const topTradersRes = await fetch(`${API_BASE}/api/admin/top-traders/?limit=5`);
-      if (topTradersRes.ok) {
-        const topTradersData = await topTradersRes.json();
-        if (topTradersData.success) {
-          setTopTraders(topTradersData.top_traders || []);
-        }
-      }
-      
-      // Fetch recent activity
-      const activityRes = await fetch(`${API_BASE}/api/admin/recent-activity/?limit=10`);
-      if (activityRes.ok) {
-        const activityData = await activityRes.json();
-        if (activityData.success) {
-          setRecentActivity(activityData.activities || []);
-        }
-      }
+      setLoading(prev => ({ ...prev, stats: false, monthly: false }));
       
     } catch (err) {
-      console.error("Error fetching dashboard data:", err);
+      console.error("Error fetching trade stats:", err);
       setError(err.message);
-    } finally {
-      setLoading(false);
+      setLoading(prev => ({ ...prev, stats: false, monthly: false }));
+    }
+  }
+
+  async function fetchTopTraders() {
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/top-traders/?limit=5`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTopTraders(data.top_traders || []);
+        }
+      }
+      
+      setLoading(prev => ({ ...prev, traders: false }));
+      
+    } catch (err) {
+      console.error("Error fetching top traders:", err);
+      setLoading(prev => ({ ...prev, traders: false }));
+    }
+  }
+
+  async function fetchRecentActivity() {
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/recent-activity/?limit=10`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setRecentActivity(data.activities || []);
+        }
+      }
+      
+      setLoading(prev => ({ ...prev, activity: false }));
+      
+    } catch (err) {
+      console.error("Error fetching recent activity:", err);
+      setLoading(prev => ({ ...prev, activity: false }));
     }
   }
 
   function getActivityIcon(type) {
-    switch (type) {
-      case 'user_registered': return '👤';
-      case 'trade_completed': return '✅';
-      case 'report_filed': return '⚠️';
-      default: return '📋';
-    }
+    const icons = {
+      user_registered: "👤",
+      trade_completed: "✅",
+      trade_created: "📦",
+      report_submitted: "⚠️",
+      user_verified: "✔️"
+    };
+    return icons[type] || "📋";
   }
 
-  function getActivityColor(type) {
-    switch (type) {
-      case 'user_registered': return 'text-green-400';
-      case 'trade_completed': return 'text-blue-400';
-      case 'report_filed': return 'text-yellow-400';
-      default: return 'text-white/60';
-    }
-  }
+  const isInitialLoad = loading.stats && loading.monthly && loading.traders && loading.activity;
 
-  if (loading) {
+  if (isInitialLoad && !error) {
     return <DashboardSkeleton />;
   }
 
-  if (error) {
+  if (error && isInitialLoad) {
     return (
-      <div className="min-h-screen bg-[#0B0F1A] p-6">
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-red-400">
-          <h2 className="text-xl font-bold mb-2">Error Loading Dashboard</h2>
-          <p>{error}</p>
-          <button
-            onClick={fetchDashboardData}
-            className="mt-4 px-4 py-2 bg-[#6DDFFF] text-black rounded-lg hover:bg-[#5DCFEF]"
-          >
-            Retry
-          </button>
+      <div className="min-h-screen bg-[#050015] p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-red-400">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-6 h-6 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h2 className="text-xl font-bold mb-2">Error Loading Dashboard</h2>
+                <p className="text-red-400/80 mb-4">{error}</p>
+                <button
+                  onClick={fetchAllData}
+                  className="px-4 py-2 bg-[#906EFF] text-white rounded-lg hover:bg-[#7D5FE6] transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0F1A] p-6">
+    <div className="min-h-screen bg-[#050015] p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-white/60">Overview of platform activity</p>
+        {/* Header with Refresh */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
+            <p className="text-white/60">
+              Overview of platform activity
+              {lastRefresh && (
+                <span className="ml-2 text-white/40 text-sm">
+                  • Last updated: {lastRefresh.toLocaleTimeString()}
+                </span>
+              )}
+            </p>
+          </div>
+          
+          <button
+            onClick={fetchAllData}
+            disabled={Object.values(loading).some(Boolean)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] border border-[#906EFF]/30 rounded-lg text-white hover:bg-[#1A0F3E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${Object.values(loading).some(Boolean) ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium">Refresh All</span>
+          </button>
         </div>
 
-        {/* Stats Cards with Icons */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatsCard
-            label="Total Trades"
-            value={stats.totalTrades}
-            trend={trends.total_trades.value}
-            trendUp={trends.total_trades.is_up}
-            trendLabel="from last month"
-            icon={Package}
-          />
-          <StatsCard
-            label="Completed"
-            value={stats.completedTrades}
-            trend={trends.completed_trades.value}
-            trendUp={trends.completed_trades.is_up}
-            trendLabel="from last month"
-            icon={CheckCircle}
-          />
-          <StatsCard
-            label="Active Trades"
-            value={stats.activeTrades}
-            trend={trends.active_trades.value}
-            trendUp={trends.active_trades.is_up}
-            trendLabel="from last month"
-            icon={RefreshCw}
-          />
-          <StatsCard
-            label="Pending"
-            value={stats.pendingTrades}
-            trend={trends.pending_trades.value}
-            trendUp={trends.pending_trades.is_up}
-            trendLabel="from last month"
-            icon={Clock}
-          />
+          {loading.stats ? (
+            [...Array(4)].map((_, i) => (
+              <div key={i} className="bg-[#120A2A] rounded-xl p-6 border border-[#906EFF]/20 animate-pulse">
+                <div className="h-4 w-24 bg-white/10 rounded mb-4" />
+                <div className="h-10 w-20 bg-white/10 rounded mb-4" />
+                <div className="h-3 w-32 bg-white/10 rounded" />
+              </div>
+            ))
+          ) : (
+            <>
+              <StatsCard
+                label="Total Trades"
+                value={stats.totalTrades}
+                trend={trends.total_trades.value}
+                trendUp={trends.total_trades.is_neutral ? null : trends.total_trades.is_up}
+                trendLabel="from last month"
+                icon={Package}
+              />
+              <StatsCard
+                label="Completed"
+                value={stats.completedTrades}
+                trend={trends.completed_trades.value}
+                trendUp={trends.completed_trades.is_neutral ? null : trends.completed_trades.is_up}
+                trendLabel="from last month"
+                icon={CheckCircle}
+              />
+              <StatsCard
+                label="Active Trades"
+                value={stats.activeTrades}
+                trend={trends.active_trades.value}
+                trendUp={trends.active_trades.is_neutral ? null : trends.active_trades.is_up}
+                trendLabel="from last month"
+                icon={RefreshCw}
+              />
+              <StatsCard
+                label="Pending"
+                value={stats.pendingTrades}
+                trend={trends.pending_trades.value}
+                trendUp={trends.pending_trades.is_neutral ? null : trends.pending_trades.is_up}
+                trendLabel="from last month"
+                icon={Clock}
+              />
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Enhanced Monthly Trades Table */}
-          <div className="bg-gradient-to-br from-[#151B2B] to-[#0A0F1A] rounded-xl p-6 border border-white/10 hover:border-[#6DDFFF]/20 transition-colors">
+          {/* Monthly Trades Table */}
+          <div className="bg-[#120A2A] rounded-xl p-6 border border-[#906EFF]/20">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#6DDFFF]/10 flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-[#6DDFFF]" />
+                <div className="w-10 h-10 rounded-lg bg-[#906EFF]/10 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-[#906EFF]" />
                 </div>
                 <h2 className="text-xl font-semibold text-white">Trades Per Month</h2>
               </div>
+              
+              {loading.monthly && (
+                <RefreshCw className="w-4 h-4 text-[#906EFF] animate-spin" />
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -220,7 +301,13 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {monthlyData.length === 0 ? (
+                  {loading.monthly ? (
+                    <tr>
+                      <td colSpan="4" className="text-center py-8">
+                        <RefreshCw className="w-6 h-6 text-[#906EFF] animate-spin mx-auto" />
+                      </td>
+                    </tr>
+                  ) : monthlyData.length === 0 ? (
                     <tr>
                       <td colSpan="4" className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
@@ -233,35 +320,36 @@ export default function AdminDashboard() {
                     monthlyData.map((row, idx) => (
                       <tr 
                         key={idx} 
-                        className="border-b border-white/5 hover:bg-[#6DDFFF]/5 transition-colors group"
+                        className="border-b border-white/5 hover:bg-[#1A0F3E] transition-colors group"
                       >
                         <td className="py-4 px-4">
-                          <span className="text-white font-medium group-hover:text-[#6DDFFF] transition-colors">
+                          <span className="text-white font-medium group-hover:text-[#906EFF] transition-colors">
                             {row.month}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-white font-semibold text-lg">{row.trades}</span>
-                            <span className="text-xs text-[#6DDFFF] bg-[#6DDFFF]/10 px-2 py-0.5 rounded-full">
-                              {row.completed} completed
+                            <span className="text-white font-semibold text-lg">{row.trades || 0}</span>
+                            <span className="text-xs text-[#906EFF] bg-[#906EFF]/10 px-2 py-0.5 rounded-full">
+                              {row.completed || 0} completed
                             </span>
                           </div>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full">
-                            <UsersIcon className="w-3.5 h-3.5 text-white/60" />
-                            <span className="text-white font-medium">{row.active_users}</span>
+                            <UsersIcon className="w-4 h-4 text-white/60" />
+                            <span className="text-white">{row.active_users || 0}</span>
                           </div>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          {row.average_rating > 0 ? (
-                            <div className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-500/10 rounded-full">
-                              <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                              <span className="text-yellow-400 font-semibold">{row.average_rating}</span>
+                          {/* ✅ FIX: Display monthly average rating */}
+                          {row.avg_rating != null && row.avg_rating > 0 ? (
+                            <div className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-500/10 rounded-full border border-yellow-500/30">
+                              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                              <span className="text-yellow-400 font-medium">{row.avg_rating.toFixed(1)}</span>
                             </div>
                           ) : (
-                            <span className="text-white/30">—</span>
+                            <span className="text-white/30 text-sm">No ratings</span>
                           )}
                         </td>
                       </tr>
@@ -272,62 +360,62 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Enhanced Top Traders */}
-          <div className="bg-gradient-to-br from-[#151B2B] to-[#0A0F1A] rounded-xl p-6 border border-white/10 hover:border-[#6DDFFF]/20 transition-colors">
+          {/* Top Traders */}
+          <div className="bg-[#120A2A] rounded-xl p-6 border border-[#906EFF]/20">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center">
                   <Star className="w-5 h-5 text-yellow-400" />
                 </div>
                 <h2 className="text-xl font-semibold text-white">Top Traders</h2>
               </div>
-              <span className="text-xs text-white/40">This month</span>
+              
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-white/40">This month</span>
+                {loading.traders && (
+                  <RefreshCw className="w-4 h-4 text-[#906EFF] animate-spin" />
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
-              {topTraders.length === 0 ? (
+              {loading.traders ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-6 h-6 text-[#906EFF] animate-spin mx-auto" />
+                </div>
+              ) : topTraders.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="flex flex-col items-center gap-2">
                     <UsersIcon className="w-8 h-8 text-white/20" />
-                    <p className="text-white/40 text-sm">No traders yet</p>
+                    <p className="text-white/40 text-sm">No traders with completed trades yet</p>
                   </div>
                 </div>
               ) : (
-                topTraders.map((trader, idx) => (
+                topTraders.map((trader, index) => (
                   <div
                     key={trader.user_id}
-                    className="relative flex items-center gap-4 p-4 bg-white/5 rounded-xl hover:bg-[#6DDFFF]/10 transition-all duration-300 group cursor-pointer border border-transparent hover:border-[#6DDFFF]/20"
+                    className="flex items-center gap-4 p-4 bg-[#1A0F3E] rounded-xl border border-[#906EFF]/10 hover:border-[#906EFF]/30 transition-all group cursor-pointer"
                   >
-                    {/* Rank badge */}
-                    <div className={`absolute -left-2 -top-2 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
-                      idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black shadow-lg shadow-yellow-500/50' :
-                      idx === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' :
-                      idx === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-black' :
-                      'bg-white/10 text-white/60'
-                    }`}>
-                      {idx + 1}
+                    {/* Rank Badge */}
+                    <div className="w-8 h-8 rounded-full bg-[#906EFF]/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[#906EFF] font-bold text-sm">#{index + 1}</span>
                     </div>
-
+                    
                     <AvatarNameCell
-                      name={trader.name}
-                      username={`@${trader.username}`}
+                      name={trader.username}
+                      username={`${trader.completed_trades} ${trader.completed_trades === 1 ? 'trade' : 'trades'}`}
                       avatarUrl={trader.profile_pic}
                     />
-
+                    
                     <div className="ml-auto text-right">
-                      <div className="flex items-center gap-2 justify-end">
-                        <TrendingUp className="w-4 h-4 text-green-400" />
-                        <span className="text-white font-semibold text-lg">{trader.trades}</span>
-                        <span className="text-white/40 text-sm">trades</span>
-                      </div>
-                      <div className="flex items-center gap-1 justify-end mt-1">
-                        <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                        <span className="text-yellow-400 font-medium text-sm">
-                          {trader.rating.toFixed(1)}
+                      <div className="flex items-center gap-1 mb-1">
+                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                        <span className="text-yellow-400 font-semibold">
+                          {trader.rating > 0 ? trader.rating.toFixed(1) : 'N/A'}
                         </span>
                         <span className="text-white/30 text-xs">({trader.rating_count})</span>
                       </div>
-                      <div className="text-xs text-white/40 mt-1">
+                      <div className="text-xs text-white/40">
                         Level {trader.level} • {trader.total_xp.toLocaleString()} XP
                       </div>
                     </div>
@@ -338,45 +426,48 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Enhanced Recent Activity with Timeline */}
-        <div className="bg-gradient-to-br from-[#151B2B] to-[#0A0F1A] rounded-xl p-6 border border-white/10">
+        {/* Recent Activity with Timeline */}
+        <div className="bg-[#120A2A] rounded-xl p-6 border border-[#906EFF]/20">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-white">Recent Activity</h2>
+            
+            {loading.activity && (
+              <RefreshCw className="w-4 h-4 text-[#906EFF] animate-spin" />
+            )}
           </div>
 
           <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-5 top-0 bottom-0 w-px bg-gradient-to-b from-[#6DDFFF]/50 via-[#6DDFFF]/20 to-transparent" />
+            <div className="absolute left-5 top-0 bottom-0 w-px bg-gradient-to-b from-[#906EFF]/50 via-[#906EFF]/20 to-transparent" />
 
             <div className="space-y-4">
-              {recentActivity.length === 0 ? (
+              {loading.activity ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-6 h-6 text-[#906EFF] animate-spin mx-auto" />
+                </div>
+              ) : recentActivity.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-white/40 text-sm">No recent activity</p>
                 </div>
               ) : (
                 recentActivity.map((activity, idx) => (
                   <div
-                    key={idx}
+                    key={`${activity.type}-${idx}`}
                     className="relative flex items-start gap-4 group"
                   >
-                    {/* Timeline dot */}
                     <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center text-xl ${
                       activity.type === 'user_registered' ? 'bg-green-500/20 ring-2 ring-green-500/30' :
                       activity.type === 'trade_completed' ? 'bg-blue-500/20 ring-2 ring-blue-500/30' :
-                      'bg-yellow-500/20 ring-2 ring-yellow-500/30'
+                      activity.type === 'trade_created' ? 'bg-purple-500/20 ring-2 ring-purple-500/30' :
+                      activity.type === 'report_submitted' ? 'bg-red-500/20 ring-2 ring-red-500/30' :
+                      'bg-[#906EFF]/20 ring-2 ring-[#906EFF]/30'
                     }`}>
                       {getActivityIcon(activity.type)}
                     </div>
 
-                    <div className="flex-1 bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                      <p className={`${getActivityColor(activity.type)} font-medium mb-1`}>
-                        {activity.description}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-white/40">
-                        <span>{new Date(activity.timestamp).toLocaleDateString()}</span>
-                        <span>•</span>
-                        <span>{new Date(activity.timestamp).toLocaleTimeString()}</span>
-                      </div>
+                    <div className="flex-1 bg-[#1A0F3E] rounded-xl p-4 border border-[#906EFF]/10 group-hover:border-[#906EFF]/30 transition-all">
+                      <p className="text-white font-medium mb-1">{activity.description}</p>
+                      {/* ✅ FIX: Display formatted timestamp */}
+                      <p className="text-xs text-white/40">{activity.timestamp}</p>
                     </div>
                   </div>
                 ))

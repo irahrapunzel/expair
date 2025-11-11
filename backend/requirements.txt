@@ -40,3 +40,4 @@ google-genai>=1.0.0
 numpy>=1.26.0
 pydantic==2.12.1
 packaging==25.0
+pytz==2025.2
