@@ -15,7 +15,8 @@ from .admin_api import (
     admin_reports_list,
     admin_update_report_status,
     admin_verify_user,
-    admin_user_stats
+    admin_user_stats,
+    admin_reject_verification,
 )
 from django.contrib import admin
 
@@ -134,6 +135,7 @@ urlpatterns = [
     path('api/admin/reports-list/', admin_reports_list, name='admin_reports_list'),
     path('api/admin/update-report-status/', admin_update_report_status, name='admin_update_report_status'),
     path('api/admin/verify-user/', admin_verify_user, name='admin_verify_user'),
+    path('api/admin/reject-verification/', admin_reject_verification, name='admin_reject_verification'), # ⭐️ ADDED: New URL
     path('api/admin/reports-list/', admin_api.admin_reports_list, name='admin_reports_list'),
     path('api/admin/report-detail/<int:report_id>/', admin_api.admin_report_detail, name='admin_report_detail'),
     path('api/admin/resolve-report/', admin_api.admin_resolve_report, name='admin_resolve_report'),

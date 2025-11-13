@@ -158,48 +158,8 @@ class UserVerification(models.Model):
         if self.id_verification_status == VerificationStatus.VERIFIED:
             progress += 50
         return progress
-    
-@receiver(pre_save, sender=UserVerification)
-def store_old_verification_status(sender, instance, **kwargs):
-    """Store the old verification status before saving."""
-    if instance.pk:
-        try:
-            instance._old_status = UserVerification.objects.get(pk=instance.pk).id_verification_status
-        except UserVerification.DoesNotExist:
-            instance._old_status = None
-    else:
-        instance._old_status = None
 
-@receiver(post_save, sender=UserVerification)
-def create_verification_notification(sender, instance, created, **kwargs):
-    """Send notification when verification status changes to VERIFIED or REJECTED."""
-    
-    # Don't run on creation, only on updates
-    if created or not hasattr(instance, '_old_status'):
-        return
-
-    old_status = instance._old_status
-    new_status = instance.id_verification_status
-    
-    # Check if status has changed to a final state
-    if old_status != new_status:
-        if new_status == VerificationStatus.VERIFIED:
-            Notification.objects.create(
-                recipient=instance.user,
-                sender=None, # System notification
-                message="Your application for user verification has been successfully accepted.",
-                notification_type=Notification.NotificationType.VERIF_ACCEPTED,
-                link="/home/profile" 
-            )
-        elif new_status == VerificationStatus.REJECTED:
-            Notification.objects.create(
-                recipient=instance.user,
-                sender=None, # System notification
-                message="Your application for user verification has been rejected.",
-                notification_type=Notification.NotificationType.VERIF_REJECTED,
-                link="/home/profile" 
-            )
-
+            
 class UserManager(models.Manager):
     """Custom manager for User model that provides create_user method"""
     

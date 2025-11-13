@@ -21,7 +21,10 @@ import {
   XCircle,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  FileText,
+  ExternalLink,
+  ChevronDown
 } from "lucide-react";
 import StatsCard from "@/components/admin/stats-card";
 import AvatarNameCell from "@/components/admin/avatar-name-cell";
@@ -34,6 +37,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const REJECTION_OPTIONS = [
+  "Document is blurry or unreadable",
+  "Document has expired",
+  "Name on ID does not match account profile",
+  "Invalid ID type submitted",
+  "Document is incomplete or cropped",
+  "Suspected fake or altered document",
+  "Others"
+];
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -52,8 +65,11 @@ export default function UsersPage() {
   
   const [showUserDetailModal, setShowUserDetailModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportData, setExportData] = useState("");
+  
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedReason, setSelectedReason] = useState(""); // For the dropdown
+  const [customReason, setCustomReason] = useState(""); // For the textarea
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -162,6 +178,8 @@ export default function UsersPage() {
   }
 
   async function handleVerifyUser(userId) {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/api/admin/verify-user/`, {
         method: 'POST',
@@ -175,12 +193,65 @@ export default function UsersPage() {
         alert(`User verified successfully`);
         fetchUsers();
         fetchStats();
+        setShowUserDetailModal(false);
+        setSelectedUser(null);
       } else {
         alert(`Error: ${data.error}`);
       }
     } catch (err) {
       console.error("Error verifying user:", err);
       alert("Failed to verify user");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleRejectVerification() {
+    // Determine the final reason string
+    let finalReason = selectedReason;
+    
+    if (selectedReason === "Others") {
+      finalReason = customReason.trim();
+    }
+
+    if (!finalReason) {
+      alert("Please provide a reason for rejection.");
+      return;
+    }
+    
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/reject-verification/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          user_id: selectedUser.id, 
+          reason: finalReason // Send the determined reason
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`User verification rejected successfully.`);
+        fetchUsers();
+        fetchStats();
+        // Reset and close
+        setShowRejectModal(false);
+        setShowUserDetailModal(false);
+        setSelectedUser(null);
+        setSelectedReason(""); // Reset dropdown
+        setCustomReason("");   // Reset textarea
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (err) {
+      console.error("Error rejecting verification:", err);
+      alert("Failed to reject verification");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -231,43 +302,61 @@ export default function UsersPage() {
     );
   }
 
+  // Direct export to CSV (Excel compatible)
   function handleExport() {
-    const exportPayload = {
-      metadata: {
-        exportDate: new Date().toISOString(),
-        totalUsers: users.length,
-        filters: {
-          search: searchQuery,
-          verification: verificationFilter,
-          flaggedOnly: showFlaggedOnly,
-          sortBy: sortBy
-        }
-      },
-      users: users.map(user => ({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: `${user.first_name} ${user.last_name}`.trim(),
-        created_at: user.created_at,
-        level: user.level,
-        total_xp: user.total_xp,
-        rating: user.rating,
-        rating_count: user.rating_count,
-        verification_status: user.verification_status,
-        active_reports: user.active_reports_count
-      }))
-    };
-    
-    setExportData(JSON.stringify(exportPayload, null, 2));
-    setShowExportModal(true);
-  }
+    if (users.length === 0) {
+      alert("No data to export.");
+      return;
+    }
 
-  function downloadJSON() {
-    const blob = new Blob([exportData], { type: 'application/json' });
+    // Define headers for the CSV
+    const headers = [
+      "User ID",
+      "Username", 
+      "Email", 
+      "Full Name", 
+      "Level", 
+      "Total XP", 
+      "Rating", 
+      "Rating Count", 
+      "Verification Status", 
+      "Active Reports", 
+      "Joined Date"
+    ];
+
+    // Map users data to CSV rows
+    const csvRows = [
+      headers.join(','), // Header row
+      ...users.map(user => {
+        // Helper to escape quotes in strings (if names have commas)
+        const escape = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
+
+        const row = [
+          user.id,
+          escape(user.username),
+          escape(user.email),
+          escape(`${user.first_name} ${user.last_name}`.trim()),
+          user.level || 1,
+          user.total_xp || 0,
+          user.rating?.toFixed(1) || 0,
+          user.rating_count || 0,
+          escape(user.verification_status),
+          user.active_reports_count || 0,
+          escape(new Date(user.created_at).toLocaleDateString())
+        ];
+        return row.join(',');
+      })
+    ];
+
+    // Create a Blob from the CSV string
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // Create a temporary download link and click it
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `expair-users-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `expair-users-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -298,6 +387,7 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen bg-[#050015] p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Users Management</h1>
           <p className="text-white/60">Monitor and manage user accounts, verifications, and activity</p>
@@ -554,13 +644,27 @@ export default function UsersPage() {
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleVerifyUser(user.id)}
-                              className="text-green-400 hover:bg-green-500/10 cursor-pointer"
-                            >
-                              <Check className="w-4 h-4 mr-2" />
-                              Verify User
-                            </DropdownMenuItem>
+                            {user.verification_status === 'pending' && (
+                              <DropdownMenuItem 
+                                onClick={() => handleVerifyUser(user.id)}
+                                className="text-green-400 hover:bg-green-500/10 cursor-pointer"
+                              >
+                                <Check className="w-4 h-4 mr-2" />
+                                Accept Verification
+                              </DropdownMenuItem>
+                            )}
+                            {user.verification_status === 'pending' && (
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setShowRejectModal(true);
+                                }}
+                                className="text-red-400 hover:bg-red-500/10 cursor-pointer"
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Reject Verification
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem className="text-red-400 hover:bg-red-500/10 cursor-pointer">
                               <X className="w-4 h-4 mr-2" />
                               Suspend Account
@@ -659,6 +763,36 @@ export default function UsersPage() {
                     <p className="text-xs text-white/60">Rating</p>
                   </div>
                 </div>
+                
+                {/* Verification Document Section */}
+                {selectedUser.id_document && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-white">Verification Document</h3>
+                    <div className="bg-[#1A0F3E] rounded-lg p-4 border border-[#906EFF]/20 flex items-center justify-between group hover:border-[#906EFF]/40 transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-[#906EFF]/10 flex items-center justify-center">
+                          <FileText className="w-6 h-6 text-[#906EFF]" />
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">Identity Proof</p>
+                          <p className="text-xs text-white/40 group-hover:text-white/60 transition-colors">
+                            {selectedUser.id_type || "Document"}
+                          </p>
+                        </div>
+                      </div>
+                      <a 
+                        href={selectedUser.id_document} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#906EFF] text-white text-sm rounded-lg hover:bg-[#7D5FE6] transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View File
+                        <ExternalLink className="w-3 h-3 opacity-70" />
+                      </a>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-3">
                   <h3 className="text-lg font-semibold text-white">Account Information</h3>
@@ -706,58 +840,113 @@ export default function UsersPage() {
               <button
                 onClick={() => setShowUserDetailModal(false)}
                 className="flex-1 px-4 py-2 bg-[#120A2A] text-white border border-white/20 rounded-lg hover:bg-[#3C2E64] transition-colors"
+                disabled={isSubmitting}
               >
                 Close
               </button>
-              <button 
-                onClick={() => handleVerifyUser(selectedUser.id)}
-                className="flex-1 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30 transition-colors"
-              >
-                Verify User
-              </button>
+              
+              {selectedUser.verification_status === 'pending' && (
+                <>
+                  <button 
+                    onClick={() => setShowRejectModal(true)}
+                    className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Submitting..." : "Reject Verification"}
+                  </button>
+                  <button 
+                    onClick={() => handleVerifyUser(selectedUser.id)}
+                    className="flex-1 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30 transition-colors font-medium"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Submitting..." : "Accept Verification"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Export Modal */}
-      {showExportModal && (
+      {/* Rejection Modal */}
+      {showRejectModal && selectedUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#120A2A] border border-[#906EFF]/30 rounded-xl w-full max-w-3xl">
+          <div className="bg-[#120A2A] border border-[#906EFF]/30 rounded-xl w-full max-w-lg">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#1A0F3E]">
               <div>
-                <h2 className="text-xl font-semibold text-white">Export Users Data</h2>
-                <p className="text-sm text-white/60 mt-1">Download user data in JSON format</p>
+                <h2 className="text-xl font-semibold text-white">Reject Verification</h2>
+                <p className="text-sm text-white/60 mt-1">Select a reason for rejection</p>
               </div>
               <button
-                onClick={() => setShowExportModal(false)}
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setSelectedReason("");
+                  setCustomReason("");
+                }}
                 className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                disabled={isSubmitting}
               >
                 <XCircle className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="px-6 py-4">
-              <textarea
-                value={exportData}
-                readOnly
-                className="w-full h-64 px-4 py-3 bg-[#1A0F3E] border border-[#906EFF]/20 rounded-lg text-white font-mono text-sm resize-none"
-              />
+            <div className="px-6 py-6 space-y-4">
+              {/* Dropdown Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/80">Reason</label>
+                <div className="relative">
+                  <select
+                    value={selectedReason}
+                    onChange={(e) => setSelectedReason(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#1A0F3E] border border-[#906EFF]/20 rounded-lg text-white appearance-none focus:outline-none focus:border-[#906EFF]/50 focus:ring-1 focus:ring-[#906EFF]/20 transition-colors"
+                  >
+                    <option value="" disabled>Select a reason...</option>
+                    {REJECTION_OPTIONS.map((option) => (
+                      <option key={option} value={option} className="bg-[#1A0F3E]">
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Conditional Text Area for "Others" */}
+              {selectedReason === "Others" && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <label className="text-sm font-medium text-white/80">Specific Reason</label>
+                  <textarea
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
+                    placeholder="Please type the specific reason for rejection..."
+                    className="w-full h-32 px-4 py-3 bg-[#1A0F3E] border border-[#906EFF]/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-[#906EFF]/50 focus:ring-1 focus:ring-[#906EFF]/20 transition-colors resize-none"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-white/10 bg-[#1A0F3E] flex gap-3">
               <button
-                onClick={() => setShowExportModal(false)}
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setSelectedReason("");
+                  setCustomReason("");
+                }}
                 className="flex-1 px-4 py-2 bg-[#120A2A] text-white border border-white/20 rounded-lg hover:bg-[#3C2E64] transition-colors"
+                disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
-                onClick={downloadJSON}
-                className="flex-1 px-4 py-2 bg-[#906EFF] text-white rounded-lg hover:bg-[#7D5FE6] transition-colors font-medium"
+                onClick={handleRejectVerification}
+                className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={
+                  isSubmitting || 
+                  !selectedReason || 
+                  (selectedReason === "Others" && !customReason.trim())
+                }
               >
-                <Download className="w-4 h-4 inline mr-2" />
-                Download JSON
+                {isSubmitting ? "Submitting..." : "Confirm Rejection"}
               </button>
             </div>
           </div>

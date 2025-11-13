@@ -15,7 +15,7 @@ except ImportError:
 
 from accounts.models import (
     User, TradeRequest, TradeDetail, ReputationSystem, 
-    Report, Conversation, Message, UserVerification, VerificationStatus
+    Report, Conversation, Message, UserVerification, VerificationStatus, Notification
 )
 
 @api_view(['GET'])
@@ -625,6 +625,7 @@ def admin_users_list(request):
                 
                 completed_trades = completed_as_requester + completed_as_responder
                 
+                id_document_link = None # Initialize
                 # Get verification status
                 try:
                     verification = UserVerification.objects.get(user_id=user.id)
@@ -634,6 +635,11 @@ def admin_users_list(request):
                         verification_status = 'pending'
                     else:
                         verification_status = 'unverified'
+                        
+                    id_document_link = verification.id_document or None
+                    if verification.id_type:
+                        id_type = verification.id_type
+                        
                 except UserVerification.DoesNotExist:
                     verification_status = 'unverified'
                 
@@ -665,7 +671,9 @@ def admin_users_list(request):
                     'verification_status': verification_status,
                     'active_reports_count': active_reports_count,
                     'location': user.location or '',
-                    'nationality': user.nationality or ''
+                    'nationality': user.nationality or '',
+                    'id_document': id_document_link,
+                    'id_type': id_type,
                 })
                 
             except Exception as user_error:
@@ -1435,15 +1443,34 @@ def admin_verify_user(request):
             user=user,
             defaults={
                 'email_verified': True,
-                'id_verification_status': VerificationStatus.VERIFIED
+                'id_verification_status': VerificationStatus.VERIFIED,
+                'id_verified_at': timezone.now()
             }
         )
         
+        # Check if it was already verified to avoid spamming notifications
+        was_already_verified = (not created) and (verification.id_verification_status == VerificationStatus.VERIFIED)
+
         if not created:
             verification.email_verified = True
             verification.id_verification_status = VerificationStatus.VERIFIED
+            verification.id_verified_at = timezone.now()
+            verification.rejection_reason = None
             verification.save()
         
+        if not was_already_verified:
+            try:
+                Notification.objects.create(
+                    recipient=user,
+                    sender=None, # System notification
+                    message="Your application for user verification has been successfully accepted.",
+                    notification_type=Notification.NotificationType.VERIF_ACCEPTED,
+                    link="/home/profile/me" 
+                )
+                print(f"✅ Notification sent to {user.username}")
+            except Exception as notif_error:
+                print(f"⚠️ Failed to send notification: {notif_error}")
+
         return Response({
             'success': True,
             'message': f'User {user.username} has been verified',
@@ -1456,6 +1483,77 @@ def admin_verify_user(request):
         
     except Exception as e:
         print(f"❌ Error in admin_verify_user: {str(e)}")
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+   
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_reject_verification(request):
+    """
+    POST /api/admin/reject-verification/
+    Reject a user's verification with a reason.
+    """
+    try:
+        user_id = request.data.get('user_id')
+        reason = request.data.get('reason', '').strip()
+        
+        if not user_id or not reason:
+            return Response({
+                'success': False,
+                'error': 'Missing required fields: user_id and reason'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': f'User {user_id} not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            verification = UserVerification.objects.get(user=user)
+        except UserVerification.DoesNotExist:
+             return Response({
+                'success': False,
+                'error': f'Verification record for user {user_id} not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Update record to REJECTED
+        verification.id_verification_status = VerificationStatus.REJECTED
+        verification.rejection_reason = reason
+        verification.rejected_at = timezone.now()
+        verification.id_document = None 
+        verification.save()
+        
+        try:
+            Notification.objects.create(
+                recipient=user,
+                sender=None, # System notification
+                # We include the specific reason here
+                message=f"Your verification was rejected. Reason: \"{reason}\" Please correct and resubmit your document.",
+                notification_type=Notification.NotificationType.VERIF_REJECTED,
+                link="/home/profile/me" 
+            )
+            print(f"✅ Rejection notification sent to {user.username}")
+        except Exception as notif_error:
+            print(f"⚠️ Failed to send rejection notification: {notif_error}")
+        
+        return Response({
+            'success': True,
+            'message': f'User {user.username} verification has been rejected',
+            'user': {
+                'user_id': user.id,
+                'username': user.username,
+                'verification_status': 'rejected'
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"❌ Error in admin_reject_verification: {str(e)}")
         print(traceback.format_exc())
         return Response({
             'success': False,
