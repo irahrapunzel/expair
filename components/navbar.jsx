@@ -113,7 +113,7 @@ export default function Navbar() {
   };
 
   const handleAllNotificationsRead = async () => {
-    if (!session?.access) return; // Check for token
+    if (!session?.access) return;
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"}/api/accounts/notifications/mark-all-read/`,
@@ -121,19 +121,38 @@ export default function Navbar() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access}`, // <-- ADDED AUTH HEADER
+            Authorization: `Bearer ${session.access}`,
           },
         }
       );
       if (res.ok) {
-        // Refresh notifications list
-        fetchNotifications();
+        fetchNotifications(); // Refresh ang list
       }
     } catch (error) {
       console.error("Failed to mark all as read:", error);
     }
   };
-  // --- [END FIX] ---
+
+  const handleDeleteAllRead = async () => {
+    if (!session?.access) return;
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"}/api/accounts/notifications/delete-all-read/`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access}`,
+          },
+        }
+      );
+      if (res.ok) {
+        fetchNotifications(); // Refresh ang list
+      }
+    } catch (error) {
+      console.error("Failed to delete all read notifications:", error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -259,6 +278,7 @@ export default function Navbar() {
               isOpen={notificationOpen}
               onClose={() => setNotificationOpen(false)}
               onMarkAllAsRead={handleAllNotificationsRead}
+              onDeleteAllRead={handleDeleteAllRead}
               anchorRect={bellRect}
               notifications={notifications} 
               fetchNotifications={fetchNotifications} 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, X, User, Check, GitMerge, MessageSquare } from "lucide-react";
+import { AlertCircle, X, User, Check, GitMerge, MessageSquare, MoreVertical, CheckCheck, Trash2} from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -11,6 +11,7 @@ export function NotificationPortal({
   isOpen,
   onClose,
   onMarkAllAsRead,
+  onDeleteAllRead,
   anchorRect,
   notifications,
   fetchNotifications,
@@ -20,9 +21,23 @@ export function NotificationPortal({
   const router = useRouter();
   const { data: session } = useSession(); 
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
   useEffect(() => {
     setMounted(true);
-    return () => setMounted(false);
+    
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false); // Isara 'yung menu 'pag sa labas nag-click
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      setMounted(false);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const markOneAsRead = async (notification) => {
@@ -32,7 +47,6 @@ export function NotificationPortal({
       [notification.notification_id]: true,
     }));
 
-    // --- [FIXED] markOneAsRead with Auth ---
     if (!session?.access) {
       console.error("No session found, cannot mark as read.");
       // Still navigate if there's a link
@@ -65,12 +79,36 @@ export function NotificationPortal({
     } catch (error) {
       console.error("Failed to mark one as read:", error);
     }
-    // --- [END FIX] ---
 
     // Navigate to the link
     if (notification.link) {
       router.push(notification.link);
       onClose(); // Close portal on navigation
+    }
+  };
+
+  const handleDeleteOne = async (e, notification_id) => {
+    e.stopPropagation(); // Para 'di ma-trigger 'yung click ng buong item
+    
+    if (!session?.access) return;
+    
+    try {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"}/api/accounts/notifications/${notification_id}/delete/`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access}`,
+          },
+        }
+      );
+      // I-fetch ulit lahat ng notifications para ma-update 'yung list
+      if (fetchNotifications) {
+        fetchNotifications();
+      }
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
     }
   };
 
@@ -107,17 +145,57 @@ export function NotificationPortal({
         gap: "25px",
       }}
     >
+      
       <div className="flex items-center justify-between w-full">
         <h2 className="text-white text-[25px] font-semibold leading-[120%]">
           Notifications
         </h2>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={markAllAsRead}
-            className="text-[#906EFF] text-[16px] font-normal underline leading-[120%]"
-          >
-            Mark all as read
-          </button>
+        
+        <div className="flex items-center gap-2">
+          
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)} 
+              title="Notification options"
+              className="text-white/60 hover:text-white"
+            >
+              <MoreVertical size={18} />
+            </button>
+
+            {menuOpen && (
+              <div 
+                className="absolute right-0 top-full mt-2 w-52 z-50 rounded-md shadow-lg"
+                style={{
+                  background: "#15042C", 
+                  border: "1px solid #2B124C" 
+                }}
+              >
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      onMarkAllAsRead();
+                      setMenuOpen(false); 
+                    }}
+                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-white hover:font-semibold"
+                  >
+                    <CheckCheck size={14} />
+                    Mark all as read
+                  </button>
+                  <button
+                    onClick={() => {
+                      onDeleteAllRead();
+                      setMenuOpen(false); 
+                    }}
+                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:text-red-300" 
+                  >
+                    <Trash2 size={14} />
+                    Delete all read
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button onClick={onClose} className="text-white/60 hover:text-white">
             <X size={18} />
           </button>
@@ -136,13 +214,10 @@ export function NotificationPortal({
           notifications.map((n) => (
             <NotificationItem
               key={n.notification_id}
-              id={n.notification_id}
-              icon={n.notification_type}
-              message={n.message}
-              time={n.created_at}
+              notification={n}
               isRead={readNotifications[n.notification_id] || n.is_read}
-              dotColor={"#6DDFFF"} // You can customize this
               onClick={() => markOneAsRead(n)}
+              onDelete={(e) => handleDeleteOne(e, n.notification_id)}
             />
           ))
         )}
@@ -172,60 +247,27 @@ function formatTimeAgo(dateString) {
   return Math.floor(seconds) + "s ago";
 }
 
-function NotificationItem({
-  id,
-  icon,
-  message,
-  time,
-  isRead,
-  dotColor,
-  onClick,
-}) {
+function NotificationItem({ notification, isRead, onClick, onDelete }) {
+  
+  const { notification_type, message, created_at } = notification;
+
   const getIconComponent = (iconType) => {
     switch (iconType) {
       case "TRADE_INTEREST":
-        return (
-          <div className="w-4 h-4 bg-[#6DDFFF] rounded-full flex items-center justify-center">
-            <User size={10} className="text-white" />
-          </div>
-        );
+        return ( <div className="w-4 h-4 bg-[#6DDFFF] rounded-full flex items-center justify-center"> <User size={10} className="text-white" /> </div> );
       case "TRADE_ACCEPTED":
       case "TRADE_CONFIRMED":
-        return (
-          <div className="w-4 h-4 bg-[#4ADE80] rounded-full flex items-center justify-center">
-            <Check size={10} className="text-white" />
-          </div>
-        );
+        return ( <div className="w-4 h-4 bg-[#4ADE80] rounded-full flex items-center justify-center"> <Check size={10} className="text-white" /> </div> );
       case "PROOF_SUBMITTED":
-        return (
-          <div className="w-4 h-4 bg-[#F59E0B] rounded-full flex items-center justify-center">
-            <GitMerge size={10} className="text-white" />
-          </div>
-        );
+        return ( <div className="w-4 h-4 bg-[#F59E0B] rounded-full flex items-center justify-center"> <GitMerge size={10} className="text-white" /> </div> );
       case "PROOF_APPROVED":
-        return (
-          <div className="w-4 h-4 bg-[#4ADE80] rounded-full flex items-center justify-center">
-            <Check size={10} className="text-white" />
-          </div>
-        );
+        return ( <div className="w-4 h-4 bg-[#4ADE80] rounded-full flex items-center justify-center"> <Check size={10} className="text-white" /> </div> );
       case "VERIF_ACCEPTED":
-        return (
-          <div className="w-4 h-4 bg-[#4ADE80] rounded-full flex items-center justify-center">
-            <Check size={10} className="text-white" />
-          </div>
-        );
+        return ( <div className="w-4 h-4 bg-[#4ADE80] rounded-full flex items-center justify-center"> <Check size={10} className="text-white" /> </div> );
       case "VERIF_REJECTED":
-        return (
-          <div className="w-4 h-4 bg-[#FF4D4D] rounded-full flex items-center justify-center">
-            <X size={10} className="text-white" />
-          </div>
-        );
+        return ( <div className="w-4 h-4 bg-[#FF4D4D] rounded-full flex items-center justify-center"> <X size={10} className="text-white" /> </div> );
       case "NEW_MESSAGE":
-        return (
-          <div className="w-4 h-4 bg-[#8B5CF6] rounded-full flex items-center justify-center">
-            <MessageSquare size={10} className="text-white" />
-          </div>
-        );
+        return ( <div className="w-4 h-4 bg-[#8B5CF6] rounded-full flex items-center justify-center"> <MessageSquare size={10} className="text-white" /> </div> );
       default:
         return <AlertCircle className="w-4 h-4 text-white/60" />;
     }
@@ -235,21 +277,32 @@ function NotificationItem({
     <div
       className={cn(
         "flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all hover:bg-white/5",
-        isRead ? "opacity-60" : ""
+        isRead ? "opacity-60" : "" 
       )}
-      onClick={onClick}
+      onClick={onClick} 
     >
-      <div className="flex-shrink-0 mt-1">{getIconComponent(icon)}</div>
+      <div className="w-2 flex-shrink-0 mt-2">
+        {!isRead && (
+          <div 
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: "#6DDFFF" }}
+          />
+        )}
+      </div>
+      <div className="flex-shrink-0 mt-1">{getIconComponent(notification_type)}</div>
       <div className="flex-1 min-w-0">
         <p className="text-white text-sm leading-relaxed mb-1">{message}</p>
-        <p className="text-white/40 text-xs">{formatTimeAgo(time)}</p>
+        <p className="text-white/40 text-xs">{formatTimeAgo(created_at)}</p>
       </div>
-      {!isRead && (
-        <div
-          className="w-2 h-2 rounded-full flex-shrink-0 mt-2"
-          style={{ backgroundColor: dotColor }}
-        />
-      )}
+      <div className="flex-shrink-0 mt-1">
+        <button 
+          onClick={onDelete} 
+          className="text-white/40 hover:text-white"
+          title="Delete notification"
+        >
+          <X size={16} />
+        </button>
+      </div>
     </div>
   );
 }

@@ -110,6 +110,8 @@ urlpatterns = [
     path('notifications/', views.list_notifications, name='list_notifications'),
     path('notifications/mark-all-read/', views.mark_all_as_read, name='mark_all_as_read'),
     path('notifications/<int:notification_id>/mark-read/', views.mark_one_as_read, name='mark_one_as_read'),
+    path('notifications/<int:notification_id>/delete/', views.delete_notification, name='delete_notification'),
+    path('notifications/delete-all-read/', views.delete_all_read_notifications, name='delete_all_read_notifications'),
     
     # Messaging endpoints
     path('trades/<int:tradereq_id>/conversation/', views.get_or_create_conversation, name='get_or_create_conversation'),

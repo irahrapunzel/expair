@@ -1822,7 +1822,7 @@ def express_trade_interest(request):
                 sender=request.user,
                 message=f"{request.user.first_name or request.user.username} is interested in your trade request for \"{trade_request.reqname}\"",
                 notification_type=Notification.NotificationType.TRADE_INTEREST,
-                link=f"/home/trades/posted/" # Link to the posted trades page
+                link=f"/home/trades/pending/" 
             )
         except Exception as e:
             print(f"Failed to create TRADE_INTEREST notification: {e}")
@@ -4732,31 +4732,72 @@ def resend_otp(request):
         traceback.print_exc()
         return Response({"error": "Failed to resend OTP. Please try again."}, status=500)
     
+# [PALITAN] 'yung luma mong list_notifications function
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_notifications(request):
     """
-    Get all unread notifications for the current user, plus the unread count.
+    Get all notifications for the current user, plus the unread count.
+    REVISED: Fetches ALL notifications (read and unread) to keep them in the list.
     """
     try:
-        notifications = Notification.objects.filter(
-            recipient=request.user, 
-            is_read=False
+        # Fetch all notifications for the user, ordered by newest first
+        all_notifications = Notification.objects.filter(
+            recipient=request.user
         ).order_by('-created_at')
         
-        unread_count = notifications.count()
+        # Count unread notifications separately
+        unread_count = all_notifications.filter(is_read=False).count()
         
-        serializer = NotificationSerializer(notifications, many=True)
+        serializer = NotificationSerializer(all_notifications, many=True)
         
         return Response({
-            "count": unread_count,
-            "notifications": serializer.data
+            "count": unread_count, # Number of unread notifications
+            "notifications": serializer.data # List of all notifications
         }, status=status.HTTP_200_OK)
         
     except Exception as e:
         print(f"Error in list_notifications: {str(e)}")
         return Response({"error": "Failed to fetch notifications"}, status=500)
 
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_notification(request, notification_id):
+    """
+    [NEW] Delete a single notification by its ID.
+    Para sa 'X' button.
+    """
+    try:
+        notification = Notification.objects.get(
+            notification_id=notification_id,
+            recipient=request.user # Security: user can only delete their own
+        )
+        notification.delete()
+        return Response({"message": "Notification deleted"}, status=status.HTTP_200_OK)
+    except Notification.DoesNotExist:
+        return Response({"error": "Notification not found"}, status=status.HTTP_404)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_all_read_notifications(request):
+    """
+    [NEW] Delete all notifications for the user that are 'is_read' = True.
+    Para sa 'Delete all read' option.
+    """
+    try:
+        deleted_count, _ = Notification.objects.filter(
+            recipient=request.user,
+            is_read=True # Buburahin lang 'yung nabasa na
+        ).delete()
+        
+        return Response({
+            "message": f"Deleted {deleted_count} read notifications."
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
