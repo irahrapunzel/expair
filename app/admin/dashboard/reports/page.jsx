@@ -343,24 +343,24 @@ export default function ReportsPage() {
     return <DashboardSkeleton />;
   }
   
-  if (sessionStatus === "unauthenticated") {
-    return (
-      <div className={`min-h-screen bg-[#050015] text-white p-6 ${inter.className}`}>
-        <div className="flex items-center justify-center h-[50vh]">
-          <div className="text-center">
-            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-4" />
-            <p className="text-white/60 mb-4">You must be signed in to view this page.</p>
-            <button
-              onClick={() => window.location.href = '/signin'}
-              className="px-4 py-2 bg-[#906EFF] text-white rounded-lg hover:bg-[#7c5dd8] transition-colors"
-            >
-              Sign In
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // if (sessionStatus === "unauthenticated") {
+  //   return (
+  //     <div className={`min-h-screen bg-[#050015] text-white p-6 ${inter.className}`}>
+  //       <div className="flex items-center justify-center h-[50vh]">
+  //         <div className="text-center">
+  //           <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-4" />
+  //           <p className="text-white/60 mb-4">You must be signed in to view this page.</p>
+  //           <button
+  //             onClick={() => window.location.href = '/signin'}
+  //             className="px-4 py-2 bg-[#906EFF] text-white rounded-lg hover:bg-[#7c5dd8] transition-colors"
+  //           >
+  //             Sign In
+  //           </button>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
   
   return (
     <div className={`min-h-screen bg-[#050015] text-white p-6 ${inter.className}`}>
