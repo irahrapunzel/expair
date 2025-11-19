@@ -23,7 +23,6 @@ export default function ReportDialog({ isOpen, onClose, reportedUser, tradeId })
       "Did not deliver promised service",
       "Provided low-quality or incomplete work",
       "Misleading description",
-      "Attempted to trade outside Expair",
     ],
     "Profile Content": [
       "Fake or impersonation account",
