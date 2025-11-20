@@ -17,9 +17,9 @@ const inter = Inter({ subsets: ["latin"] });
 export default function SuspensionPage({ searchParams }) {
   // If your app router sends params, Next will pass them as `searchParams` in the page component.
   // Fallback to friendly defaults when not provided.
-  const reason =
+  const reason = 
     (searchParams && searchParams.reason) || "Violation of platform policies";
-  const until = (searchParams && searchParams.until) || null; // e.g. "2025-11-25"
+  const until = (searchParams && searchParams.until) || null;
   const router = useRouter();
 
   return (
@@ -34,12 +34,12 @@ export default function SuspensionPage({ searchParams }) {
     >
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <Image
-            src="/expair.png"
-            alt="Expair Logo"
-            width={120}
-            height={40}
-            className="w-auto h-[40px]"
+          <Image 
+            src="/expair.png" 
+            alt="Expair Logo" 
+            width={120} 
+            height={40} 
+            className="w-auto h-[40px]" 
           />
         </div>
         <div className="mx-auto bg-[#0B0521]/80 backdrop-blur-sm rounded-2xl p-8 md:p-12 text-center shadow-lg border border-[#120A2A]">
@@ -82,7 +82,7 @@ export default function SuspensionPage({ searchParams }) {
 
           <div className="flex flex-col sm:flex-row items-center gap-3 justify-center">
             <button
-              onClick={() => router.push(`/admin/dashboard/reports/appeal`)}
+              onClick={() => router.push(`/appeal`)}
               className="w-full sm:w-auto px-6 py-3 rounded-lg bg-[#0038FF] hover:bg-[#1a4dff] text-white font-medium shadow-[0_8px_20px_-8px_rgba(0,56,255,0.6)] transition"
             >
               Submit an Appeal
@@ -100,7 +100,7 @@ export default function SuspensionPage({ searchParams }) {
           </div>
 
           <p className="text-xs text-gray-400 mt-6">
-            If you believe this was an error, you may submit an appeal. Appeals
+            If you believe this was an error, you may submit an appeal. Appeals 
             are reviewed within 24–48 hours.
           </p>
         </div>

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
-import DragDropUploader from "../../../../../components/admin/dragdropuploader";
+import DragDropUploader from "../components/admin/dragdropuploader";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -49,7 +49,7 @@ export default function AppealPage() {
       formData.append("reason", appealText);
       formData.append("context", additionalContext);
 
-      files.slice(0, 5).forEach((f, idx) => {
+      files.slice(0, 5).forEach((f) => {
         formData.append("evidence", f, f.name);
       });
 
@@ -67,7 +67,7 @@ export default function AppealPage() {
       setMessage({ type: "success", text: "Your appeal has been submitted. We'll review it within 48 hours." });
       // optionally redirect to "appeal status" page
       setTimeout(() => {
-        router.push("/admin/dashboard/reports/appeal-status");
+        router.push("/appeal-status");
       }, 1500);
     } catch (err) {
       console.error(err);
@@ -88,14 +88,14 @@ export default function AppealPage() {
     >
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-            <Image src="/expair.png" alt="Expair Logo" width={120} height={40} className="w-auto h-[40px]" />
+          <Image src="/expair.png" alt="Expair Logo" width={120} height={40} className="w-auto h-[40px]" />
         </div>
 
         <div className="bg-[#0B0521]/80 border border-[#120A2A] rounded-2xl p-8 shadow-lg">
           <h2 className="text-2xl font-semibold mb-2">Submit an Appeal</h2>
           <p className="text-sm text-gray-300 mb-6">
             If you believe the action taken on your account was made in error, please provide clear and honest details below.
-            You may upload up to 5 files (images, screenshots, PDFs, chat logs).
+            You may upload up to 5 files.
           </p>
 
           <div className="mb-6 bg-[#050015] border border-[#2a2140] rounded-lg p-4">
@@ -123,7 +123,7 @@ export default function AppealPage() {
                 value={additionalContext}
                 onChange={(e) => setAdditionalContext(e.target.value)}
                 rows={3}
-                placeholder="Add any relevant details, e.g. technical issues, misunderstandings..."
+                placeholder="Add any relevant details..."
                 className="w-full p-3 bg-[#050015] border border-[#2a2140] rounded-md text-gray-100 resize-none"
               />
             </div>
