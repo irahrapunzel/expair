@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
-import DragDropUploader from "../components/admin/dragdropuploader";
+import DragDropUploader from "../../components/admin/dragdropuploader";
 
 const inter = Inter({ subsets: ["latin"] });
 
