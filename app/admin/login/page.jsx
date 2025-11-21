@@ -13,111 +13,108 @@ import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export default function LoginPage() {
+// --- IMPORTANT NOTE ---
+// This page relies on your NextAuth configuration being set up to:
+// 1. Check the 'is_superuser' flag in the Django login response.
+// 2. ONLY allow login if is_superuser is true (or return an error).
+// 3. Expose the JWT token and user role in the session data.
+// ----------------------
+
+export default function AdminLoginPage() {
   const router = useRouter();
-  // Ensure 'session' is also retrieved to check for sanction details
   const { data: session, status } = useSession();
   const [captcha, setCaptcha] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false); // New loading state
 
   const { username, password, setUsername, setPassword } = useLoginStore();
 
   const handleLogin = async (e) => {
     e?.preventDefault?.();
     setErrorMessage("");
+    setIsAuthenticating(true);
 
-    // Basic form checks
     if (!username || !password) {
       setErrorMessage("Please enter both username and password");
+      setIsAuthenticating(false);
       return;
     }
     if (!captcha) {
       setErrorMessage("Please verify CAPTCHA");
+      setIsAuthenticating(false);
       return;
     }
 
-    // --- EXECUTE NEXTAUTH LOGIN ---
+    // --- SECURE ADMIN LOGIN FLOW ---
+    // NOTE: If the backend successfully authenticates a user who is NOT an admin, 
+    // NextAuth will successfully set the session, which is what we need to prevent.
+    // The primary gate is the backend returning an error if they are non-admin, 
+    // or the NextAuth authorize function throwing an error based on the is_admin flag.
+
     const result = await signIn("credentials", {
       redirect: false,
       identifier: username,
       password: password,
     });
 
-    console.log("NextAuth Sign-in Result:", result);
-
     if (result?.error) {
-      let errorMsg = "Invalid login credentials."; // Default failure message
+      let errorMsg = "Invalid login credentials or insufficient privileges.";
 
       try {
-        // Attempt to parse the custom JSON error (SANCTIONED/LOCKED OUT user)
+        // Attempt to parse the error message if it's the custom JSON error from NextAuth
         const errorData = JSON.parse(result.error);
 
         if (errorData.sanction) {
+          // REDIRECT SANCTIONED USER TO SUSPENSION PAGE
           const { reason, until } = errorData.sanction;
-          const originalReportId = errorData.sanction.source_report_id || 'N/A';
 
-          // CRITICAL: Immediately redirect to suspension page via URL params
-          router.push(`/suspension?reason=${encodeURIComponent(reason)}&until=${encodeURIComponent(until)}&originalReportId=${originalReportId}`);
+          // We use the router to push to the suspension page with URL parameters
+          router.push(`/suspension?reason=${encodeURIComponent(reason)}&until=${encodeURIComponent(until)}`);
           return; // Stop execution after redirect
         }
       } catch (e) {
-        // Error was not the custom JSON format
+        // Error was not the custom JSON format (it's a generic "Non-admin" error or wrong password)
+        // The default error message (Invalid login credentials or insufficient privileges.) remains.
       }
 
-      // If we reach here, the login failed for a non-sanction reason (wrong password, etc.)
-      setErrorMessage(errorMsg);
+      setErrorMessage(errorMsg); // Display the generic failure message
+      setIsAuthenticating(false);
       return;
     }
 
-    // --- SUCCESSFUL LOGIN REDIRECT ---
-    // If NextAuth returns ok=true, redirect to the default home page
     if (result?.ok) {
-      // The /home protected route logic (or the useEffect below) 
-      // should handle the Admin check and redirect if needed.
-      router.push("/home");
+      // Successful Admin Login
+      router.push("/admin/dashboard");
     }
+
+    setIsAuthenticating(false);
   };
 
-
-  // --- CRITICAL FIX: ENSURE SUSPENDED USERS ARE BOUNCED HERE ---
+  // Redirect if already authenticated
   useEffect(() => {
-    if (status === "authenticated" && session) {
-      // 1. Check for Suspension (Existing Logic - MUST be first)
-      const sanctionStatus = session?.user?.sanction_status;
-
-      if (sanctionStatus === 'SUSPENSION' || sanctionStatus === 'BAN') {
-        // ... (Redirect to /suspension and return) ...
-        return; 
-      }
-      
-      // --- 2. NEW CRITICAL CHECK: ADMIN REDIRECT ---
-      if (session?.user?.is_admin === true) {
-          console.log("Admin detected. Redirecting to Admin Dashboard.");
-          router.push("/admin/dashboard");
-          return; // Stop here!
-      }
-      // -------------------------------------------
-
-      // 3. FINAL FALLBACK: If NOT suspended and NOT Admin, proceed to home
-      router.push("/home");
+    if (status === "authenticated") {
+      // Check if session data contains a flag that confirms Admin role
+      // Example: if (session?.user?.is_admin)
+      // Since your Django backend check is robust, we rely on the session being set.
+      router.push("/admin/dashboard");
     }
   }, [status, router, session]);
 
-
   // Show loading while checking auth status
-  if (status === "loading") {
+  if (status === "loading" || isAuthenticating) {
     return (
       <div
         className="min-h-screen flex items-center justify-center bg-cover bg-center"
         style={{ backgroundImage: "url('/assets/bg_signin.png')" }}
       >
-        <div className="text-white">Loading...</div>
+        <div className="text-white">Authenticating Admin Access...</div>
       </div>
     );
   }
 
+  // If status is unauthenticated, show the login form
   if (status === "unauthenticated") {
     return (
       <div
@@ -134,9 +131,12 @@ export default function LoginPage() {
               height={100}
               className="rounded-full"
             />
-            <h1 className="font-bold text-[22px] sm:text-[25px] mb-[20px]">
-              Welcome back, star!
+            <h1 className="font-bold text-[22px] sm:text-[25px] mb-[20px] text-red-400">
+              Admin Access Required
             </h1>
+            <p className="text-sm text-white/70">
+              Sign in with your Expair administrator credentials.
+            </p>
           </div>
 
           {/* Username */}
@@ -180,12 +180,12 @@ export default function LoginPage() {
             <p className="text-red-500 text-sm mb-3">{errorMessage}</p>
           )}
 
-          {/* Remember Me + Forgot Password */}
+          {/* Remember Me + Forgot Password (Kept for visual parity) */}
           <div className="flex justify-between items-center text-[14px] sm:text-[16px] mb-[20px]">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                className="accent-blue-500"
+                className="accent-red-500"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
               />
@@ -201,34 +201,20 @@ export default function LoginPage() {
 
           {/* Sign In Button */}
           <Button
-            className="cursor-pointer flex w-full sm:w-[400px] h-[50px] justify-center items-center px-4 py-3 shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-base sm:text-[20px] font-normal transition rounded-[15px] mb-[20px] mx-auto"
+            className="cursor-pointer flex w-full sm:w-[400px] h-[50px] justify-center items-center px-4 py-3 shadow-[0px_0px_15px_0px_#cc2828] bg-red-700 hover:bg-red-800 text-white text-base sm:text-[20px] font-normal transition rounded-[15px] mb-[20px] mx-auto"
             onClick={handleLogin}
+            disabled={isAuthenticating}
           >
-            Sign in
+            {isAuthenticating ? "Verifying..." : "Admin Sign In"}
           </Button>
 
-          {/* Google Login */}
-          <Button
-            variant="outline"
-            className="cursor-pointer flex w-full sm:w-[400px] h-[50px] justify-center items-center gap-2 mt-3 text-black text-base sm:text-[20px] font-medium rounded-[15px] border border-gray-300 hover:bg-gray-100 mb-[35px] mx-auto"
-          // Note: The handleGoogleLogin function should be defined here or imported if used
-          // onClick={handleGoogleLogin} 
-          >
-            <img
-              src="/assets/google_logo.png"
-              alt="Google Logo"
-              className="w-5 h-5"
-            />
-            Sign in with Google
-          </Button>
-
-          {/* Register Link */}
+          {/* Back to User Login Link */}
           <p className="text-center text-sm sm:text-[16px] mt-4">
-            Don’t have an account yet?{" "}
-            <a href="/register" className="text-[#6DDFFF] hover:underline">
-              Register now!
+            <a href="/signin" className="text-[#6DDFFF] hover:underline">
+              ← Return to regular user login
             </a>
           </p>
+
         </div>
       </div>
     );

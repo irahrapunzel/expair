@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react"; // CRITICAL: Import useSession
 import { 
   Check, 
   X, 
@@ -36,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 const REJECTION_OPTIONS = [
   "Document is blurry or unreadable",
@@ -49,6 +50,8 @@ const REJECTION_OPTIONS = [
 ];
 
 export default function UsersPage() {
+  const { data: session, status: sessionStatus } = useSession(); // ACTIVATE SESSION HOOK
+  
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -82,15 +85,51 @@ export default function UsersPage() {
     flaggedTrend: { value: "0%", is_up: false, is_neutral: true }
   });
 
-  useEffect(() => {
-    fetchStats();
-  }, [showFlaggedOnly]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [searchQuery, verificationFilter, showFlaggedOnly, sortBy, sortDirection, currentPage]);
+  // --- CORE FETCH FUNCTIONS (Defined with useCallback) ---
 
-  async function fetchUsers() {
+  const fetchStats = useCallback(async () => {
+    // 1. Get Token
+    const adminToken = session?.access;
+    // Only proceed if authenticated and token is present
+    if (sessionStatus !== 'authenticated' || !adminToken) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/user-stats/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`, // FIX: ADD HEADER
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setStats({
+          totalUsers: data.totalUsersRegistered || 0,
+          verifiedUsers: data.verifiedUsers || 0,
+          pendingVerifications: data.pendingVerifications || 0,
+          flaggedUsers: data.flaggedUsers || 0,
+          totalTrend: data.trends?.total_users || { value: "0%", is_up: false, is_neutral: true },
+          verifiedTrend: data.trends?.verified_users || { value: "0%", is_up: false, is_neutral: true },
+          pendingTrend: data.trends?.pending_verifications || { value: "0%", is_up: false, is_neutral: true },
+          flaggedTrend: data.trends?.flagged_users || { value: "0%", is_up: false, is_neutral: true }
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching stats:", err);
+    }
+  }, [session?.access, sessionStatus]);
+
+
+  const fetchUsers = useCallback(async () => {
+    // 1. Get Token
+    const adminToken = session?.access;
+    if (sessionStatus !== 'authenticated' || !adminToken) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     
@@ -104,10 +143,17 @@ export default function UsersPage() {
         per_page: '20'
       });
 
-      const response = await fetch(`${API_BASE}/api/admin/users-list/?${params}`);
+      const response = await fetch(`${API_BASE}/api/admin/users-list/?${params}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`, // FIX: ADD HEADER
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch users: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(`Failed to fetch users: ${response.status} - ${errorData.error || response.statusText}`);
       }
       
       const data = await response.json();
@@ -118,6 +164,9 @@ export default function UsersPage() {
       
       let fetchedUsers = data.users || [];
 
+      // --- Apply client-side sorting if needed (usually handled by backend) ---
+      // Since your backend supports sorting, this client-side sorting block might be redundant 
+      // but is kept for compatibility with the original code structure.
       if (sortBy) {
         if (sortBy === 'name') {
           fetchedUsers = fetchedUsers.sort((a, b) =>
@@ -153,37 +202,27 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [session?.access, searchQuery, verificationFilter, showFlaggedOnly, sortBy, sortDirection, currentPage, sessionStatus]);
 
-  async function fetchStats() {
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/user-stats/`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        setStats({
-          totalUsers: data.totalUsersRegistered || 0,
-          verifiedUsers: data.verifiedUsers || 0,
-          pendingVerifications: data.pendingVerifications || 0,
-          flaggedUsers: data.flaggedUsers || 0,
-          totalTrend: data.trends?.total_users || { value: "0%", is_up: false, is_neutral: true },
-          verifiedTrend: data.trends?.verified_users || { value: "0%", is_up: false, is_neutral: true },
-          pendingTrend: data.trends?.pending_verifications || { value: "0%", is_up: false, is_neutral: true },
-          flaggedTrend: data.trends?.flagged_users || { value: "0%", is_up: false, is_neutral: true }
-        });
-      }
-    } catch (err) {
-      console.error("Error fetching stats:", err);
-    }
-  }
+
+  // --- ASYNC ACTION HANDLERS (Must use token) ---
 
   async function handleVerifyUser(userId) {
+    const adminToken = session?.access;
+    if (!adminToken) { 
+      alert("Authentication token expired. Please log in again.");
+      return; 
+    }
+
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/api/admin/verify-user/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}` // FIX: ADD HEADER
+        },
         body: JSON.stringify({ user_id: userId })
       });
 
@@ -207,7 +246,12 @@ export default function UsersPage() {
   }
 
   async function handleRejectVerification() {
-    // Determine the final reason string
+    const adminToken = session?.access;
+    if (!adminToken) { 
+      alert("Authentication token expired. Please log in again.");
+      return; 
+    }
+
     let finalReason = selectedReason;
     
     if (selectedReason === "Others") {
@@ -225,7 +269,10 @@ export default function UsersPage() {
     try {
       const response = await fetch(`${API_BASE}/api/admin/reject-verification/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}` // FIX: ADD HEADER
+        },
         body: JSON.stringify({ 
           user_id: selectedUser.id, 
           reason: finalReason // Send the determined reason
@@ -254,6 +301,21 @@ export default function UsersPage() {
       setIsSubmitting(false);
     }
   }
+
+  // --- USE EFFECT HOOKS (Triggering Fetches) ---
+
+  // Trigger fetchStats when component mounts and filters change
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats, showFlaggedOnly]);
+
+  // Trigger fetchUsers when component mounts and filters change
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers, searchQuery, verificationFilter, showFlaggedOnly, sortBy, sortDirection, currentPage]);
+
+
+  // --- UTILITY FUNCTIONS (Unchanged Logic) ---
 
   function handleSort(column) {
     if (sortBy !== column) {
@@ -374,7 +436,11 @@ export default function UsersPage() {
           <h2 className="text-xl font-bold mb-2">Error Loading Users</h2>
           <p>{error}</p>
           <button
-            onClick={fetchUsers}
+            onClick={() => {
+                // Manually trigger fetchers after error
+                fetchUsers();
+                fetchStats();
+            }}
             className="mt-4 px-4 py-2 bg-[#906EFF] text-white rounded-lg hover:bg-[#7D5FE6] transition-colors"
           >
             Retry
@@ -471,7 +537,10 @@ export default function UsersPage() {
 
             <div className="flex gap-2">
               <button
-                onClick={fetchUsers}
+                onClick={() => {
+                    fetchUsers();
+                    fetchStats();
+                }}
                 disabled={loading}
                 className="flex items-center gap-2 px-4 py-2.5 bg-[#1A0F3E] border border-white/20 rounded-lg text-white hover:bg-[#3C2E64] transition-colors disabled:opacity-50"
               >

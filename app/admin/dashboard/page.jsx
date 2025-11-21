@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import StatsCard from "@/components/admin/stats-card";
 import AvatarNameCell from "@/components/admin/avatar-name-cell";
 import DashboardSkeleton from "@/components/admin/dashboard-skeleton";
+import { useSession } from "next-auth/react"; 
 import { 
   TrendingUp, 
   BarChart3, 
@@ -19,6 +20,9 @@ import {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function AdminDashboard() {
+  // --- STATE DEFINITIONS ---
+  const { data: session, status: sessionStatus } = useSession(); 
+  
   const [stats, setStats] = useState({
     totalTrades: 0,
     completedTrades: 0,
@@ -47,31 +51,18 @@ export default function AdminDashboard() {
   const [error, setError] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(null);
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+  // --- FUNCTION DEFINITIONS (Moved up to fix ReferenceError) ---
 
-  const fetchAllData = useCallback(async () => {
-    setLoading({
-      stats: true,
-      monthly: true,
-      traders: true,
-      activity: true
-    });
-    setError(null);
-    
-    await Promise.all([
-      fetchTradeStats(),
-      fetchTopTraders(),
-      fetchRecentActivity()
-    ]);
-    
-    setLastRefresh(new Date());
-  }, []);
-
-  async function fetchTradeStats() {
+  // Individual fetch functions
+  async function fetchTradeStats(adminToken) { 
     try {
-      const response = await fetch(`${API_BASE}/api/admin/trade-stats/`);
+      const response = await fetch(`${API_BASE}/api/admin/trade-stats/`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${adminToken}`, 
+            'Content-Type': 'application/json'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`Trade stats failed: ${response.status}`);
@@ -105,9 +96,15 @@ export default function AdminDashboard() {
     }
   }
 
-  async function fetchTopTraders() {
+  async function fetchTopTraders(adminToken) { 
     try {
-      const response = await fetch(`${API_BASE}/api/admin/top-traders/?limit=5`);
+      const response = await fetch(`${API_BASE}/api/admin/top-traders/?limit=5`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${adminToken}`, 
+            'Content-Type': 'application/json'
+        }
+      });
       
       if (response.ok) {
         const data = await response.json();
@@ -124,9 +121,15 @@ export default function AdminDashboard() {
     }
   }
 
-  async function fetchRecentActivity() {
+  async function fetchRecentActivity(adminToken) { 
     try {
-      const response = await fetch(`${API_BASE}/api/admin/recent-activity/?limit=10`);
+      const response = await fetch(`${API_BASE}/api/admin/recent-activity/?limit=10`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${adminToken}`, 
+            'Content-Type': 'application/json'
+        }
+      });
       
       if (response.ok) {
         const data = await response.json();
@@ -143,6 +146,44 @@ export default function AdminDashboard() {
     }
   }
 
+  // fetchAllData is defined using useCallback to ensure stable function reference
+  const fetchAllData = useCallback(async () => {
+    setLoading({
+      stats: true,
+      monthly: true,
+      traders: true,
+      activity: true
+    });
+    setError(null);
+    
+    // Get the access token securely from the session
+    const adminToken = session?.access;
+    if (!adminToken) {
+        setLoading({ stats: false, monthly: false, traders: false, activity: false });
+        setError("Authentication token not available. Please log in.");
+        return;
+    }
+    
+    await Promise.all([
+      fetchTradeStats(adminToken), 
+      fetchTopTraders(adminToken), 
+      fetchRecentActivity(adminToken) 
+    ]);
+    
+    setLastRefresh(new Date());
+  }, [session?.access]); 
+
+  // --- HOOKS AND LIFE CYCLE ---
+
+  // Trigger fetch when session is authenticated and token is available
+  useEffect(() => {
+    // This is run once the component mounts and session status updates
+    if (sessionStatus === "authenticated" && session?.access) { 
+      fetchAllData();
+    }
+  }, [sessionStatus, session?.access, fetchAllData]); // Added fetchAllData dependency for completeness
+
+  // Utility function (unchanged)
   function getActivityIcon(type) {
     const icons = {
       user_registered: "👤",
@@ -156,8 +197,19 @@ export default function AdminDashboard() {
 
   const isInitialLoad = loading.stats && loading.monthly && loading.traders && loading.activity;
 
-  if (isInitialLoad && !error) {
+  if (sessionStatus === "loading" || (isInitialLoad && !error && sessionStatus !== "authenticated")) {
     return <DashboardSkeleton />;
+  }
+  
+  if (sessionStatus === "unauthenticated") { 
+    // Handle explicit unauthenticated state (redirect to login)
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-[#050015] p-6 text-white">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-red-400">
+                Access Denied (401). Please ensure you are logged in as an administrator.
+            </div>
+        </div>
+    );
   }
 
   if (error && isInitialLoad) {
@@ -342,7 +394,6 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          {/* ✅ FIX: Display monthly average rating */}
                           {row.avg_rating != null && row.avg_rating > 0 ? (
                             <div className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-500/10 rounded-full border border-yellow-500/30">
                               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
@@ -466,7 +517,6 @@ export default function AdminDashboard() {
 
                     <div className="flex-1 bg-[#1A0F3E] rounded-xl p-4 border border-[#906EFF]/10 group-hover:border-[#906EFF]/30 transition-all">
                       <p className="text-white font-medium mb-1">{activity.description}</p>
-                      {/* ✅ FIX: Display formatted timestamp */}
                       <p className="text-xs text-white/40">{activity.timestamp}</p>
                     </div>
                   </div>

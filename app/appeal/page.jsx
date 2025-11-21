@@ -1,18 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { Inter } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import DragDropUploader from "../../components/admin/dragdropuploader";
+import { useSession } from "next-auth/react"; // CRITICAL: Need session for token
+import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export default function AppealPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const violationId = searchParams?.get("violationId") || "unknown";
+  const { data: session } = useSession();
+
+  // --- DYNAMIC DATA RETRIEVAL ---
+  // Read violation details from URL parameters
+  const reportId = searchParams?.get("originalReportId") || "N/A"; // Use the correct URL param
+  const reasonCited = searchParams?.get("reason") || "Violation of Expair Policies";
+  const actionTaken = searchParams?.get("until") || "Permanent Ban";
+
+  const violationType = searchParams?.get("type") || "SANCTION";
+
+  const displayAction = actionTaken === "PERMANENT" ? "Permanent Ban" : actionTaken.includes('day') ? `Suspension until ${actionTaken}` : actionTaken;
+
+  const originalReportId = reportId;
 
   const [appealText, setAppealText] = useState("");
   const [additionalContext, setAdditionalContext] = useState("");
@@ -27,7 +39,13 @@ export default function AppealPage() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
+    const token = session?.access;
+
+    if (!token) {
+      setMessage({ type: "error", text: "Session expired. Please log in again." });
+      return;
+    }
     if (!declaration) {
       setMessage({ type: "error", text: "Please confirm the declaration." });
       return;
@@ -36,26 +54,37 @@ export default function AppealPage() {
       setMessage({ type: "error", text: "Please provide a reason for your appeal." });
       return;
     }
+    if (originalReportId === "N/A") {
+      setMessage({ type: "error", text: "Missing violation record ID. Cannot submit appeal." });
+      return;
+    }
 
     setSubmitting(true);
     setMessage(null);
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL; // Use the correct API URL environment variable
       if (!baseUrl) throw new Error("Backend URL not configured.");
 
       const formData = new FormData();
-      formData.append("violation_id", violationId);
-      formData.append("reason", appealText);
-      formData.append("context", additionalContext);
+      // 1. Send the crucial link back to the original Admin action
+      formData.append("original_report_id", originalReportId); // Pass the correct ID
+      // 2. Send appeal text
+      formData.append("appeal_reason", appealText);
+      formData.append("additional_context", additionalContext);
 
+      // 3. Send files under the correct plural name
       files.slice(0, 5).forEach((f) => {
-        formData.append("evidence", f, f.name);
+        formData.append("evidence_files", f, f.name);
       });
 
-      // Example endpoint - replace with your actual endpoint
-      const res = await fetch(`${baseUrl}/api/appeals/submit/`, {
+      // 4. Call the correct endpoint
+      const res = await fetch(`${baseUrl}/submit-appeal/`, {
         method: "POST",
+        // Do NOT set Content-Type header when uploading files with FormData
+        headers: {
+          Authorization: `Bearer ${token}`, // Use the secured session token
+        },
         body: formData,
       });
 
@@ -65,10 +94,12 @@ export default function AppealPage() {
       }
 
       setMessage({ type: "success", text: "Your appeal has been submitted. We'll review it within 48 hours." });
-      // optionally redirect to "appeal status" page
+
       setTimeout(() => {
-        router.push("/appeal-status");
-      }, 1500);
+        // You might redirect the user back to the login page or a static status page
+        router.push("/login?appealSubmitted=true");
+      }, 3000); // Give user time to read success message
+
     } catch (err) {
       console.error(err);
       setMessage({ type: "error", text: err.message || "Network error" });
@@ -76,6 +107,16 @@ export default function AppealPage() {
       setSubmitting(false);
     }
   };
+
+  // Ensure the page redirects if the user somehow lands here without being suspended
+  useEffect(() => {
+    if (status === 'unauthenticated' || !session) {
+      // If the user tries to load this page without a valid session, redirect to login
+      // (The suspension check should already be handled by the layout)
+      // router.push('/login'); 
+    }
+  }, [status, session, router]);
+
 
   return (
     <div
@@ -98,12 +139,16 @@ export default function AppealPage() {
             You may upload up to 5 files.
           </p>
 
+          {/* DYNAMIC VIOLATION SUMMARY */}
           <div className="mb-6 bg-[#050015] border border-[#2a2140] rounded-lg p-4">
             <p className="text-xs text-gray-400 mb-1"><strong>Violation Summary</strong></p>
-            <p className="text-sm text-gray-200">Violation Type: <span className="font-medium text-gray-100">Suspension</span></p>
-            <p className="text-sm text-gray-200">Reason Cited: <span className="font-medium text-gray-100">Failed to deliver agreed service</span></p>
-            <p className="text-sm text-gray-200">Action Taken: <span className="font-medium text-gray-100">7-day suspension</span></p>
+            <p className="text-sm text-gray-200">Record ID: <span className="font-medium text-red-400">{originalReportId}</span></p> 
+            <p className="text-sm text-gray-200">Violation Type: <span className="font-medium text-gray-100">{violationType}</span></p>
+            <p className="text-sm text-gray-200">Reason Cited: <span className="font-medium text-gray-100">{reasonCited}</span></p>
+            <p className="text-sm text-gray-200">Action Taken: <span className="font-medium text-gray-100">{displayAction}</span></p>
+            <p className="text-xs text-red-300 mt-2">Appeals must be truthful and supported by evidence.</p>
           </div>
+          {/* END DYNAMIC VIOLATION SUMMARY */}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -123,7 +168,7 @@ export default function AppealPage() {
                 value={additionalContext}
                 onChange={(e) => setAdditionalContext(e.target.value)}
                 rows={3}
-                placeholder="Add any relevant details..."
+                placeholder="Add any relevant details about the incident..."
                 className="w-full p-3 bg-[#050015] border border-[#2a2140] rounded-md text-gray-100 resize-none"
               />
             </div>

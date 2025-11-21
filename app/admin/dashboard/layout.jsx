@@ -6,34 +6,27 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { LayoutDashboard, Users, LogOut, Menu, X, FileText } from "lucide-react";
 import ProfileAvatar from "@/components/avatar";
+import { useSession } from "next-auth/react"; 
 
 const inter = Inter({ subsets: ["latin"] });
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [adminUser, setAdminUser] = useState(null);
+  const { data: session, status: sessionStatus } = useSession(); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
-    const user =
-      localStorage.getItem("adminUser") ||
-      JSON.stringify({
-        username: "admin",
-        name: "Admin User",
-        org: "expair",
-        role: "Administrator",
-      });
-    setAdminUser(JSON.parse(user));
-    
-    if (!localStorage.getItem("adminToken")) {
-      localStorage.setItem("adminToken", "admin-token-123");
+    // Check if loading is finished and user is NOT authenticated
+    if (sessionStatus === "unauthenticated") {
+        // Redirect to your newly created admin login page
+        router.push("/admin/login"); 
     }
-  }, []);
+  }, [sessionStatus, router]);
 
   const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
+    // Sa production app, dito mo tatawagin ang NextAuth signOut()
+    // Pansamantala, i-redirect lang
     router.push("/");
   };
 
@@ -43,13 +36,28 @@ export default function AdminLayout({ children }) {
     { name: "Reports", icon: FileText, href: "/admin/dashboard/reports" },
   ];
 
-  if (!adminUser) {
+  // Logic para sa pag-handle ng loading state
+  if (sessionStatus === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050015] text-white">
-        Loading...
+        Verifying Session...
       </div>
     );
   }
+  
+  // If not authenticated, return null to avoid rendering the admin layout
+  if (sessionStatus !== "authenticated") {
+      return null; 
+  }
+
+  // Admin user details from session
+  const adminUser = { 
+      username: session?.user?.username || 'Admin', 
+      name: session?.user?.name || 'Administrator',
+      // Assuming a role is added to the session object in NextAuth
+      role: session?.user?.role || 'Administrator', 
+  };
+
 
   return (
     <div className={`flex min-h-screen bg-[#050015] ${inter.className}`}>
@@ -87,7 +95,8 @@ export default function AdminLayout({ children }) {
         {/* Admin Info */}
         {isSidebarOpen && (
           <div className="p-4 border-b border-[#906EFF]/20 flex items-center gap-3">
-            <ProfileAvatar src="/assets/defaultavatar.png" size={40} />
+            {/* Gamitin ang profile picture galing sa session data */}
+            <ProfileAvatar src={session?.user?.image || "/defaultavatar.png"} size={40} />
             <div>
               <div className="font-medium">{adminUser.name}</div>
               <div className="text-xs text-white/60">{adminUser.role}</div>

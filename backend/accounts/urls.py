@@ -107,6 +107,8 @@ urlpatterns = [
     
     path('validate-field/', validate_field, name='validate_field'),
 
+    path('submit-appeal/', views.submit_appeal, name='submit_appeal'),
+    
     # Notification Endpoints
     path('notifications/', views.list_notifications, name='list_notifications'),
     path('notifications/mark-all-read/', views.mark_all_as_read, name='mark_all_as_read'),
@@ -135,10 +137,14 @@ urlpatterns = [
     path('api/admin/reports-list/', admin_reports_list, name='admin_reports_list'),
     path('api/admin/update-report-status/', admin_update_report_status, name='admin_update_report_status'),
     path('api/admin/verify-user/', admin_verify_user, name='admin_verify_user'),
-    path('api/admin/reject-verification/', admin_reject_verification, name='admin_reject_verification'), # ⭐️ ADDED: New URL
+    path('api/admin/reject-verification/', admin_reject_verification, name='admin_reject_verification'), 
     path('api/admin/reports-list/', admin_api.admin_reports_list, name='admin_reports_list'),
     path('api/admin/report-detail/<int:report_id>/', admin_api.admin_report_detail, name='admin_report_detail'),
     path('api/admin/resolve-report/', admin_api.admin_resolve_report, name='admin_resolve_report'),
     path('api/admin/bulk-resolve-reports/', admin_api.admin_bulk_resolve_reports, name='admin_bulk_resolve_reports'),
     path('api/admin/report-stats/', admin_api.admin_report_stats, name='admin_report_stats'),
+    
+    path('api/admin/apply-sanction/', admin_api.admin_apply_sanction, name='admin_apply_sanction'), # NEW Core Action
+    path('api/admin/appeal-review/', admin_api.admin_appeal_review, name='admin_appeal_review'),   # NEW Appeal Review
+    path('api/admin/user-sanction-history/<int:user_id>/', admin_api.admin_user_sanction_history, name='admin_user_sanction_history'), # NEW History View
 ]

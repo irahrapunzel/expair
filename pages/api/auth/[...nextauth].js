@@ -63,14 +63,32 @@ export default NextAuth({
             body: JSON.stringify(requestBody),
           });
 
-          if (!res.ok) {
-            console.log("Login failed with status:", res.status);
-            return null;
-          }
-
           const data = await res.json();
 
+          // --- STEP 1: INTERCEPT SANCTION LOCKOUT (403 Status) ---
+          if (res.status === 403 && data.code === 'SANCTIONED_LOCKOUT') {
+            console.log("Sanction Lockout detected. Throwing custom error.");
+
+            // Throw specific JSON string that client page can parse
+            throw new Error(JSON.stringify({
+              message: "Account Locked",
+              sanction: data.sanction_details
+            }));
+          }
+          // --------------------------------------------------------
+
+          // --- STEP 2: CHECK FOR GENERIC FAILURES (401, 400, 500) ---
+          if (!res.ok) {
+            console.log(`Login failed with status: ${res.status}. Returning null.`);
+            // This captures wrong password (401) or other generic failures.
+            return null;
+          }
+          // ---------------------------------------------------------
+
+          // --- STEP 3: SUCCESSFUL LOGIN (Status 200) ---
           if (data && data.access && data.refresh) {
+            const isAdmin = !!data.is_admin;
+
             return {
               id: String(data.user_id || data.id),
               access: data.access,
@@ -79,12 +97,20 @@ export default NextAuth({
               email: data.email,
               first_name: data.first_name,
               last_name: data.last_name,
-              image: data.image
+              image: data.image,
+              is_admin: isAdmin,
+              sanction_details: data.sanction_details || null,
+              sanction_status: data.sanction_status || 'NONE',
             };
           }
           return null;
         } catch (error) {
-          console.error("Authorize error:", error);
+          // If the error is the custom JSON string from the sanction check, re-throw it.
+          if (typeof error.message === 'string' && error.message.includes('Account Locked')) {
+            throw error;
+          }
+
+          console.error("Authorize (Uncaught) error:", error);
           return null;
         }
       }
@@ -218,6 +244,11 @@ export default NextAuth({
         token.last_name = user.last_name;
         token.email = user.email;
 
+        // Store Admin and Sanction Statuses
+        token.is_admin = user.is_admin;
+        token.sanction_status = user.sanction_status;
+        token.sanction_details = user.sanction_details;
+
         if (user.profilePic) token.profilePic = user.profilePic;
         if (user.image) token.image = user.image;
 
@@ -310,36 +341,45 @@ export default NextAuth({
       console.log("Token has access:", !!token?.access);
       console.log("Token profilePic:", token?.profilePic);
 
-      if (token) {
+      const cleanedToken = {};
+      for (const key in token) {
+        // Ensure no property is null or undefined before mapping to session
+        if (token[key] !== null && token[key] !== undefined) {
+          cleanedToken[key] = token[key];
+        }
+      }
+
+      if (cleanedToken.access) {
         // Only set access/refresh for existing users
-        if (!token.isNewUser) {
-          session.access = token.access;
-          session.refresh = token.refresh;
+        if (!cleanedToken.isNewUser) {
+          session.access = cleanedToken.access;
+          session.refresh = cleanedToken.refresh;
         }
 
         if (session.user) {
-          session.user.id = token.id;
-          session.user.username = token.username;
-          session.user.first_name = token.first_name;
-          session.user.last_name = token.last_name;
-          session.user.email = token.email;
+          session.user.id = cleanedToken.id;
+          session.user.username = cleanedToken.username;
+          session.user.first_name = cleanedToken.first_name;
+          session.user.last_name = cleanedToken.last_name;
+          session.user.email = cleanedToken.email;
+          session.user.profilePic = cleanedToken.profilePic || cleanedToken.image;
 
-          if (token.profilePic) {
-            session.user.profilePic = token.profilePic;
-          }
-          if (token.image) {
-            session.user.image = token.image;
-          }
+          // Pass Sanction Status and Admin Flag
+          session.user.is_admin = cleanedToken.is_admin;
+          session.user.sanction_status = cleanedToken.sanction_status;
+          session.user.sanction_details = cleanedToken.sanction_details;
 
-          // Pass new user flag and Google data
-          if (token.isNewUser !== undefined) {
-            session.user.isNewUser = token.isNewUser;
-            if (token.googleData) {
-              session.user.googleData = token.googleData;
-            }
+          // Pass new user flag
+          session.user.isNewUser = cleanedToken.isNewUser || false;
+          if (cleanedToken.googleData) {
+            session.user.googleData = cleanedToken.googleData;
           }
         }
+      } else {
+        session.access = null;
+        session.refresh = null;
       }
+
       console.log("Session prepared with access token:", !!session.access);
       return session;
     }

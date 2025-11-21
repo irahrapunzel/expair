@@ -8,19 +8,26 @@ import { useRouter } from "next/navigation";
 
 const inter = Inter({ subsets: ["latin"] });
 
-/**
- * Props: We assume the server provides query params or the parent mounts this page
- * with reason and until date available. For now the page shows fallback text
- * and reads optional query params ?reason=...&until=...
- */
-
 export default function SuspensionPage({ searchParams }) {
-  // If your app router sends params, Next will pass them as `searchParams` in the page component.
-  // Fallback to friendly defaults when not provided.
-  const reason = 
-    (searchParams && searchParams.reason) || "Violation of platform policies";
-  const until = (searchParams && searchParams.until) || null;
   const router = useRouter();
+
+  // --- 1. CAPTURE ALL URL PARAMETERS ---
+  const reason = (searchParams && searchParams.reason) || "Violation of platform policies";
+  const until = (searchParams && searchParams.until) || null;
+  // CRITICAL: Capture the ID needed for the appeal submission
+  const originalReportId = (searchParams && searchParams.originalReportId) || "N/A";
+
+  // 2. CONSTRUCT THE APPEAL URL SAFELY
+  // Ensure all necessary data is URL-encoded before being pushed
+  const encodedReason = encodeURIComponent(reason);
+  const encodedUntil = encodeURIComponent(until || 'Permanent Ban');
+  const encodedReportId = encodeURIComponent(originalReportId);
+
+  const appealUrl = `/appeal?reason=${encodedReason}&until=${encodedUntil}&originalReportId=${encodedReportId}`;
+
+  // 3. Display Logic
+  const displayAction = until ? `Suspension until ${until}` : "Permanent ban";
+
 
   return (
     <div
@@ -34,12 +41,12 @@ export default function SuspensionPage({ searchParams }) {
     >
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <Image 
-            src="/expair.png" 
-            alt="Expair Logo" 
-            width={120} 
-            height={40} 
-            className="w-auto h-[40px]" 
+          <Image
+            src="/expair.png"
+            alt="Expair Logo"
+            width={120}
+            height={40}
+            className="w-auto h-[40px]"
           />
         </div>
         <div className="mx-auto bg-[#0B0521]/80 backdrop-blur-sm rounded-2xl p-8 md:p-12 text-center shadow-lg border border-[#120A2A]">
@@ -62,7 +69,7 @@ export default function SuspensionPage({ searchParams }) {
           </div>
 
           <h1 className="text-white text-2xl md:text-3xl font-semibold mb-2">
-            Account Suspended
+            Account {until ? "Suspended" : "Banned"}
           </h1>
 
           <p className="text-gray-200 opacity-90 mb-4">
@@ -76,14 +83,21 @@ export default function SuspensionPage({ searchParams }) {
             </p>
             <p className="text-sm text-gray-300 mt-2">
               <span className="font-medium text-gray-100">Action taken: </span>
-              {until ? `Suspension until ${until}` : "Permanent ban"}
+              {displayAction}
             </p>
+            {originalReportId !== "N/A" && (
+              <p className="text-sm text-gray-300 mt-2">
+                <span className="font-medium text-gray-100">Violation ID: </span>
+                #{originalReportId}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 justify-center">
+            {/* --- FIX: PASS ALL DATA TO APPEAL PAGE --- */}
             <button
-              onClick={() => router.push(`/appeal`)}
-              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-[#0038FF] hover:bg-[#1a4dff] text-white font-medium shadow-[0_8px_20px_-8px_rgba(0,56,255,0.6)] transition"
+              onClick={() => router.push(appealUrl)}
+              className={`w-full sm:w-auto px-6 py-3 rounded-lg bg-[#0038FF] hover:bg-[#1a4dff] text-white font-medium shadow-[0_8px_20px_-8px_rgba(0,56,255,0.6)] transition`}
             >
               Submit an Appeal
             </button>
@@ -100,7 +114,7 @@ export default function SuspensionPage({ searchParams }) {
           </div>
 
           <p className="text-xs text-gray-400 mt-6">
-            If you believe this was an error, you may submit an appeal. Appeals 
+            If you believe this was an error, you may submit an appeal. Appeals
             are reviewed within 24–48 hours.
           </p>
         </div>

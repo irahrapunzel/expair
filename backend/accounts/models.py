@@ -9,6 +9,7 @@ import os
 import binascii
 from django.dispatch import receiver
 
+
 class PasswordResetToken(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_reset_tokens')
     token = models.CharField(max_length=64, unique=True)
@@ -163,6 +164,10 @@ class UserVerification(models.Model):
 class UserManager(models.Manager):
     """Custom manager for User model that provides create_user method"""
     
+    def get_by_natural_key(self, username):
+        """Allows createsuperuser to look up the user."""
+        return self.get(username=username)
+    
     def create_user(self, username, email, password=None, **extra_fields):
         """Create and save a user with the given username, email, and password."""
         if not email:
@@ -184,6 +189,19 @@ class UserManager(models.Manager):
         """Create and save a superuser with the given username, email, and password."""
         return self.create_user(username, email, password, **extra_fields)
 
+class SanctionType(models.TextChoices):
+    # Sanctions applied TO the reported user (used in User.sanction_status and Report.sanction_applied)
+    NONE = "NONE", "No Sanction"
+    WARNING = "WARNING", "Warning"
+    SUSPENSION = "SUSPENSION", "Suspension"
+    BAN = "BAN", "Permanent Ban"
+    
+class AppealStatus(models.TextChoices):
+    # Status of the appeal against a decision (used in Report.appeal_status)
+    NONE = "NONE", "No Appeal Submitted"
+    PENDING = "PENDING", "Pending Review"
+    APPROVED = "APPROVED", "Approved"
+    DENIED = "DENIED", "Denied"
 
 class User(AbstractUser):
     id = models.AutoField(primary_key=True, db_column='user_id')
@@ -211,11 +229,21 @@ class User(AbstractUser):
     links = models.JSONField(default=list, blank=True, null=True)
     
     is_active = models.BooleanField(default=True, db_column='is_active') 
+    
+    sanction_status = models.CharField(
+        max_length=20,
+        choices=SanctionType.choices,
+        default=SanctionType.NONE, 
+        db_column='sanction_status'
+    )
+    # Stores details of the CURRENT active sanction (reason, date issued, date ends, source_report_id)
+    sanction_details = models.JSONField(default=dict, blank=True, null=True, db_column='sanction_details')
+
+    is_staff = models.BooleanField(default=False, db_column='is_staff')     
+    is_superuser = models.BooleanField(default=False, db_column='is_superuser')
 
     # Django AbstractUser fields that don't exist in your database
     date_joined = None 
-    is_staff = None     
-    is_superuser = None 
     last_login = None 
     groups = None      
     user_permissions = None  
@@ -627,7 +655,7 @@ class DeletedConversation(models.Model):
     
     def __str__(self):
         return f"Conversation {self.conversation_id} deleted by user {self.user_id}"
-    
+
 class Report(models.Model):
     report_id = models.AutoField(primary_key=True)
     reporter = models.ForeignKey(
@@ -654,6 +682,34 @@ class Report(models.Model):
     status = models.CharField(max_length=50, default='Pending')
     created_at = models.DateTimeField(default=timezone.now)
 
+    sanction_applied = models.CharField(
+        max_length=20,
+        choices=SanctionType.choices + [('DISMISS', 'Dismissed')], 
+        default='DISMISS', 
+        db_column='sanction_applied'
+    )
+    appeal_status = models.CharField(
+        max_length=20,
+        choices=AppealStatus.choices,
+        default=AppealStatus.NONE, # <--- Must have a default
+        db_column='appeal_status'
+    )
+
+    appeal_details = models.JSONField(
+        default=dict,
+        blank=True, 
+        null=True,
+        db_column='appeal_details'
+    )
+
+    admin_reviewer = models.ForeignKey(
+        'User', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reports_reviewed'
+    )
+    
     class Meta:
         db_table = 'reports_tbl'
         managed = True

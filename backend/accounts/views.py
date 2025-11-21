@@ -1,7 +1,6 @@
 import json
-import datetime
 import os
-from datetime import date, timezone
+from datetime import date, timezone, datetime
 from urllib import request
 
 import requests
@@ -34,7 +33,8 @@ CustomUser = get_user_model()
 from .models import (
     Evaluation, GenSkill, ReputationSystem, TradeDetail, TradeHistory, UserInterest, User, VerificationStatus, UserCredential,
     SpecSkill, UserSkill, TradeRequest, TradeInterest, PasswordResetToken,
-    Conversation, Message, DeletedConversation, Report, SupportTicket, UserVerification, Notification
+    Conversation, Message, DeletedConversation, Report, SupportTicket, UserVerification, Notification,
+    SanctionType, AppealStatus
 )
 from .serializers import (
     ProfileUpdateSerializer, UserCredentialSerializer,
@@ -45,6 +45,52 @@ from .serializers import (
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from .emails import send_support_emails, generate_otp, send_otp_email
+
+def check_sanction_lockout(user):
+    """
+    Checks if the user has an active Suspension or Ban.
+    Returns (True, error_message, sanction_until_date_iso) if locked out, (False, None, None) otherwise.
+    """
+    if user.sanction_status == 'BAN':
+        details = user.sanction_details
+        reason = details.get('reason', 'Violation of Expair policies')
+        return True, reason, "PERMANENT"
+    
+    if user.sanction_status == 'SUSPENSION':
+        details = user.sanction_details
+        reason = details.get('reason', 'Violation of Expair policies')
+        until_str = details.get('until')
+        
+        if until_str:
+            try:
+                # FIX: This now works because datetime is the imported class
+                sanction_until = datetime.fromisoformat(until_str) 
+            except ValueError:
+                # If timezone is not handled correctly, return a failure state
+                sanction_until = None
+                
+            # Make sure Django's current time is timezone-aware for comparison
+            now_aware = django_timezone.now()
+
+            # Ensure sanction_until is also timezone-aware for comparison
+            if sanction_until and sanction_until.tzinfo is None:
+                 sanction_until = django_timezone.make_aware(sanction_until, django_timezone.get_current_timezone())
+            
+            if sanction_until and now_aware < sanction_until:
+                # Still suspended
+                formatted_date = sanction_until.strftime('%B %d, %Y')
+                return True, reason, formatted_date
+            else:
+                # Suspension expired - clear the sanction (self-healing)
+                user.sanction_status = 'NONE'
+                user.sanction_details = {}
+                user.save()
+                return False, None, None
+        else:
+            # Suspended but no 'until' date means indefinite suspension until appeal
+            return True, reason, "INDEFINITE"
+            
+    return False, None, None
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -660,7 +706,10 @@ def _public_user_payload(user, request=None):
         interests = [ui.genSkills_id.genCateg for ui in qs]
     except Exception as e:
         print(f"[DEBUG] could not fetch interests for user {user.id}: {e}")
-
+    
+    # Check sanction lockout status
+    is_locked, reason, until_date = check_sanction_lockout(user)
+    
     payload = {
         "user_id": user.id,
         "id": user.id,
@@ -690,6 +739,14 @@ def _public_user_payload(user, request=None):
         "id_document": id_document_url,
         "birthdate": user.birthdate,
         "nationality": user.nationality,
+    
+        "sanction_status": user.sanction_status,
+        "is_locked_out": is_locked,
+        "sanction_details": {
+            "status": user.sanction_status,
+            "reason": reason,
+            "until": until_date
+        }
     }
     
     return payload
@@ -1011,20 +1068,39 @@ def login_user(request):
         
         print(f"User found: ID={user.id}, username='{user.username}'")
         
-        # Check password
+       # Check password
         if not check_password(password, user.password):
             print("Password check failed")
             return Response({
                 "error": "Invalid username/email or password."
-            }, status=401)
+            }, status=status.HTTP_401_UNAUTHORIZED) # Changed 401 status for clarity
 
         print("Password check successful")
+        
+        # SANCTION CHECK BEFORE GENERATING TOKEN 
+        is_locked, reason, until_date = check_sanction_lockout(user)
+        
+        if is_locked:
+            print(f"User {user.username} is locked out. Status: {user.sanction_status}")
+            # Ibalik ang sanction details para alam ng frontend kung saan i-redirect
+            return Response({
+                "error": "Account is locked. Cannot login.",
+                "code": "SANCTIONED_LOCKOUT", # Custom code for frontend to check
+                "sanction_details": {
+                    "status": user.sanction_status,
+                    "reason": reason,
+                    "until": until_date
+                }
+            }, status=status.HTTP_403_FORBIDDEN) # Use 403 Forbidden for access restriction
 
-        # Generate JWT tokens
+        # Generate JWT tokens (tokens should only be generated if NOT locked out)
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
-        
+
+        # Add isAdmin flag to the response payload
+        is_admin = user.is_superuser # Check if the authenticated user is a Superuser/Admin
+
         # Get user payload
         user_payload = _public_user_payload(user, request)
         
@@ -1041,6 +1117,7 @@ def login_user(request):
             "image": user_payload.get("profilePic"),
             "access": access_token,
             "refresh": refresh_token,
+            "is_admin": is_admin, 
         }
         
         return Response(response_data, status=200)
@@ -1452,6 +1529,10 @@ def create_trade_request(request):
     print(f"Request data: {request.data}")
     print(f"User: {request.user.id}")
     
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
+    
     reqname = request.data.get('reqname', '').strip()
     reqdeadline = request.data.get('reqdeadline', '')
     
@@ -1754,6 +1835,10 @@ def express_trade_interest(request):
     print("=== EXPRESS TRADE INTEREST DEBUG ===")
     print(f"Request data: {request.data}")
     print(f"User: {request.user.id}")
+    
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
     
     # Get the trade request ID from the request
     tradereq_id = request.data.get('tradereq_id')
@@ -2069,6 +2154,10 @@ def decline_trade_interest(request, interest_id):
     print(f"Interest ID: {interest_id}")
     print(f"User: {request.user.id}")
     
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         # Get the trade interest with related objects
         trade_interest = TradeInterest.objects.select_related(
@@ -2151,6 +2240,10 @@ def accept_trade_interest(request, interest_id):
     print(f"=== ACCEPT TRADE INTEREST DEBUG ===")
     print(f"Interest ID: {interest_id}")
     print(f"User: {request.user.id}")
+    
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
     
     try:
         with transaction.atomic():
@@ -2644,6 +2737,10 @@ def confirm_trade_evaluation(request, tradereq_id):
     print(f"Trade ID: {tradereq_id}")
     print(f"User: {request.user.id}")
     
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
             tradereq_id=tradereq_id
@@ -2757,6 +2854,10 @@ def reject_trade_evaluation(request, tradereq_id):
     print(f"Trade ID: {tradereq_id}")
     print(f"User: {request.user.id}")
     
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
             tradereq_id=tradereq_id
@@ -2820,6 +2921,10 @@ def cancel_active_trade(request, tradereq_id):
     print(f"=== CANCEL ACTIVE TRADE DEBUG ===")
     print(f"Trade ID: {tradereq_id}")
     print(f"User: {request.user.id}")
+    
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
     
     try:
       
@@ -3293,6 +3398,10 @@ def upload_trade_proof(request):
     print(f"Request data keys: {list(request.data.keys())}")
     print(f"Request FILES keys: {list(request.FILES.keys())}")
     
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
+    
     user = request.user
     trade_request_id = request.data.get("trade_request_id")
 
@@ -3593,6 +3702,10 @@ def approve_partner_proof(request, tradereq_id):
     """
     Approve partner's proof submission
     """
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
             tradereq_id=tradereq_id,
@@ -3666,6 +3779,10 @@ def reject_partner_proof(request, tradereq_id):
     ✅ UPDATED: Sets partner's proof status to REJECTED, clears their proof array,
     and deletes their submitted files from Cloudinary.
     """
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
             tradereq_id=tradereq_id,
@@ -3748,6 +3865,10 @@ def submit_trade_rating(request):
     print("=== SUBMIT TRADE RATING DEBUG ===")
     print(f"Request data: {request.data}")
     print(f"User: {request.user.id}")
+    
+    is_locked, error_msg, _ = check_sanction_lockout(request.user)
+    if is_locked:
+        return Response({"error": error_msg, "code": "SANCTIONED"}, status=status.HTTP_403_FORBIDDEN)
     
     trade_request_id = request.data.get('trade_request_id')
     rating = request.data.get('rating', 4)  # Default to 4 stars
@@ -4845,3 +4966,128 @@ def mark_one_as_read(request, notification_id):
         return Response({"error": "Notification not found or access denied"}, status=404)
     except Exception as e:
         return Response({"error": "Failed to mark notification as read"}, status=500)
+
+def send_admin_appeal_notification(report_id, reported_user_username, appeal_reason):
+    """Sends an email alert to the Admin/CS team using an HTML template."""
+    
+    admin_email = "expaircs@gmail.com" 
+    subject = f"[ACTION REQUIRED] New User Appeal Submitted for Report #{report_id}"
+    admin_link = f"http://YOUR_ADMIN_PANEL_URL/reports/{report_id}/detail" # REPLACE THIS
+
+    # 1. Prepare Context for the Template
+    context = {
+        'report_id': report_id,
+        'reported_user_username': reported_user_username,
+        'appeal_reason': appeal_reason,
+        'admin_link': admin_link,
+        'submission_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S %Z')
+    }
+    
+    # 2. Render Plain Text and HTML Content
+    plain_message = render_to_string('emails/admin_appeal_alert.txt', context) 
+    
+    # Render the structured HTML template
+    html_content = render_to_string('emails/admin_appeal_alert.html', context)
+    
+    # 3. Send Email using EmailMultiAlternatives
+    try:
+        msg = EmailMultiAlternatives(
+            subject,
+            plain_message, # Plain text is the second parameter
+            settings.DEFAULT_FROM_EMAIL,
+            [admin_email]
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send(fail_silently=False)
+        print(f"✅ Sent HTML Admin Appeal Notification for Report #{report_id} to {admin_email} (Using template)")
+    except Exception as e:
+        print(f"❌ Failed to send HTML Admin Appeal Notification email: {e}")
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+def submit_appeal(request):
+    """
+    User submits an appeal against a sanction linked to a specific report.
+    Also handles file uploads (Evidence Upload).
+    """
+    user = request.user
+    
+    try:
+        data = request.data
+        original_report_id = data.get('original_report_id') 
+        appeal_reason = data.get('appeal_reason', '')
+        additional_context = data.get('additional_context', '')
+        uploaded_files = request.FILES.getlist("evidence_files")
+        
+        if not original_report_id or not appeal_reason:
+            return Response({"error": "Original report ID and a detailed reason for appeal are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Get the original Report object
+        try:
+            report = Report.objects.select_related('reported_user').get(report_id=original_report_id)
+        except Report.DoesNotExist:
+            return Response({"error": "Sanction record not found. Please verify the link or report ID."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Validation: Check if the user is the one sanctioned
+        if report.reported_user_id != user.id:
+            return Response({"error": "You can only appeal actions related to your account."}, status=status.HTTP_403_FORBIDDEN)
+        
+        # 3. Validation: Check if an appeal is already pending or resolved
+        if report.appeal_status in [AppealStatus.PENDING, AppealStatus.APPROVED, AppealStatus.DENIED]:
+            return Response({
+                "error": f"An appeal for this sanction is currently {report.appeal_status.lower()}. Only one appeal is allowed per violation.",
+                "current_status": report.appeal_status
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # --- 4. Handle Evidence Uploads to Cloudinary ---
+        evidence_links = []
+        for f in uploaded_files:
+            try:
+                resource_type = "image" if f.content_type.startswith("image/") else "raw"
+                upload_result = cloudinary.uploader.upload(
+                    f,
+                    folder="media/appeal_evidence",
+                    public_id=f"appeal_{original_report_id}_user_{user.id}_{f.name}",
+                    resource_type=resource_type,
+                )
+                evidence_links.append({
+                    "type": "file",
+                    "url": upload_result['secure_url'],
+                    "filename": f.name,
+                    "uploaded_at": django_timezone.now().isoformat()
+                })
+            except Exception as e:
+                print(f"[ERROR] Cloudinary upload failed for appeal evidence: {e}")
+                continue 
+
+        # 5. Update the Report to PENDING appeal status
+        report.appeal_status = AppealStatus.PENDING 
+        
+        report.appeal_details = {
+            'submitted_by_user_at': django_timezone.now().isoformat(),
+            'user_reason': appeal_reason,
+            'user_context': additional_context,
+            'user_evidence_links': evidence_links, 
+            'admin_review_status': 'PENDING'
+        }
+        report.save()
+
+        # 6. Notify Admins (CS Team)
+        send_admin_appeal_notification(
+            report.report_id, 
+            user.username, 
+            appeal_reason
+        )
+
+        return Response({
+            "message": "Appeal submitted successfully. Our team will review it within 24-48 hours.",
+            "report_id": report.report_id,
+            "appeal_status": report.appeal_status
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        print(f"Appeal submission error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({"error": f"Appeal failed due to a server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

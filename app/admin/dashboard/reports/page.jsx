@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Inter } from "next/font/google";
-import { 
-  Search, 
-  RefreshCw, 
-  AlertTriangle, 
-  Eye, 
-  CheckCircle, 
+import {
+  Search,
+  RefreshCw,
+  AlertTriangle,
+  Eye,
+  CheckCircle,
   XCircle,
   FileText,
   ChevronLeft,
@@ -19,7 +19,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Filter
+  Filter,
+  Users as UsersIcon,
+  X as XIcon,
 } from "lucide-react";
 import AdminPageHeader from "@/components/admin/admin-page-header";
 import StatusPill from "@/components/admin/status-pill";
@@ -27,61 +29,59 @@ import DashboardSkeleton from "@/components/admin/dashboard-skeleton";
 
 const inter = Inter({ subsets: ["latin"] });
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+
 export default function ReportsPage() {
   const { data: session, status: sessionStatus } = useSession();
-  
+
   // State management
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  
+
   // Sorting - tri-state: null (no sort), 'asc', 'desc'
   const [sortBy, setSortBy] = useState(null);
   const [sortDirection, setSortDirection] = useState(null);
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalReports, setTotalReports] = useState(0);
   const perPage = 20;
-  
+
   // Modal states
   const [selectedReport, setSelectedReport] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedReports, setSelectedReports] = useState([]);
   const [resolving, setResolving] = useState(false);
-  
-  useEffect(() => {
-    if (sessionStatus === "authenticated" && session) {
-      fetchStats();
-    }
-  }, [sessionStatus, session]);
-  
-  useEffect(() => {
-    if (sessionStatus === "authenticated" && session) {
-      fetchReports();
-    }
-  }, [sessionStatus, session, searchQuery, statusFilter, categoryFilter, priorityFilter, sortBy, sortDirection, currentPage]);
-  
-  const fetchStats = async () => {
-    if (!session) return;
-    
+
+  // Sanction States (Phase I/IV)
+  const [sanctionReason, setSanctionReason] = useState('');
+  const [suspensionDays, setSuspensionDays] = useState(7);
+
+  // --- CORE FETCH FUNCTIONS (Defined with useCallback for stability) ---
+
+  const fetchStats = useCallback(async () => {
+    const adminToken = session?.access;
+    if (sessionStatus !== 'authenticated' || !adminToken) return;
+
     try {
       setStatsLoading(true);
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/report-stats/`,
+        `${API_BASE}/api/admin/report-stats/`,
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${session.access}`,
+            'Authorization': `Bearer ${adminToken}`, // SECURE TOKEN
             'Content-Type': 'application/json'
           }
         }
@@ -92,7 +92,7 @@ export default function ReportsPage() {
       }
 
       const data = await response.json();
-      
+
       if (data.success !== false) {
         setStats(data);
       }
@@ -101,14 +101,15 @@ export default function ReportsPage() {
     } finally {
       setStatsLoading(false);
     }
-  };
-  
-  const fetchReports = async () => {
-    if (!session) return;
-    
+  }, [session?.access, sessionStatus]);
+
+  const fetchReports = useCallback(async () => {
+    const adminToken = session?.access;
+    if (sessionStatus !== 'authenticated' || !adminToken) return;
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const params = new URLSearchParams({
         search: searchQuery,
@@ -118,19 +119,18 @@ export default function ReportsPage() {
         page: currentPage.toString(),
         per_page: perPage.toString()
       });
-      
-      // Only add sort params if sorting is active
+
       if (sortBy && sortDirection) {
         params.append('sort', sortBy);
         params.append('direction', sortDirection);
       }
-      
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/admin/reports-list/?${params}`;
-      
+
+      const url = `${API_BASE}/api/admin/reports-list/?${params}`;
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${session.access}`,
+          'Authorization': `Bearer ${adminToken}`, // SECURE TOKEN
           'Content-Type': 'application/json'
         }
       });
@@ -141,7 +141,7 @@ export default function ReportsPage() {
       }
 
       const data = await response.json();
-      
+
       if (data.success === true || data.reports) {
         setReports(data.reports || []);
         setTotalPages(data.pagination?.total_pages || 1);
@@ -157,93 +157,95 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
-  
-  // Tri-state column sorting handler
-  const handleSort = (column) => {
-    if (sortBy === column) {
-      // Cycle through: asc → desc → null (no sort)
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else if (sortDirection === 'desc') {
-        // Reset to no sorting
-        setSortBy(null);
-        setSortDirection(null);
-      }
-    } else {
-      // New column, start with ascending
-      setSortBy(column);
-      setSortDirection('asc');
+  }, [session?.access, sessionStatus, searchQuery, statusFilter, categoryFilter, priorityFilter, sortBy, sortDirection, currentPage]);
+
+
+  // --- NEW SANCTION ACTIONS (Replaces old handleResolveReport) ---
+
+  const handleSanctionAction = async (reportId, actionType, reasonNote = '', durationDays = 0) => {
+    const adminToken = session?.access;
+    if (!adminToken || resolving) return;
+
+    if (!confirm(`Are you sure you want to apply ${actionType} for report #${reportId}? This action cannot be easily undone.`)) {
+      return;
     }
-    setCurrentPage(1); // Reset to first page on sort change
-  };
-  
-  const getSortIcon = (column) => {
-    if (sortBy !== column) {
-      return <ArrowUpDown className="w-3.5 h-3.5 text-white/30" />;
-    }
-    return sortDirection === 'asc' 
-      ? <ArrowUp className="w-3.5 h-3.5 text-[#906EFF]" />
-      : <ArrowDown className="w-3.5 h-3.5 text-[#906EFF]" />;
-  };
-  
-  const handleResolveReport = async (reportId, newStatus = 'RESOLVED') => {
-    if (!session || resolving) return;
-    
+
     try {
       setResolving(true);
+
+      const requestBody = {
+        report_id: reportId,
+        sanction_type: actionType,
+        reason_note: reasonNote,
+      };
+
+      if (actionType === 'SUSPENSION') {
+        requestBody.duration_days = durationDays;
+        if (durationDays <= 0) {
+          alert("Suspension requires a positive duration in days.");
+          setResolving(false);
+          return;
+        }
+      }
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/resolve-report/`,
+        `${API_BASE}/api/admin/apply-sanction/`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access}`,
+            'Authorization': `Bearer ${adminToken}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ report_id: reportId, status: newStatus })
+          body: JSON.stringify(requestBody)
         }
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
-      
+
       if (data.success !== false) {
         await fetchReports();
         await fetchStats();
         setShowDetailModal(false);
         setSelectedReport(null);
+        alert(`Sanction ${actionType} applied successfully! User status is now ${data.user_new_status || actionType}.`);
       }
     } catch (err) {
-      console.error('Error resolving report:', err);
-      alert(`Failed to resolve report: ${err.message}`);
+      console.error('Error applying sanction:', err);
+      alert(`Failed to apply sanction: ${err.message}`);
     } finally {
       setResolving(false);
     }
   };
-  
-  const handleBulkResolve = async () => {
-    if (selectedReports.length === 0 || !session || resolving) return;
-    
-    if (!confirm(`Are you sure you want to resolve ${selectedReports.length} report(s)?`)) {
+
+  const handleBulkResolveAction = async () => {
+    const adminToken = session?.access;
+    if (selectedReports.length === 0 || !adminToken || resolving) return;
+
+    if (!confirm(`Are you sure you want to dismiss ${selectedReports.length} report(s)? They will be marked 'RESOLVED'.`)) {
       return;
     }
-    
+
     try {
       setResolving(true);
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/bulk-resolve-reports/`,
+        `${API_BASE}/api/admin/bulk-resolve-reports/`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access}`,
+            'Authorization': `Bearer ${adminToken}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ 
-            report_ids: selectedReports, 
-            status: 'RESOLVED' 
+          body: JSON.stringify({
+            report_ids: selectedReports,
+            status: 'RESOLVED',
+            action_notes: "Bulk dismissal via Admin tool."
           })
         }
       );
@@ -253,11 +255,12 @@ export default function ReportsPage() {
       }
 
       const data = await response.json();
-      
+
       if (data.success !== false) {
         setSelectedReports([]);
         await fetchReports();
         await fetchStats();
+        alert(`Successfully dismissed ${data.updated_count} reports.`);
       }
     } catch (err) {
       console.error('Error bulk resolving reports:', err);
@@ -266,17 +269,35 @@ export default function ReportsPage() {
       setResolving(false);
     }
   };
-  
+  // ----------------------------------------------------------------------
+
+
+  // --- VIEW DETAILS & LIFECYCLE HOOKS ---
+
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && session?.access) {
+      fetchStats();
+    }
+  }, [fetchStats, sessionStatus, session?.access]);
+
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && session?.access) {
+      fetchReports();
+    }
+  }, [fetchReports, sessionStatus, session?.access, searchQuery, statusFilter, categoryFilter, priorityFilter, sortBy, sortDirection, currentPage]);
+
+
   const handleViewDetail = async (reportId) => {
-    if (!session) return;
-    
+    const adminToken = session?.access;
+    if (!adminToken) return;
+
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/report-detail/${reportId}/`,
+        `${API_BASE}/api/admin/report-detail/${reportId}/`,
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${session.access}`,
+            'Authorization': `Bearer ${adminToken}`,
             'Content-Type': 'application/json'
           }
         }
@@ -287,17 +308,47 @@ export default function ReportsPage() {
       }
 
       const data = await response.json();
-      
+
       if (data.success !== false && data.report) {
         setSelectedReport(data.report);
         setShowDetailModal(true);
+        // Reset Sanction inputs when opening a new report
+        setSanctionReason('');
+        setSuspensionDays(7);
       }
     } catch (err) {
       console.error('Error fetching report detail:', err);
       alert(`Failed to load report: ${err.message}`);
     }
   };
-  
+
+
+  // --- UTILITY FUNCTIONS (Unchanged Logic) ---
+
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortBy(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortBy(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (column) => {
+    if (sortBy !== column) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-white/30" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="w-3.5 h-3.5 text-[#906EFF]" />
+      : <ArrowDown className="w-3.5 h-3.5 text-[#906EFF]" />;
+  };
+
   const getPriorityColor = (priority) => {
     switch (priority?.toLowerCase()) {
       case 'critical': return 'bg-red-500/20 text-red-400 border-red-500/30';
@@ -307,68 +358,62 @@ export default function ReportsPage() {
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
-  
+
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'pending': return 'warning';
-      case 'resolved': return 'success';
+      case 'pending':
+      case 'none':
+      case 'denied': return 'warning';
+      case 'resolved':
+      case 'approved': return 'success';
       case 'rejected': return 'danger';
       default: return 'default';
     }
   };
-  
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
     });
   };
-  
+
   const formatDateTime = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
-  
-  if (sessionStatus === "loading") {
+
+  if (sessionStatus === "loading" || (loading && reports.length === 0 && !error)) {
     return <DashboardSkeleton />;
   }
-  
-  // if (sessionStatus === "unauthenticated") {
-  //   return (
-  //     <div className={`min-h-screen bg-[#050015] text-white p-6 ${inter.className}`}>
-  //       <div className="flex items-center justify-center h-[50vh]">
-  //         <div className="text-center">
-  //           <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-4" />
-  //           <p className="text-white/60 mb-4">You must be signed in to view this page.</p>
-  //           <button
-  //             onClick={() => window.location.href = '/signin'}
-  //             className="px-4 py-2 bg-[#906EFF] text-white rounded-lg hover:bg-[#7c5dd8] transition-colors"
-  //           >
-  //             Sign In
-  //           </button>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-  
+
+  // If not authenticated, the layout should redirect, but we include a visual failsafe
+  if (sessionStatus === "unauthenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#050015] p-6 text-white">
+        Access Denied. Please log in as administrator.
+      </div>
+    );
+  }
+
+
   return (
     <div className={`min-h-screen bg-[#050015] text-white p-6 ${inter.className}`}>
       <AdminPageHeader
         title="Reports Management"
         subtitle="Monitor and manage user reports"
       />
-      
+
       {/* Stats Cards - Single Accent Color */}
       {statsLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -389,7 +434,7 @@ export default function ReportsPage() {
             <div className="text-3xl font-bold text-white mb-1">{stats.total_reports || 0}</div>
             <div className="text-xs text-white/40">All time submissions</div>
           </div>
-          
+
           <div className="bg-[#120A2A] border border-[#906EFF]/20 rounded-xl p-6 hover:border-[#906EFF]/40 transition-colors">
             <div className="flex items-center justify-between mb-3">
               <span className="text-white/60 text-sm font-medium">Pending Review</span>
@@ -398,7 +443,7 @@ export default function ReportsPage() {
             <div className="text-3xl font-bold text-[#906EFF] mb-1">{stats.pending_reports || 0}</div>
             <div className="text-xs text-white/40">Awaiting action</div>
           </div>
-          
+
           <div className="bg-[#120A2A] border border-[#906EFF]/20 rounded-xl p-6 hover:border-[#906EFF]/40 transition-colors">
             <div className="flex items-center justify-between mb-3">
               <span className="text-white/60 text-sm font-medium">Resolved</span>
@@ -407,7 +452,7 @@ export default function ReportsPage() {
             <div className="text-3xl font-bold text-white mb-1">{stats.resolved_reports || 0}</div>
             <div className="text-xs text-white/40">Successfully handled</div>
           </div>
-          
+
           <div className="bg-[#120A2A] border border-[#906EFF]/20 rounded-xl p-6 hover:border-[#906EFF]/40 transition-colors">
             <div className="flex items-center justify-between mb-3">
               <span className="text-white/60 text-sm font-medium">Critical Priority</span>
@@ -418,7 +463,7 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
-      
+
       {/* Filters and Actions */}
       <div className="bg-[#120A2A] border border-[#906EFF]/20 rounded-xl p-6 mb-6">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
@@ -436,11 +481,11 @@ export default function ReportsPage() {
               }}
             />
           </div>
-          
+
           {/* Filters - Fixed Contrast */}
           <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-4 h-4 text-[#906EFF]" />
-            
+
             <select
               value={statusFilter}
               onChange={(e) => {
@@ -454,7 +499,7 @@ export default function ReportsPage() {
               <option value="resolved" className="bg-[#120A2A] text-white">Resolved</option>
               <option value="rejected" className="bg-[#120A2A] text-white">Rejected</option>
             </select>
-            
+
             <select
               value={categoryFilter}
               onChange={(e) => {
@@ -469,7 +514,7 @@ export default function ReportsPage() {
               <option value="Safety & Privacy" className="bg-[#120A2A] text-white">Safety & Privacy</option>
               <option value="Others" className="bg-[#120A2A] text-white">Others</option>
             </select>
-            
+
             <select
               value={priorityFilter}
               onChange={(e) => {
@@ -485,22 +530,22 @@ export default function ReportsPage() {
               <option value="low" className="bg-[#120A2A] text-white">Low</option>
             </select>
           </div>
-          
+
           {/* Actions */}
           <div className="flex gap-2">
             {selectedReports.length > 0 && (
               <button
-                onClick={handleBulkResolve}
+                onClick={handleBulkResolveAction}
                 disabled={resolving}
                 className="flex items-center gap-2 px-4 py-2.5 bg-[#906EFF]/20 text-[#906EFF] border border-[#906EFF]/30 rounded-lg hover:bg-[#906EFF]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-4 h-4" />
-                {resolving ? 'Resolving...' : `Resolve (${selectedReports.length})`}
+                {resolving ? 'Resolving...' : `Dismiss (${selectedReports.length})`}
               </button>
             )}
-            
+
             <button
-              onClick={fetchReports}
+              onClick={() => fetchReports()}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2.5 bg-[#1A0F3E] border border-white/20 rounded-lg text-white hover:bg-[#1A0F3E]/80 hover:border-[#906EFF]/30 transition-colors disabled:opacity-50"
             >
@@ -510,7 +555,7 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
-      
+
       {/* Reports Table with Full Column Sorting */}
       <div className="bg-[#120A2A] border border-[#906EFF]/20 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
@@ -531,7 +576,7 @@ export default function ReportsPage() {
                     className="w-4 h-4 accent-[#906EFF] cursor-pointer"
                   />
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-left text-xs font-semibold text-white/60 uppercase cursor-pointer hover:text-white transition-colors group"
                   onClick={() => handleSort('report_id')}
                 >
@@ -540,7 +585,7 @@ export default function ReportsPage() {
                     {getSortIcon('report_id')}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-left text-xs font-semibold text-white/60 uppercase cursor-pointer hover:text-white transition-colors group"
                   onClick={() => handleSort('reporter')}
                 >
@@ -549,7 +594,7 @@ export default function ReportsPage() {
                     {getSortIcon('reporter')}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-left text-xs font-semibold text-white/60 uppercase cursor-pointer hover:text-white transition-colors group"
                   onClick={() => handleSort('reported_user')}
                 >
@@ -558,7 +603,7 @@ export default function ReportsPage() {
                     {getSortIcon('reported_user')}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-left text-xs font-semibold text-white/60 uppercase cursor-pointer hover:text-white transition-colors group"
                   onClick={() => handleSort('category')}
                 >
@@ -567,7 +612,7 @@ export default function ReportsPage() {
                     {getSortIcon('category')}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-left text-xs font-semibold text-white/60 uppercase cursor-pointer hover:text-white transition-colors group"
                   onClick={() => handleSort('issue_detail')}
                 >
@@ -576,7 +621,7 @@ export default function ReportsPage() {
                     {getSortIcon('issue_detail')}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-center text-xs font-semibold text-white/60 uppercase cursor-pointer hover:text-white transition-colors group"
                   onClick={() => handleSort('priority')}
                 >
@@ -585,7 +630,7 @@ export default function ReportsPage() {
                     {getSortIcon('priority')}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-center text-xs font-semibold text-white/60 uppercase cursor-pointer hover:text-white transition-colors group"
                   onClick={() => handleSort('status')}
                 >
@@ -594,7 +639,7 @@ export default function ReportsPage() {
                     {getSortIcon('status')}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-center text-xs font-semibold text-white/60 uppercase cursor-pointer hover:text-white transition-colors group"
                   onClick={() => handleSort('created_at')}
                 >
@@ -622,7 +667,7 @@ export default function ReportsPage() {
                     <AlertTriangle className="w-6 h-6 text-red-400 mx-auto mb-2" />
                     <div className="text-red-400 mb-3">{error}</div>
                     <button
-                      onClick={fetchReports}
+                      onClick={() => fetchReports()}
                       className="text-sm text-[#906EFF] hover:underline"
                     >
                       Try again
@@ -668,10 +713,10 @@ export default function ReportsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <img
-                          src={report.reporter?.profile_pic || '/assets/defaultavatar.png'}
+                          src={report.reporter?.profile_pic || '/defaultavatar.png'}
                           alt=""
                           className="w-8 h-8 rounded-full object-cover"
-                          onError={(e) => { e.target.src = '/assets/defaultavatar.png'; }}
+                          onError={(e) => { e.target.src = '/defaultavatar.png'; }}
                         />
                         <span className="text-sm text-white">{report.reporter?.username || 'Unknown'}</span>
                       </div>
@@ -680,10 +725,10 @@ export default function ReportsPage() {
                       {report.reported_user ? (
                         <div className="flex items-center gap-2">
                           <img
-                            src={report.reported_user.profile_pic || '/assets/defaultavatar.png'}
+                            src={report.reported_user.profile_pic || '/defaultavatar.png'}
                             alt=""
                             className="w-8 h-8 rounded-full object-cover"
-                            onError={(e) => { e.target.src = '/assets/defaultavatar.png'; }}
+                            onError={(e) => { e.target.src = '/defaultavatar.png'; }}
                           />
                           <div>
                             <div className="text-sm text-white">{report.reported_user.username}</div>
@@ -735,7 +780,7 @@ export default function ReportsPage() {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         {!loading && !error && totalPages > 1 && (
           <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between bg-[#1A0F3E]">
@@ -764,7 +809,7 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
-      
+
       {/* Detail Modal */}
       {showDetailModal && selectedReport && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -782,9 +827,9 @@ export default function ReportsPage() {
                 <XCircle className="w-5 h-5 text-white/60" />
               </button>
             </div>
-            
+
             {/* Modal Body */}
-            <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-200px)]">
+            <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-250px)]">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Reporter Info */}
                 <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
@@ -794,10 +839,10 @@ export default function ReportsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <img
-                      src={selectedReport.reporter?.profile_pic || '/assets/defaultavatar.png'}
+                      src={selectedReport.reporter?.profile_pic || '/defaultavatar.png'}
                       alt=""
                       className="w-12 h-12 rounded-full object-cover"
-                      onError={(e) => { e.target.src = '/assets/defaultavatar.png'; }}
+                      onError={(e) => { e.target.src = '/defaultavatar.png'; }}
                     />
                     <div>
                       <div className="text-white font-medium">{selectedReport.reporter?.username || 'Unknown'}</div>
@@ -805,7 +850,7 @@ export default function ReportsPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Reported User Info */}
                 {selectedReport.reported_user && (
                   <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
@@ -815,10 +860,10 @@ export default function ReportsPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <img
-                        src={selectedReport.reported_user.profile_pic || '/assets/defaultavatar.png'}
+                        src={selectedReport.reported_user.profile_pic || '/defaultavatar.png'}
                         alt=""
                         className="w-12 h-12 rounded-full object-cover"
-                        onError={(e) => { e.target.src = '/assets/defaultavatar.png'; }}
+                        onError={(e) => { e.target.src = '/defaultavatar.png'; }}
                       />
                       <div>
                         <div className="text-white font-medium">{selectedReport.reported_user.username}</div>
@@ -833,7 +878,7 @@ export default function ReportsPage() {
                   </div>
                 )}
               </div>
-              
+
               {/* Report Details */}
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -841,23 +886,23 @@ export default function ReportsPage() {
                     <label className="text-xs text-white/60 uppercase mb-1 block">Category</label>
                     <div className="text-white">{selectedReport.category}</div>
                   </div>
-                  
+
                   <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
                     <label className="text-xs text-white/60 uppercase mb-1 block">Date Reported</label>
                     <div className="text-white">{formatDateTime(selectedReport.created_at)}</div>
                   </div>
                 </div>
-                
+
                 <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
                   <label className="text-xs text-white/60 uppercase mb-2 block">Issue Detail</label>
                   <div className="text-white">{selectedReport.issue_detail || 'No details provided'}</div>
                 </div>
-                
+
                 <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
                   <label className="text-xs text-white/60 uppercase mb-2 block">Description</label>
                   <div className="text-white whitespace-pre-wrap">{selectedReport.description || 'No description provided'}</div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
                     <label className="text-xs text-white/60 uppercase mb-2 block">Priority</label>
@@ -870,7 +915,7 @@ export default function ReportsPage() {
                     <StatusPill status={selectedReport.status} variant={getStatusColor(selectedReport.status)} />
                   </div>
                 </div>
-                
+
                 {/* Related Reports */}
                 {selectedReport.related_reports && selectedReport.related_reports.length > 0 && (
                   <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
@@ -888,33 +933,97 @@ export default function ReportsPage() {
                     </div>
                   </div>
                 )}
+
+                {/* --- NEW ADMIN ACTION INPUT SECTION (Phase I) --- */}
+                {/* FIX: Use .toUpperCase() for reliable status check */}
+                {selectedReport.status?.toUpperCase() === 'PENDING' && selectedReport.reported_user && (
+                  <div className="mt-6 p-4 bg-[#1A0F3E] rounded-lg border border-[#906EFF]/20 mb-6">
+                    <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                      Admin Action: Apply Sanction
+                    </h4>
+
+                    <label className="text-sm text-white/60 mb-1 block">Reason for Action (Required for Suspension/Ban)</label>
+                    <textarea
+                      value={sanctionReason}
+                      onChange={(e) => setSanctionReason(e.target.value)}
+                      placeholder="E.g., Repeated harassment in trade chat, Fraudulent activity. This will be visible to the user."
+                      className="w-full p-2 bg-[#120A2A] border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none h-20 mb-3"
+                    />
+                    {sanctionReason.length < 10 && <p className="text-xs text-red-500">Reason must be at least 10 characters for Bans/Suspensions.</p>}
+
+                    <div className="mt-4">
+                      <label className="text-sm text-white/60 mb-1 block">Suspension Duration (Days)</label>
+                      <input
+                        type="number"
+                        value={suspensionDays}
+                        onChange={(e) => setSuspensionDays(parseInt(e.target.value) || 0)}
+                        min="1"
+                        className="w-32 p-2 bg-[#120A2A] border border-white/20 rounded-lg text-white focus:outline-none"
+                      />
+                      <p className="text-xs text-white/40 mt-1">Only used if applying **Suspension** (e.g., 7 days).</p>
+                    </div>
+                  </div>
+                )}
+                {/* --- END NEW ADMIN ACTION INPUT SECTION --- */}
+
+
               </div>
             </div>
-            
-            {/* Modal Footer */}
+
+            {/* Modal Footer (Updated for Sanctions) */}
             <div className="px-6 py-4 border-t border-white/10 flex items-center justify-end gap-3 bg-[#1A0F3E]">
-              {selectedReport.status === 'PENDING' && (
+              {/* FIX: Use .toUpperCase() for reliable status check */}
+              {selectedReport.status?.toUpperCase() === 'PENDING' && selectedReport.reported_user ? (
                 <>
+                  {/* Action 1: Dismiss Report (No Sanction) */}
                   <button
-                    onClick={() => handleResolveReport(selectedReport.report_id, 'REJECTED')}
+                    onClick={() => handleSanctionAction(selectedReport.report_id, 'DISMISS', 'Report reviewed and dismissed as non-violative.')}
                     disabled={resolving}
-                    className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-gray-500/20 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-gray-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
-                    {resolving ? 'Processing...' : 'Reject Report'}
+                    Dismiss
                   </button>
+
+                  {/* Action 2: Issue Warning */}
                   <button
-                    onClick={() => handleResolveReport(selectedReport.report_id, 'RESOLVED')}
+                    onClick={() => handleSanctionAction(selectedReport.report_id, 'WARNING', sanctionReason || 'Inappropriate behavior.')}
                     disabled={resolving}
-                    className="px-4 py-2 bg-[#906EFF]/20 text-[#906EFF] border border-[#906EFF]/30 rounded-lg hover:bg-[#906EFF]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
-                    {resolving ? 'Processing...' : 'Resolve Report'}
+                    Issue Warning
+                  </button>
+
+                  {/* Action 3: Suspension (Requires Reason & Duration) */}
+                  <button
+                    onClick={() => handleSanctionAction(selectedReport.report_id, 'SUSPENSION', sanctionReason, suspensionDays)}
+                    disabled={resolving || sanctionReason.length < 10 || suspensionDays < 1}
+                    className="px-4 py-2 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    Suspend ({suspensionDays}d)
+                  </button>
+
+                  {/* Action 4: Permanent Ban (Requires Reason) */}
+                  <button
+                    onClick={() => handleSanctionAction(selectedReport.report_id, 'BAN', sanctionReason)}
+                    disabled={resolving || sanctionReason.length < 10}
+                    className="px-4 py-2 bg-red-700/50 text-white border border-red-500/30 rounded-lg hover:bg-red-700/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
+                  >
+                    Issue Permanent Ban
                   </button>
                 </>
+              ) : (
+                // Fallback for RESOLVED status or if no user was reported
+                <p className="text-sm text-white/70">
+                    Status: {selectedReport.status}. No active sanction actions available.
+                </p>
               )}
+
+              {/* Close Button (Always visible) */}
               <button
                 onClick={() => setShowDetailModal(false)}
                 disabled={resolving}
-                className="px-4 py-2 bg-[#1A0F3E] border border-white/20 rounded-lg text-white hover:bg-[#1A0F3E]/80 hover:border-[#906EFF]/30 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-[#1A0F3E] border border-white/20 rounded-lg text-white hover:bg-[#1A0F3E]/80 hover:border-[#906EFF]/30 transition-colors disabled:opacity-50 text-sm ml-4"
               >
                 Close
               </button>

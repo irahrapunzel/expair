@@ -258,6 +258,8 @@ class UserSerializer(serializers.ModelSerializer):
     id_verification_status = serializers.CharField(source='verification.id_verification_status', read_only=True)
     is_fully_verified = serializers.BooleanField(source='verification.is_fully_verified', read_only=True)
     
+    sanction_status = serializers.CharField(read_only=True)
+    
     class Meta:
         model = User
         fields = '__all__'
@@ -601,6 +603,11 @@ class MessageSerializer(serializers.ModelSerializer):
 class ReportSerializer(serializers.ModelSerializer):
     reporter_username = serializers.CharField(source='reporter.username', read_only=True)
     reported_username = serializers.CharField(source='reported_user.username', read_only=True)
+    admin_reviewer_username = serializers.CharField(source='admin_reviewer.username', read_only=True, allow_null=True)
+    sanction_applied = serializers.CharField(read_only=True)
+    appeal_status = serializers.CharField(read_only=True)
+    appeal_details = serializers.JSONField(read_only=True)
+    admin_reviewer = serializers.PrimaryKeyRelatedField(read_only=True, allow_null=True)
 
     class Meta:
         model = Report
@@ -615,6 +622,11 @@ class ReportSerializer(serializers.ModelSerializer):
             'status',
             'created_at',
             'reporter_username',
-            'reported_username'
+            'reported_username',
+            'sanction_applied', 
+            'appeal_status',    
+            'appeal_details',   
+            'admin_reviewer',
+            'admin_reviewer_username',
         ]
-        read_only_fields = ['reporter', 'status', 'created_at']
+        read_only_fields = ['reporter', 'status', 'created_at',]

@@ -1,9 +1,10 @@
 from django.utils import timezone
 from django.db.models import Count, Avg, Q, F, Sum, Case, When, IntegerField, Value
 from django.db.models.functions import TruncMonth, Coalesce
+from django.db import transaction
 from datetime import datetime, timedelta
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 import traceback
@@ -15,16 +16,31 @@ except ImportError:
 
 from accounts.models import (
     User, TradeRequest, TradeDetail, ReputationSystem, 
-    Report, Conversation, Message, UserVerification, VerificationStatus, Notification
+    Report, Conversation, Message, UserVerification, VerificationStatus, Notification,
+    SanctionType, AppealStatus
 )
 
+def check_admin_access(request):
+    """Checks if the user is authenticated and is a superuser (Admin)."""
+    # Assuming the single admin account is a superuser
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        print(f"❌ Access Denied: User {request.user.id if request.user.is_authenticated else 'Unauthenticated'} tried to access admin API.")
+        return False
+    return True
+
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_dashboard_stats(request):
     """
     GET /api/admin/dashboard-stats/
     Returns key statistics for admin dashboard.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         now = timezone.now()
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -74,12 +90,18 @@ def admin_dashboard_stats(request):
         )
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_trade_stats(request):
     """
     GET /api/admin/trade-stats/
     Returns comprehensive trade statistics with trends.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         # Current period stats
         total_trades = TradeRequest.objects.count()
@@ -244,12 +266,18 @@ def admin_trade_stats(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_top_traders(request):
     """
     GET /api/admin/top-traders/
     Returns top traders ranked by completed trade count.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         limit = int(request.GET.get('limit', 10))
         
@@ -314,12 +342,18 @@ def admin_top_traders(request):
 
 
 @api_view(['GET']) 
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_recent_activity(request):
     """
     GET /api/admin/recent-activity/
     Returns recent system activity for admin dashboard.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         limit = int(request.GET.get('limit', 10))
         
@@ -433,12 +467,18 @@ def admin_recent_activity(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_user_stats(request):
     """
     GET /api/admin/user-stats/
     Returns user statistics with month-over-month trends.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         now = timezone.now()
         current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -527,12 +567,18 @@ def admin_user_stats(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_users_list(request):
     """
     GET /api/admin/users-list/
     Returns paginated list of users with filters and search.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         search_query = request.GET.get('search', '').strip()
         verification_filter = request.GET.get('verification', 'all').lower()
@@ -704,12 +750,18 @@ def admin_users_list(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_trade_details(request):
     """
     GET /api/admin/trade-details/
     Returns paginated list of trades with filtering.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         status_filter = request.GET.get('status')
         user_id = request.GET.get('user_id')
@@ -805,12 +857,18 @@ def admin_trade_details(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_reports_list(request):
     """
     GET /api/admin/reports-list/
     Returns paginated list of reports with filters and search.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         search_query = request.GET.get('search', '').strip()
         status_filter = request.GET.get('status', 'all').lower()
@@ -991,128 +1049,20 @@ def admin_reports_list(request):
             'success': False,
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# ...existing code...
-
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def admin_report_detail(request, report_id):
-    """
-    GET /api/admin/report-detail/<report_id>/
-    Returns detailed information about a specific report.
-    """
-    try:
-        report = Report.objects.select_related(
-            'reporter', 'reported_user', 'tradereq'
-        ).get(report_id=report_id)
-        
-        # ✅ FIX: Calculate priority with case-insensitive status check
-        if report.reported_user:
-            pending_count = Report.objects.filter(
-                reported_user=report.reported_user,
-                status__iexact='PENDING'  # ✅ Case-insensitive
-            ).count()
-            
-            # 🔍 DEBUG: Log for investigation
-            print(f"🔍 User '{report.reported_user.username}' has {pending_count} PENDING reports")
-            
-            if pending_count >= 5:
-                priority = 'Critical'
-            elif pending_count >= 3:
-                priority = 'High'
-            elif pending_count == 2:
-                priority = 'Medium'
-            else:
-                priority = 'Low'
-        else:
-            priority = 'Low'
-        
-        # Get all reports against this user (not just pending)
-        user_reports = []
-        if report.reported_user:
-            related_reports = Report.objects.filter(
-                reported_user=report.reported_user
-            ).exclude(report_id=report_id).order_by('-created_at')[:5]
-            
-            for r in related_reports:
-                user_reports.append({
-                    'report_id': r.report_id,
-                    'category': r.category,
-                    'status': r.status,  # ✅ Include status so we can see if they're pending
-                    'created_at': r.created_at.isoformat()
-                })
-        
-        # Trade details if available
-        trade_data = None
-        if report.tradereq:
-            trade = report.tradereq
-            trade_data = {
-                'tradereq_id': trade.tradereq_id,
-                'reqname': trade.reqname,
-                'status': trade.status,
-                'created_at': trade.created_at.isoformat(),
-                'requester': {
-                    'user_id': trade.requester.id,
-                    'username': trade.requester.username
-                },
-                'responder': {
-                    'user_id': trade.responder.id,
-                    'username': trade.responder.username
-                } if trade.responder else None
-            }
-        
-        report_data = {
-            'report_id': report.report_id,
-            'reporter': {
-                'user_id': report.reporter.id,
-                'username': report.reporter.username,
-                'email': report.reporter.email,
-                'profile_pic': report.reporter.profilePic or '/assets/defaultavatar.png',
-                'created_at': report.reporter.created_at.isoformat()
-            },
-            'reported_user': {
-                'user_id': report.reported_user.id,
-                'username': report.reported_user.username,
-                'email': report.reported_user.email,
-                'profile_pic': report.reported_user.profilePic or '/assets/defaultavatar.png',
-                'total_reports': pending_count if report.reported_user else 0,
-                'created_at': report.reported_user.created_at.isoformat()
-            } if report.reported_user else None,
-            'category': report.category,
-            'issue_detail': report.issue_detail,
-            'description': report.description,
-            'status': report.status,
-            'priority': priority,
-            'created_at': report.created_at.isoformat(),
-            'trade': trade_data,
-            'related_reports': user_reports
-        }
-        
-        return Response({
-            'success': True,
-            'report': report_data
-        }, status=status.HTTP_200_OK)
-        
-    except Report.DoesNotExist:
-        return Response({
-            'success': False,
-            'error': f'Report {report_id} not found'
-        }, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        print(f"❌ Error in admin_report_detail: {str(e)}")
-        print(traceback.format_exc())
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_report_detail(request, report_id):
     """
     GET /api/admin/report-detail/<report_id>/
     Returns detailed information about a specific report.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         report = Report.objects.select_related(
             'reporter', 'reported_user', 'tradereq'
@@ -1170,21 +1120,31 @@ def admin_report_detail(request, report_id):
                 } if trade.responder else None
             }
         
+        print("=========================================")
+        print(f"DEBUG: Report #{report_id} successful.")
+        print(f"DEBUG: Reported User Object: {report.reported_user}")
+        if report.reported_user:
+            # Check if reported_user object exists in Python
+            print(f"DEBUG: Reported User ID Check: {report.reported_user.id}")
+        else:
+            print("DEBUG: Reported User is NULL in Python object.")
+        print("=========================================")
+        
         report_data = {
             'report_id': report.report_id,
             'reporter': {
                 'user_id': report.reporter.id,
                 'username': report.reporter.username,
                 'email': report.reporter.email,
-                'profile_pic': report.reporter.profilePic or '/assets/defaultavatar.png',
+                'profile_pic': report.reporter.profilePic or '/defaultavatar.png',
                 'created_at': report.reporter.created_at.isoformat()
             },
             'reported_user': {
                 'user_id': report.reported_user.id,
                 'username': report.reported_user.username,
                 'email': report.reported_user.email,
-                'profile_pic': report.reported_user.profilePic or '/assets/defaultavatar.png',
-                'total_reports': pending_count if report.reported_user else 0,
+                'profile_pic': report.reported_user.profilePic or '/defaultavatar.png', 
+                'total_reports': pending_count,
                 'created_at': report.reported_user.created_at.isoformat()
             } if report.reported_user else None,
             'category': report.category,
@@ -1217,12 +1177,18 @@ def admin_report_detail(request, report_id):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_resolve_report(request):
     """
     POST /api/admin/resolve-report/
     Resolve a report with optional action notes.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         report_id = request.data.get('report_id')
         resolution_status = request.data.get('status', 'RESOLVED')
@@ -1267,12 +1233,18 @@ def admin_resolve_report(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_bulk_resolve_reports(request):
     """
     POST /api/admin/bulk-resolve-reports/
     Resolve multiple reports at once.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         report_ids = request.data.get('report_ids', [])
         resolution_status = request.data.get('status', 'RESOLVED')
@@ -1315,12 +1287,18 @@ def admin_bulk_resolve_reports(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_report_stats(request):
     """
     GET /api/admin/report-stats/
     Returns report statistics for dashboard.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         total_reports = Report.objects.count()
         pending_reports = Report.objects.filter(status='PENDING').count()
@@ -1368,15 +1346,20 @@ def admin_report_stats(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_update_report_status(request):
     """
     POST /api/admin/update-report-status/
     Update report resolution status.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         report_id = request.data.get('report_id')
-        # ✅ FIX: Accept 'status' parameter instead of 'is_resolved'
         new_status = request.data.get('status', 'RESOLVED')
         
         if not report_id:
@@ -1415,12 +1398,18 @@ def admin_update_report_status(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_verify_user(request):
     """
     POST /api/admin/verify-user/
     Manually verify a user's account.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         user_id = request.data.get('user_id')
         
@@ -1490,12 +1479,18 @@ def admin_verify_user(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
    
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def admin_reject_verification(request):
     """
     POST /api/admin/reject-verification/
     Reject a user's verification with a reason.
     """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
     try:
         user_id = request.data.get('user_id')
         reason = request.data.get('reason', '').strip()
@@ -1559,3 +1554,266 @@ def admin_reject_verification(request):
             'success': False,
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def admin_apply_sanction(request):
+    """
+    POST /api/admin/apply-sanction/
+    Applies a Warning, Suspension, Ban, or Dismissal to a reported user based on a specific report.
+    This also handles the "Max 3 minor = suspend" logic.
+    """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
+    try:
+        report_id = request.data.get('report_id')
+        sanction_type = request.data.get('sanction_type') # WARNING, SUSPENSION, BAN, DISMISS
+        reason_note = request.data.get('reason_note', '')
+        duration_days = request.data.get('duration_days', 0) # Only for SUSPENSION
+        admin_user = request.user if request.user.is_authenticated else None
+
+        if not all([report_id, sanction_type]):
+            return Response({'success': False, 'error': 'Missing report_id or sanction_type'}, status=status.HTTP_400_BAD_REQUEST)
+
+        valid_sanctions = [c[0] for c in SanctionType.choices] + ['DISMISS']
+        if sanction_type not in valid_sanctions:
+            return Response({'success': False, 'error': f'Invalid sanction type: {sanction_type}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            report = Report.objects.select_related('reported_user').get(report_id=report_id)
+        except Report.DoesNotExist:
+            return Response({'success': False, 'error': f'Report {report_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        reported_user = report.reported_user
+        
+        # 1. Handle No Reported User / Dismissal
+        if not reported_user or sanction_type == 'DISMISS':
+            report.status = 'RESOLVED'
+            report.sanction_applied = 'DISMISS'
+            report.admin_reviewer = admin_user
+            report.save()
+            return Response({'success': True, 'message': 'Report dismissed or no user reported'}, status=status.HTTP_200_OK)
+
+
+        with transaction.atomic():
+            sanction_until = None
+            
+            # 2. Suspension Logic (Duration Check)
+            if sanction_type == SanctionType.SUSPENSION.value:
+                try:
+                    duration_days = int(duration_days)
+                    if duration_days <= 0:
+                        raise ValueError("Duration must be positive for suspension.")
+                    sanction_until = timezone.now() + timedelta(days=duration_days)
+                except (TypeError, ValueError):
+                    return Response({'success': False, 'error': 'Invalid or missing duration_days for SUSPENSION'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 3. Apply Sanction to User
+            
+            # Check if this sanction type is higher than the current one (e.g. don't downgrade a BAN to a WARNING)
+            current_level = reported_user.sanction_status
+            
+            # Simple hierarchy check (WARNING < SUSPENSION < BAN)
+            sanction_order = [SanctionType.NONE.value, SanctionType.WARNING.value, SanctionType.SUSPENSION.value, SanctionType.BAN.value]
+            
+            if sanction_order.index(sanction_type) >= sanction_order.index(current_level):
+                # Update User Status and Details
+                reported_user.sanction_status = sanction_type
+                reported_user.sanction_details = {
+                    'level': sanction_type,
+                    'reason': reason_note,
+                    'issued_by_admin': admin_user.username if admin_user else 'System',
+                    'issued_at': timezone.now().isoformat(),
+                    'source_report_id': report_id,
+                    'until': sanction_until.isoformat() if sanction_until else None,
+                }
+                reported_user.save()
+            
+            # 4. Update Report Status (Resolved)
+            report.status = 'RESOLVED'
+            report.sanction_applied = sanction_type
+            report.description = f"{report.description}\n\n[Admin Action: {sanction_type}]: {reason_note}"
+            report.admin_reviewer = admin_user
+            report.save()
+
+            # 5. Notify the Reported User
+            notification_message = f"Your account received a {sanction_type.lower().replace('_', ' ')} for: {reason_note[:100]}."
+            if sanction_until:
+                 notification_message += f" It is effective until {sanction_until.strftime('%B %d, %Y')}."
+            
+            Notification.objects.create(
+                recipient=reported_user,
+                sender=None, 
+                message=notification_message,
+                notification_type='SANCTION_ISSUED', 
+                link="/home/settings/sanctions" # Link to user's sanction viewing area
+            )
+            
+            message = f"Sanction {sanction_type} applied to user {reported_user.username} successfully."
+
+            return Response({
+                'success': True,
+                'message': message,
+                'user_id': reported_user.id,
+                'sanction_applied': sanction_type,
+                'user_new_status': reported_user.sanction_status
+            }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print(f"❌ Error in admin_apply_sanction: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated]) 
+def admin_appeal_review(request):
+    """
+    POST /api/admin/appeal-review/
+    Processes an appeal request (Approve/Deny/Modify).
+    If approved, it clears the User.sanction_status.
+    """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
+    try:
+        report_id = request.data.get('report_id') # The original report that caused the sanction
+        appeal_decision = request.data.get('appeal_decision') # APPROVED or DENIED
+        admin_note = request.data.get('admin_note', '')
+        admin_user = request.user if request.user.is_authenticated else None
+
+        if not all([report_id, appeal_decision]):
+            return Response({'success': False, 'error': 'Missing report_id or appeal_decision'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if appeal_decision not in [AppealStatus.APPROVED.value, AppealStatus.DENIED.value]:
+            return Response({'success': False, 'error': 'Invalid appeal_decision'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Get Report and User
+        report = Report.objects.select_related('reported_user').get(report_id=report_id)
+        reported_user = report.reported_user
+        if not reported_user:
+            return Response({'success': False, 'error': 'Reported user not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Update Report Appeal Status
+        report.appeal_status = appeal_decision
+        report.appeal_details = {
+            'decision': appeal_decision,
+            'admin_note': admin_note,
+            'reviewed_by_admin': admin_user.username if admin_user else 'System',
+            'reviewed_at': timezone.now().isoformat(),
+        }
+        report.save()
+
+        # 3. Execute Action if APPROVED
+        if appeal_decision == AppealStatus.APPROVED.value:
+            # Clear or Downgrade Sanction on the User
+            
+            # Check if the sanction being appealed is the currently active one
+            sanction_matches = reported_user.sanction_details.get('source_report_id') == report_id
+            
+            if sanction_matches and reported_user.sanction_status != 'NONE':
+                # Remove the active sanction
+                previous_sanction = reported_user.sanction_status
+                reported_user.sanction_status = 'NONE'
+                reported_user.sanction_details = {} # Clear details
+                reported_user.save()
+                
+                # Notify User of Approval and Reversal
+                Notification.objects.create(
+                    recipient=reported_user,
+                    sender=None, 
+                    message=f"Your appeal against the {previous_sanction.lower().replace('_', ' ')} has been approved. Your account is fully restored.",
+                    notification_type='APPEAL_APPROVED',
+                    link="/home/notifications"
+                )
+                message = f"Appeal approved. Sanction {previous_sanction} for user {reported_user.username} was reversed."
+            else:
+                message = f"Appeal approved. No active sanction was reversed because the sanction linked to report {report_id} is no longer active."
+
+        else: # DENIED
+            # Notify User of Denial
+            Notification.objects.create(
+                recipient=reported_user,
+                sender=None, 
+                message=f"Your appeal has been denied. The {report.sanction_applied.lower().replace('_', ' ')} remains active. Reason: {admin_note[:50]}...",
+                notification_type='APPEAL_DENIED',
+                link="/home/notifications"
+            )
+            message = f"Appeal denied for report {report_id}. Sanction remains active."
+
+        return Response({
+            'success': True,
+            'message': message,
+            'report_id': report_id,
+            'appeal_status': appeal_decision
+        }, status=status.HTTP_200_OK)
+
+    except Report.DoesNotExist:
+        return Response({'success': False, 'error': f'Report {report_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(f"❌ Error in admin_appeal_review: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated]) 
+def admin_user_sanction_history(request, user_id):
+    """
+    GET /api/admin/user-sanction-history/<user_id>/
+    Returns all reports that resulted in a sanction (Warning, Suspension, or Ban) for a user.
+    """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
+    try:
+        user = User.objects.get(id=user_id)
+        
+        # Get all resolved reports that resulted in an action (not DISMISS)
+        sanction_reports = Report.objects.filter(
+            reported_user=user,
+            status='RESOLVED'
+        ).exclude(
+            sanction_applied='DISMISS'
+        ).select_related('admin_reviewer').order_by('-created_at')
+
+        history_data = []
+        for report in sanction_reports:
+            history_data.append({
+                'report_id': report.report_id,
+                'sanction_type': report.sanction_applied,
+                'reason_cited': report.issue_detail,
+                'issued_at': report.created_at.isoformat(),
+                'admin_reviewer': report.admin_reviewer.username if report.admin_reviewer else 'System',
+                'appeal_status': report.appeal_status,
+                'appeal_details': report.appeal_details,
+            })
+        
+        # Also return the CURRENT status of the user
+        current_status = {
+            'status': user.sanction_status,
+            'details': user.sanction_details
+        }
+
+        return Response({
+            'success': True,
+            'user_id': user_id,
+            'current_sanction': current_status,
+            'sanction_history': history_data
+        }, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        return Response({'success': False, 'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(f"❌ Error in admin_user_sanction_history: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
