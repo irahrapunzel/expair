@@ -1,3 +1,5 @@
+// components/navbar.jsx
+
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
@@ -25,6 +27,8 @@ import { NotificationPortal } from "./notifications/notification-portal";
 import { Inter } from "next/font/google";
 import ProfileAvatar from "@/components/avatar";
 
+// NOTE: Removed 'import { usePathname } from 'next/navigation';'
+
 const inter = Inter({ subsets: ["latin"] });
 
 export default function Navbar() {
@@ -51,9 +55,16 @@ export default function Navbar() {
   const profileHref = `/home/profile/${profileSlug}`;
   const settingsHref = `/home/profile/${profileSlug}/settings`;
 
+  // FIX APPLIED HERE: Relying purely on session status (case-insensitive check)
+  const isSuspended = 
+    session?.user?.sanction_status?.toUpperCase() === "SUSPENSION" ||
+    session?.user?.sanction_status?.toUpperCase() === "BAN";
+
+
   // Fetches notifications
   const fetchNotifications = async () => {
-    if (!session?.access) return; // Don't fetch if not logged in
+    // Prevent fetching if not logged in OR if the user is suspended
+    if (!session?.access || isSuspended) return; 
 
     try {
       const res = await fetch(
@@ -106,6 +117,7 @@ export default function Navbar() {
   }, []);
 
   const toggleNotification = () => {
+    if (isSuspended) return; // Prevent opening if suspended
     if (!notificationOpen && bellRef.current) {
       setBellRect(bellRef.current.getBoundingClientRect());
     }
@@ -113,7 +125,7 @@ export default function Navbar() {
   };
 
   const handleAllNotificationsRead = async () => {
-    if (!session?.access) return;
+    if (!session?.access || isSuspended) return; // Prevent action if suspended
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"}/api/accounts/notifications/mark-all-read/`,
@@ -134,7 +146,7 @@ export default function Navbar() {
   };
 
   const handleDeleteAllRead = async () => {
-    if (!session?.access) return;
+    if (!session?.access || isSuspended) return; // Prevent action if suspended
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"}/api/accounts/notifications/delete-all-read/`,
@@ -188,63 +200,82 @@ export default function Navbar() {
       <div className="flex items-center justify-between max-w-[1440px] mx-auto px-4 lg:px-[250px]">
         {/* Logo and Button */}
         <div className="flex items-center gap-4 lg:gap-6">
-          <Link href="/home">
-            <Image
-              src="/expair.png"
-              alt="Expair Logo"
-              width={120}
-              height={40}
-              className="w-auto h-[40px] cursor-pointer"
-            />
-          </Link>
+          {/* LOGO LINK: If suspended, render as a non-clickable div */}
+          {isSuspended ? (
+            <div className="cursor-default">
+              <Image
+                src="/expair.png"
+                alt="Expair Logo"
+                width={120}
+                height={40}
+                className="w-auto h-[40px]" 
+              />
+            </div>
+          ) : (
+            <Link href="/home">
+              <Image
+                src="/expair.png"
+                alt="Expair Logo"
+                width={120}
+                height={40}
+                className="w-auto h-[40px] cursor-pointer"
+              />
+            </Link>
+          )}
 
           {/* Hide “New request” below lg */}
-          <Link href="/home/request" className="hidden lg:block">
-            <Button className="font-normal flex w-[160px] h-[40px] px-[38px] py-[13px] justify-center items-center gap-[5px] flex-shrink-0 shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
-              ✦ New request
-            </Button>
-          </Link>
+          {/* CONDITIONAL: Hide if suspended */}
+          {!isSuspended && ( 
+            <Link href="/home/request" className="hidden lg:block">
+              <Button className="font-normal flex w-[160px] h-[40px] px-[38px] py-[13px] justify-center items-center gap-[5px] flex-shrink-0 shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white text-sm sm:text-[16px] hover:bg-[#1a4dff] transition rounded-[15px]">
+                ✦ New request
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Desktop Navigation (show only lg+) */}
-        <nav className="hidden lg:flex items-center bg-[#120A2A] rounded-[20px] w-[337px] h-[60px] overflow-hidden">
-          <Link href="/home" className="flex-1 h-full">
-            <button className="w-full h-full text-white font-normal hover:bg-[#1A0F3E] rounded-[20px]">
-              Home
-            </button>
-          </Link>
-          <Link href="/home/help" className="flex-1 h-full">
-            <button className="w-full h-full text-white font-normal hover:bg-[#1A0F3E] rounded-[20px]">
-              Help
-            </button>
-          </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex-1 h-full text-white font-normal flex items-center justify-center gap-1 hover:bg-[#1A0F3E] rounded-[20px]">
-                Trades <ChevronDown className="w-4 h-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C]`}
-            >
-              <Link href="/home/trades/pending">
-                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
-                  Pending
-                </DropdownMenuItem>
+        {/* CONDITIONAL: Hide entire nav if suspended */}
+        {!isSuspended && ( 
+            <nav className="hidden lg:flex items-center bg-[#120A2A] rounded-[20px] w-[337px] h-[60px] overflow-hidden">
+              <Link href="/home" className="flex-1 h-full">
+                <button className="w-full h-full text-white font-normal hover:bg-[#1A0F3E] rounded-[20px]">
+                  Home
+                </button>
               </Link>
-              <Link href="/home/trades/active">
-                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
-                  Active
-                </DropdownMenuItem>
+              <Link href="/home/help" className="flex-1 h-full">
+                <button className="w-full h-full text-white font-normal hover:bg-[#1A0F3E] rounded-[20px]">
+                  Help
+                </button>
               </Link>
-              <Link href="/home/trades/completed">
-                <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
-                  Completed
-                </DropdownMenuItem>
-              </Link>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </nav>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex-1 h-full text-white font-normal flex items-center justify-center gap-1 hover:bg-[#1A0F3E] rounded-[20px]">
+                    Trades <ChevronDown className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C]`}
+                >
+                  <Link href="/home/trades/pending">
+                    <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                      Pending
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/home/trades/active">
+                    <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                      Active
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/home/trades/completed">
+                    <DropdownMenuItem className="text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold">
+                      Completed
+                    </DropdownMenuItem>
+                  </Link>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </nav>
+        )}
 
         {/* Right Section */}
         <div className="flex items-center gap-4 lg:gap-6">
@@ -258,34 +289,40 @@ export default function Navbar() {
 
           {/* Desktop icons (hide below lg) */}
           <div className="hidden lg:flex items-center gap-4 lg:gap-6">
-            <Link href="/home/messages">
-              <div className="relative cursor-pointer">
-                <MessageSquareText className="text-white w-5 h-5" />
-              </div>
-            </Link>
-            <div className="relative" ref={bellRef}>
-              <div className="cursor-pointer" onClick={toggleNotification}>
-                <Bell className="text-white w-5 h-5" />
-                {hasUnreadNotifications && (
-                  <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
-                    {notifCount}
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            <NotificationPortal
-              isOpen={notificationOpen}
-              onClose={() => setNotificationOpen(false)}
-              onMarkAllAsRead={handleAllNotificationsRead}
-              onDeleteAllRead={handleDeleteAllRead}
-              anchorRect={bellRect}
-              notifications={notifications} 
-              fetchNotifications={fetchNotifications} 
-            />
+            {/* CONDITIONAL: Hide Message and Bell/Notification if suspended */}
+            {!isSuspended && ( 
+              <>
+                <Link href="/home/messages">
+                  <div className="relative cursor-pointer">
+                    <MessageSquareText className="text-white w-5 h-5" />
+                  </div>
+                </Link>
+                <div className="relative" ref={bellRef}>
+                  <div className="cursor-pointer" onClick={toggleNotification}>
+                    <Bell className="text-white w-5 h-5" />
+                    {hasUnreadNotifications && (
+                      <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-[3px] bg-[#0038FF] text-white text-[10px] leading-[16px] rounded-full text-center">
+                        {notifCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                <NotificationPortal
+                  isOpen={notificationOpen}
+                  onClose={() => setNotificationOpen(false)}
+                  onMarkAllAsRead={handleAllNotificationsRead}
+                  onDeleteAllRead={handleDeleteAllRead}
+                  anchorRect={bellRect}
+                  notifications={notifications} 
+                  fetchNotifications={fetchNotifications} 
+                />
+              </>
+            )}
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
+                {/* Profile avatar remains visible as the trigger for Log out */}
                 <button className="rounded-full border border-white focus:outline-none focus:ring-2 focus:ring-[#6DDFFF]">
                   <ProfileAvatar src={profileImage} size={25} />
                 </button>
@@ -295,20 +332,26 @@ export default function Navbar() {
                 align="end"
                 className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C] min-w-[200px]`}
               >
-                <Link href={profileHref}>
-                  <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">
-                    <User className="w-4 h-4" />
-                    Your profile
-                  </DropdownMenuItem>
-                </Link>
+                {/* CONDITIONAL: Hide Profile and Settings if suspended */}
+                {!isSuspended && ( 
+                  <>
+                    <Link href={profileHref}>
+                      <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">
+                        <User className="w-4 h-4" />
+                        Your profile
+                      </DropdownMenuItem>
+                    </Link>
 
-                <Link href={settingsHref}>
-                  <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </DropdownMenuItem>
-                </Link>
+                    <Link href={settingsHref}>
+                      <DropdownMenuItem className="flex items-center gap-2 text-white data-[highlighted]:bg-transparent data-[highlighted]:text-white data-[highlighted]:font-semibold cursor-pointer">
+                        <Settings className="w-4 h-4" />
+                        Settings
+                      </DropdownMenuItem>
+                    </Link>
+                  </>
+                )}
 
+                {/* Log out is always available */}
                 <DropdownMenuItem
                   className="flex items-center gap-2 text-red-400 data-[highlighted]:bg-transparent data-[highlighted]:text-red-300 cursor-pointer"
                   onClick={() => {
@@ -326,26 +369,42 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden mt-4 px-4 pb-4 space-y-3 bg-[#0A0519] border-t border-[#1a1a3a]">
-          <Link href="/home">
-            <p className="text-white py-2">Home</p>
-          </Link>
-          <Link href="/home/help">
-            <p className="text-white py-2">Help</p>
-          </Link>
-          <Link href="/home/trades/pending">
-            <p className="text-white py-2">Pending Trades</p>
-          </Link>
-          <Link href="/home/trades/active">
-            <p className="text-white py-2">Active Trades</p>
-          </Link>
-          <Link href="/home/trades/completed">
-            <p className="text-white py-2">Completed Trades</p>
-          </Link>
-          <Link href="/home/request">
-            <Button className="w-full font-normal bg-[#0038FF] hover:bg-[#1a4dff] text-white rounded-[15px]">
-              ✦ New request
-            </Button>
-          </Link>
+          {/* CONDITIONAL: Show only Log out for suspended users, otherwise show full menu */}
+          {isSuspended ? (
+            <div
+              className="flex items-center gap-2 text-red-400 py-2 cursor-pointer"
+              onClick={handleLogout}
+              role="button" // For accessibility
+              tabIndex={0} // For accessibility
+            >
+              <LogOut className="w-4 h-4" />
+              Log out
+            </div>
+          ) : (
+            // Normal menu content for non-suspended users
+            <>
+              <Link href="/home">
+                <p className="text-white py-2">Home</p>
+              </Link>
+              <Link href="/home/help">
+                <p className="text-white py-2">Help</p>
+              </Link>
+              <Link href="/home/trades/pending">
+                <p className="text-white py-2">Pending Trades</p>
+              </Link>
+              <Link href="/home/trades/active">
+                <p className="text-white py-2">Active Trades</p>
+              </Link>
+              <Link href="/home/trades/completed">
+                <p className="text-white py-2">Completed Trades</p>
+              </Link>
+              <Link href="/home/request">
+                <Button className="w-full font-normal bg-[#0038FF] hover:bg-[#1a4dff] text-white rounded-[15px]">
+                  ✦ New request
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       )}
     </header>

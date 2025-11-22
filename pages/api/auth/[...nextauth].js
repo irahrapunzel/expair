@@ -67,20 +67,29 @@ export default NextAuth({
 
           // --- STEP 1: INTERCEPT SANCTION LOCKOUT (403 Status) ---
           if (res.status === 403 && data.code === 'SANCTIONED_LOCKOUT') {
-            console.log("Sanction Lockout detected. Throwing custom error.");
-
-            // Throw specific JSON string that client page can parse
-            throw new Error(JSON.stringify({
-              message: "Account Locked",
-              sanction: data.sanction_details
-            }));
+            console.log("Sanction Lockout detected. Returning MINIMAL user object for restricted session.");
+            
+            // FIX: Instead of throwing an error, return a minimal user object. 
+            // This creates a valid session without tokens, enabling the frontend to read the status.
+            return {
+              id: String(data.user_id || data.id),
+              // Exclude tokens (access and refresh)
+              username: data.username || credentials.identifier, 
+              email: data.email || 'restricted@expair.com',
+              first_name: data.first_name,
+              last_name: data.last_name,
+              is_admin: !!data.is_admin,
+              sanction_details: data.sanction_details || null,
+              sanction_status: data.sanction_status || 'SUSPENSION',
+              isSuspendedOnly: true, // Crucial flag for JWT callback
+            };
           }
           // --------------------------------------------------------
 
           // --- STEP 2: CHECK FOR GENERIC FAILURES (401, 400, 500) ---
+          // Block all non-200 responses if they are not the 403 sanction response
           if (!res.ok) {
             console.log(`Login failed with status: ${res.status}. Returning null.`);
-            // This captures wrong password (401) or other generic failures.
             return null;
           }
           // ---------------------------------------------------------
@@ -105,11 +114,6 @@ export default NextAuth({
           }
           return null;
         } catch (error) {
-          // If the error is the custom JSON string from the sanction check, re-throw it.
-          if (typeof error.message === 'string' && error.message.includes('Account Locked')) {
-            throw error;
-          }
-
           console.error("Authorize (Uncaught) error:", error);
           return null;
         }
@@ -176,6 +180,12 @@ export default NextAuth({
             user.isNewUser = false;
             if (data.image) user.image = data.image;
 
+            // NEW: Propagate sanction status if received from Google login endpoint
+            user.sanction_details = data.sanction_details || null;
+            user.sanction_status = data.sanction_status || 'NONE';
+            user.isSuspendedOnly = (user.sanction_status?.toUpperCase() === "SUSPENSION" || user.sanction_status?.toUpperCase() === "BAN");
+
+
             console.log("Existing Google user - storing tokens");
             return true;
           }
@@ -228,6 +238,8 @@ export default NextAuth({
           token.isNewUser = false;
           token.tokenTimestamp = Date.now();
           delete token.googleData;
+          // IMPORTANT: Clear the suspension only flag on successful token update
+          delete token.isSuspendedOnly; 
           console.log("Updated session with new tokens after registration");
         }
 
@@ -248,6 +260,10 @@ export default NextAuth({
         token.is_admin = user.is_admin;
         token.sanction_status = user.sanction_status;
         token.sanction_details = user.sanction_details;
+        
+        // NEW LINE: Store the suspension flag
+        token.isSuspendedOnly = user.isSuspendedOnly;
+
 
         if (user.profilePic) token.profilePic = user.profilePic;
         if (user.image) token.image = user.image;
@@ -261,12 +277,17 @@ export default NextAuth({
           }
         }
 
-        // Store JWT tokens (only for existing users)
-        if (user.access && user.refresh) {
+        // Store JWT tokens (only for non-suspended existing users)
+        if (user.access && user.refresh && !user.isSuspendedOnly) {
           token.access = user.access;
           token.refresh = user.refresh;
           token.tokenTimestamp = Date.now();
           console.log("Stored JWT tokens");
+        } else if (user.isSuspendedOnly) {
+          console.log("User is suspended. Tokens not stored/refreshed.");
+          // Ensure tokens are cleared if they existed previously 
+          delete token.access;
+          delete token.refresh;
         }
 
         return token;
@@ -280,10 +301,17 @@ export default NextAuth({
 
       // Token refresh logic continues as before...
       if (!token.access || !token.refresh) {
+        // FIX: If token is for a suspended user, allow token to pass if it only contains sanction info
+        if (token.isSuspendedOnly) {
+          console.log("Token is for suspended user. Bypassing refresh check.");
+          return token; 
+        }
+
         console.error("Missing stored tokens");
         return null;
       }
 
+      // Existing Token refresh logic:
       const accessExpiry = decodeJwtExp(token.access);
       const now = Date.now();
       const tenMinutes = 10 * 60 * 1000;
@@ -348,12 +376,16 @@ export default NextAuth({
           cleanedToken[key] = token[key];
         }
       }
-
-      if (cleanedToken.access) {
-        // Only set access/refresh for existing users
-        if (!cleanedToken.isNewUser) {
+      
+      // FIX: Check for ID presence for a valid user session (sanctioned or not)
+      if (cleanedToken.id) { 
+        // Only set access/refresh for non-suspended users
+        if (!cleanedToken.isNewUser && !cleanedToken.isSuspendedOnly) {
           session.access = cleanedToken.access;
           session.refresh = cleanedToken.refresh;
+        } else { 
+          session.access = null;
+          session.refresh = null;
         }
 
         if (session.user) {
@@ -368,6 +400,7 @@ export default NextAuth({
           session.user.is_admin = cleanedToken.is_admin;
           session.user.sanction_status = cleanedToken.sanction_status;
           session.user.sanction_details = cleanedToken.sanction_details;
+          session.user.isSuspendedOnly = cleanedToken.isSuspendedOnly || false; // NEW LINE
 
           // Pass new user flag
           session.user.isNewUser = cleanedToken.isNewUser || false;
@@ -378,6 +411,7 @@ export default NextAuth({
       } else {
         session.access = null;
         session.refresh = null;
+        session.user = null; // Ensure user object is explicitly null if no ID
       }
 
       console.log("Session prepared with access token:", !!session.access);
