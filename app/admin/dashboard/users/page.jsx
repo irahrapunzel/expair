@@ -606,17 +606,6 @@ export default function UsersPage() {
             </button>
 
             <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  fetchUsers();
-                  fetchStats();
-                }}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#1A0F3E] border border-white/20 rounded-lg text-white hover:bg-[#3C2E64] transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
               <div className="flex gap-2">
                 <button
                   onClick={() => {
