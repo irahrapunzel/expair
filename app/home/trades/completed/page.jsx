@@ -8,7 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ActiveEvaluationDialog from "../../../../components/trade-cards/active-evaluation-dialog";
 import { StarEvaluateIcon } from "../../../../components/icons/star-evaluate-icon";
-import { Star } from "lucide-react";
+import { Star, Download, FileText, ChevronDownIcon } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,6 +26,8 @@ export default function CompletedTradesPage() {
     const [completedTrades, setCompletedTrades] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const [showReportDropdown, setShowReportDropdown] = useState(false);
 
     // Fetch COMPLETED trades from backend
     useEffect(() => {
@@ -245,6 +247,72 @@ export default function CompletedTradesPage() {
         }
     };
 
+    const handleGenerateReport = (format) => {
+        // Use the environment variable for the backend base URL
+        const RAW_BASE = process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, "");
+
+        const endpoint = format === 'pdf' ? '/user-report/pdf/' : '/user-report/csv/';
+        const reportUrl = `${RAW_BASE}${endpoint}`;
+
+        const token = session?.access || session?.accessToken;
+
+        if (!token) {
+            alert("Authentication required to download report.");
+            setShowReportDropdown(false);
+            return;
+        }
+
+        // Secure Download using Fetch/Blob
+        fetch(reportUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        })
+            .then(response => {
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error("You are not authorized to download this report.");
+                }
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(`Server error (${response.status}): ${err.error || response.statusText}`);
+                    }).catch(() => {
+                        throw new Error(`Server error (${response.status}). Could not generate report.`);
+                    });
+                }
+
+                // Determine filename
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `expair_completed_trade_report_${session.user.username}.${format}`;
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="?(.+)"?$/i);
+                    if (match && match[1]) {
+                        filename = match[1];
+                    }
+                }
+
+                return { blob: response.blob(), filename };
+            })
+            .then(async ({ blob: blobPromise, filename }) => {
+                const blob = await blobPromise;
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error("Download failed:", error);
+                alert(`Failed to download report: ${error.message}`);
+            })
+            .finally(() => {
+                setShowReportDropdown(false);
+            });
+    };
+
     const getTradeDetailTags = (trade) => {
         const tags = [];
 
@@ -337,6 +405,37 @@ export default function CompletedTradesPage() {
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-[25px] font-semibold">Completed trades</h1>
 
+                {completedTrades.length > 0 && (
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowReportDropdown(!showReportDropdown)}
+                            className="flex items-center text-white text-[16px] border border-white/20 rounded-[15px] h-[40px] px-4 bg-[#120A2A] hover:bg-white/10 transition-colors"
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            Generate Report
+                            <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
+                        </button>
+                        {showReportDropdown && (
+                            <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
+                                <button
+                                    onClick={() => handleGenerateReport('pdf')}
+                                    className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                                >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    PDF Report
+                                </button>
+                                <button
+                                    onClick={() => handleGenerateReport('csv')}
+                                    className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                                >
+                                    <Icon icon="mdi:file-excel-box-outline" className="mr-2 h-4 w-4" />
+                                    CSV Data
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+                
                 <div className="flex items-center gap-4">
                     {/* Sort Button
                     <div className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer">
@@ -345,6 +444,8 @@ export default function CompletedTradesPage() {
                     </div> */}
                 </div>
             </div>
+
+            
 
             {/* Completed Trades Section */}
             {completedTrades.length === 0 ? (
