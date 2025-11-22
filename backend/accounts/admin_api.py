@@ -2043,3 +2043,66 @@ def admin_users_report_pdf(request):
     response['Content-Disposition'] = 'attachment; filename="expair_admin_users_report.pdf"'
     
     return response
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated]) 
+def admin_user_sanction_detail(request, user_id):
+    """
+    GET /api/admin/user-sanction-detail/<user_id>/
+    Returns detailed user data, current sanction status, and recent reports 
+    for the sanction modal.
+    """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+        
+    try:
+        user = get_object_or_404(User.objects.select_related('verification'), id=user_id)
+        
+        # 1. Calculate Pending Reports
+        pending_reports_count = Report.objects.filter(
+            reported_user=user,
+            status__iexact='PENDING'
+        ).count()
+        
+        # 2. Get Recent Reports (History)
+        recent_reports_qs = Report.objects.filter(
+            reported_user=user
+        ).order_by('-created_at')[:5]
+        
+        recent_reports = [{
+            'report_id': r.report_id,
+            'category': r.category,
+            'issue_detail': r.issue_detail,
+            'status': r.status,
+            'created_at': r.created_at.isoformat()
+        } for r in recent_reports_qs]
+
+        # 3. Get Verification Status
+        verification = user.verification
+        
+        # 4. Build Payload
+        payload = {
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'full_name': f"{user.first_name} {user.last_name}".strip(),
+            'profile_pic': user.profilePic,
+            'level': user.level,
+            'current_sanction_status': user.sanction_status,
+            'sanction_details': user.sanction_details,
+            'pending_reports_count': pending_reports_count,
+            'recent_reports': recent_reports,
+            'is_fully_verified': verification.is_fully_verified,
+        }
+        
+        return Response({'success': True, 'user_detail': payload}, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        return Response({'success': False, 'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(f"❌ Error in admin_user_sanction_detail: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -16,6 +16,8 @@ import {
   Shield,
   AlertTriangle,
   TrendingUp,
+  Flag,
+  User,
   Users as UsersIcon,
   Star,
   Award,
@@ -88,6 +90,12 @@ export default function UsersPage() {
     flaggedTrend: { value: "0%", is_up: false, is_neutral: true }
   });
 
+  const [showSanctionModal, setShowSanctionModal] = useState(false);
+  const [selectedSanctionUser, setSelectedSanctionUser] = useState(null);
+  const [sanctionReason, setSanctionReason] = useState('');
+  const [suspensionDays, setSuspensionDays] = useState(7);
+  const [applyingSanction, setApplyingSanction] = useState(false);
+  const [sanctionDetailLoading, setSanctionDetailLoading] = useState(false);
 
   // --- CORE FETCH FUNCTIONS (Defined with useCallback) ---
 
@@ -166,10 +174,7 @@ export default function UsersPage() {
       }
 
       let fetchedUsers = data.users || [];
-
-      // --- Apply client-side sorting if needed (usually handled by backend) ---
-      // Since your backend supports sorting, this client-side sorting block might be redundant 
-      // but is kept for compatibility with the original code structure.
+      // Client-side sorting as a fallback (if needed)
       if (sortBy) {
         if (sortBy === 'name') {
           fetchedUsers = fetchedUsers.sort((a, b) =>
@@ -207,6 +212,110 @@ export default function UsersPage() {
     }
   }, [session?.access, searchQuery, verificationFilter, showFlaggedOnly, sortBy, sortDirection, currentPage, sessionStatus]);
 
+  const handleOpenSanctionModal = async (userId) => {
+    const adminToken = session?.access;
+    if (!adminToken) return;
+
+    setSanctionDetailLoading(true);
+    setSelectedSanctionUser(null);
+    setSanctionReason('');
+    setSuspensionDays(7);
+    setShowSanctionModal(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/admin/user-sanction-detail/${userId}/`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success === true && data.user_detail) {
+        setSelectedSanctionUser(data.user_detail);
+        // Pre-fill reason with current sanction reason if one exists
+        const details = data.user_detail.sanction_details;
+        if (details.reason) {
+          setSanctionReason(details.reason);
+        }
+      } else {
+        throw new Error(data.error || 'Failed to fetch user details.');
+      }
+    } catch (err) {
+      console.error('❌ Error fetching sanction details:', err);
+      alert(`Failed to load user sanction data: ${err.message}`);
+      setShowSanctionModal(false);
+    } finally {
+      setSanctionDetailLoading(false);
+    }
+  };
+
+  const handleApplySanction = async (actionType, reasonNote, durationDays) => {
+    const adminToken = session?.access;
+    if (!adminToken || applyingSanction || !selectedSanctionUser) return;
+
+    // Use the ID of the most recent report for logging purposes
+    const reportId = selectedSanctionUser.recent_reports?.[0]?.report_id || 1; // Fallback ID 
+
+    if (!confirm(`Are you sure you want to apply ${actionType} to @${selectedSanctionUser.username}?`)) {
+      return;
+    }
+
+    try {
+      setApplyingSanction(true);
+
+      const requestBody = {
+        // NOTE: We pass the user's most recent report ID for backend logging
+        report_id: reportId,
+        sanction_type: actionType,
+        reason_note: reasonNote,
+      };
+
+      if (actionType === 'SUSPENSION') {
+        requestBody.duration_days = durationDays;
+      }
+
+      const response = await fetch(
+        `${API_BASE}/api/admin/apply-sanction/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success !== false) {
+        alert(`Sanction ${actionType} applied successfully!`);
+        // Refresh user list and close modal
+        fetchUsers();
+        setShowSanctionModal(false);
+      }
+    } catch (err) {
+      console.error('Error applying sanction:', err);
+      alert(`Failed to apply sanction: ${err.message}`);
+    } finally {
+      setApplyingSanction(false);
+    }
+  };
 
   // --- ASYNC ACTION HANDLERS (Must use token) ---
 
@@ -522,6 +631,7 @@ export default function UsersPage() {
   }
 
   return (
+
     <div className="min-h-screen bg-[#050015] p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -717,6 +827,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody>
+
                 {users.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="text-center py-12">
@@ -800,6 +911,7 @@ export default function UsersPage() {
                           >
                             <DropdownMenuItem
                               onClick={() => {
+                                // 1. View Details logic (keep this)
                                 setSelectedUser(user);
                                 setShowUserDetailModal(true);
                               }}
@@ -809,7 +921,14 @@ export default function UsersPage() {
                               View Details
                             </DropdownMenuItem>
 
-                            <DropdownMenuItem className="text-red-400 hover:bg-red-500/10 cursor-pointer">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                // 2. Suspend Account logic (Crucial change)
+                                if (applyingSanction) return; // Prevent double-clicking
+                                handleOpenSanctionModal(user.id);
+                              }}
+                              className="text-red-400 hover:bg-red-500/10 cursor-pointer"
+                            >
                               <X className="w-4 h-4 mr-2" />
                               Suspend Account
                             </DropdownMenuItem>
@@ -1091,6 +1210,137 @@ export default function UsersPage() {
                 }
               >
                 {isSubmitting ? "Submitting..." : "Confirm Rejection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* --- Sanction Application Modal --- */}
+      {showSanctionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#120A2A] border border-[#906EFF]/20 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#1A0F3E]">
+              <h2 className="text-xl font-semibold text-white">Apply Sanction</h2>
+              <button
+                onClick={() => setShowSanctionModal(false)}
+                className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-lg transition-colors"
+                disabled={applyingSanction}
+              >
+                <XCircle className="w-5 h-5 text-white/60" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-250px)]">
+              {sanctionDetailLoading || !selectedSanctionUser ? (
+                <div className="py-12 text-center">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                  Loading user details...
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* User Info & Current Status */}
+                  <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={selectedSanctionUser.profile_pic || '/defaultavatar.png'}
+                        alt=""
+                        className="w-16 h-16 rounded-full object-cover"
+                      />
+                      <div>
+                        <div className="text-xl text-white font-medium">@{selectedSanctionUser.username}</div>
+                        <div className="text-sm text-white/60">{selectedSanctionUser.email}</div>
+                        <div className="text-sm mt-1">
+                          Current Status:
+                          <span className={`inline-block ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${selectedSanctionUser.current_sanction_status === 'BAN' ? 'bg-red-700/50 text-red-300' :
+                              selectedSanctionUser.current_sanction_status === 'SUSPENSION' ? 'bg-orange-700/50 text-orange-300' :
+                                selectedSanctionUser.current_sanction_status === 'WARNING' ? 'bg-yellow-700/50 text-yellow-300' :
+                                  'bg-green-700/50 text-green-300'
+                            }`}>
+                            {selectedSanctionUser.current_sanction_status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Admin Action Input */}
+                  <div className="p-4 bg-[#1A0F3E] rounded-lg border border-[#906EFF]/20">
+                    <h4 className="text-lg font-semibold text-white mb-3">
+                      Apply New Sanction
+                    </h4>
+
+                    <label className="text-sm text-white/60 mb-1 block">Reason for Action (Required)</label>
+                    <textarea
+                      value={sanctionReason}
+                      onChange={(e) => setSanctionReason(e.target.value)}
+                      placeholder="E.g., Repeated harassment, Fraudulent activity. This will be visible to the user."
+                      className="w-full p-2 bg-[#120A2A] border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none h-20 mb-3"
+                    />
+
+                    <div className="mt-4">
+                      <label className="text-sm text-white/60 mb-1 block">Suspension Duration (Days)</label>
+                      <input
+                        type="number"
+                        value={suspensionDays}
+                        onChange={(e) => setSuspensionDays(parseInt(e.target.value) || 0)}
+                        min="1"
+                        className="w-32 p-2 bg-[#120A2A] border border-white/20 rounded-lg text-white focus:outline-none"
+                      />
+                      <p className="text-xs text-white/40 mt-1">Duration for **Suspension** only. Use 'BAN' for permanent.</p>
+                    </div>
+                  </div>
+
+                  {/* Sanction History */}
+                  {selectedSanctionUser.recent_reports.length > 0 && (
+                    <div className="bg-[#1A0F3E] rounded-lg p-4 border border-white/10">
+                      <h4 className="text-sm font-semibold text-white mb-3">Recent Reports ({selectedSanctionUser.pending_reports_count} Pending)</h4>
+                      {selectedSanctionUser.recent_reports.map((r) => (
+                        <div key={r.report_id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/10 mb-1">
+                          <div className="text-xs text-white">#{r.report_id} - {r.issue_detail}</div>
+                          <div className="text-xs text-white/60">{new Date(r.created_at).toLocaleDateString()} ({r.status})</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer (Action Buttons) */}
+            <div className="px-6 py-4 border-t border-white/10 flex items-center justify-end gap-3 bg-[#1A0F3E]">
+              <button
+                onClick={() => setShowSanctionModal(false)}
+                className="px-4 py-2 bg-[#120A2A] text-white border border-white/20 rounded-lg hover:bg-[#3C2E64] transition-colors text-sm"
+                disabled={applyingSanction}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => handleApplySanction('WARNING', sanctionReason || 'Inappropriate behavior.', 0)}
+                disabled={applyingSanction || sanctionReason.length < 5}
+                className="px-4 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/30 transition-colors disabled:opacity-50 text-sm"
+              >
+                Issue Warning
+              </button>
+
+              <button
+                onClick={() => handleApplySanction('SUSPENSION', sanctionReason, suspensionDays)}
+                disabled={applyingSanction || sanctionReason.length < 10 || suspensionDays < 1}
+                className="px-4 py-2 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-500/30 transition-colors disabled:opacity-50 text-sm"
+              >
+                Suspend ({suspensionDays}d)
+              </button>
+
+              <button
+                onClick={() => handleApplySanction('BAN', sanctionReason, 0)}
+                disabled={applyingSanction || sanctionReason.length < 10}
+                className="px-4 py-2 bg-red-700/50 text-white border border-red-500/30 rounded-lg hover:bg-red-700/80 transition-colors disabled:opacity-50 text-sm font-semibold"
+              >
+                Issue Ban
               </button>
             </div>
           </div>

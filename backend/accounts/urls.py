@@ -18,6 +18,7 @@ from .admin_api import (
     admin_user_stats,
     admin_reject_verification,
     admin_users_report_pdf,
+    admin_user_sanction_detail,
 )
 from django.contrib import admin
 
@@ -152,4 +153,5 @@ urlpatterns = [
     path('api/admin/apply-sanction/', admin_api.admin_apply_sanction, name='admin_apply_sanction'),
     path('api/admin/appeal-review/', admin_api.admin_appeal_review, name='admin_appeal_review'),   
     path('api/admin/user-sanction-history/<int:user_id>/', admin_api.admin_user_sanction_history, name='admin_user_sanction_history'), 
+    path('api/admin/user-sanction-detail/<int:user_id>/', admin_user_sanction_detail, name='admin_user_sanction_detail'),
 ]
