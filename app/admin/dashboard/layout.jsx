@@ -6,28 +6,54 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { LayoutDashboard, Users, LogOut, Menu, X, FileText } from "lucide-react";
 import ProfileAvatar from "@/components/avatar";
-import { useSession } from "next-auth/react"; 
+import { useSession, signOut } from "next-auth/react"; // Added signOut import
 
 const inter = Inter({ subsets: ["latin"] });
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session, status: sessionStatus } = useSession(); 
+  const { data: session, status: sessionStatus } = useSession();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // --- LOGIC FOR AUTHENTICATION AND REDIRECTION ---
   useEffect(() => {
-    // Check if loading is finished and user is NOT authenticated
+    // Redirect to login if not authenticated after loading is finished
     if (sessionStatus === "unauthenticated") {
-        // Redirect to your newly created admin login page
-        router.push("/admin/login"); 
+        router.push("/admin/login");
     }
   }, [sessionStatus, router]);
 
-  const handleLogout = () => {
-    // Sa production app, dito mo tatawagin ang NextAuth signOut()
-    // Pansamantala, i-redirect lang
-    router.push("/");
+  // --- LOGOUT FUNCTION ---
+  const handleLogout = async () => {
+    try {
+      const refresh = session?.refresh;
+      if (refresh) {
+        // Call your backend logout endpoint to invalidate the refresh token
+        // Use the same endpoint logic as in navbar.jsx
+        await fetch(
+          `${
+            process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"
+          }/logout/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              ...(session?.access
+                ? { Authorization: `Bearer ${session.access}` }
+                : {}),
+            },
+            body: JSON.stringify({ refresh }),
+            credentials: "include",
+          }
+        );
+      }
+    } finally {
+      // Regardless of backend success, sign out the NextAuth session
+      // Redirects to the root "/" (or wherever your callbackUrl points)
+      await signOut({ redirect: true, callbackUrl: "/" });
+    }
   };
 
   const navigationItems = [
@@ -36,7 +62,7 @@ export default function AdminLayout({ children }) {
     { name: "Reports", icon: FileText, href: "/admin/dashboard/reports" },
   ];
 
-  // Logic para sa pag-handle ng loading state
+  // Logic for handling loading state
   if (sessionStatus === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050015] text-white">
@@ -44,18 +70,17 @@ export default function AdminLayout({ children }) {
       </div>
     );
   }
-  
+
   // If not authenticated, return null to avoid rendering the admin layout
   if (sessionStatus !== "authenticated") {
-      return null; 
+      return null;
   }
 
   // Admin user details from session
-  const adminUser = { 
-      username: session?.user?.username || 'Admin', 
+  const adminUser = {
+      username: session?.user?.username || 'Admin',
       name: session?.user?.name || 'Administrator',
-      // Assuming a role is added to the session object in NextAuth
-      role: session?.user?.role || 'Administrator', 
+      role: session?.user?.role || 'Administrator',
   };
 
 
@@ -95,7 +120,6 @@ export default function AdminLayout({ children }) {
         {/* Admin Info */}
         {isSidebarOpen && (
           <div className="p-4 border-b border-[#906EFF]/20 flex items-center gap-3">
-            {/* Gamitin ang profile picture galing sa session data */}
             <ProfileAvatar src={session?.user?.image || "/defaultavatar.png"} size={40} />
             <div>
               <div className="font-medium">{adminUser.name}</div>
@@ -133,7 +157,7 @@ export default function AdminLayout({ children }) {
         {/* Logout Button */}
         <div className="p-4 border-t border-[#906EFF]/20">
           <button
-            onClick={handleLogout}
+            onClick={handleLogout} // Calls the updated logout function
             className={`flex items-center gap-3 px-3 py-2.5 rounded-[12px] w-full transition-all text-red-400 hover:bg-red-500/10 ${
               !isSidebarOpen && "justify-center"
             }`}
