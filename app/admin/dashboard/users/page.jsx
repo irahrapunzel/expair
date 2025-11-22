@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react"; // CRITICAL: Import useSession
-import { 
-  Check, 
-  X, 
-  Eye, 
-  MoreHorizontal, 
-  Search, 
-  Download, 
+import {
+  Check,
+  X,
+  Eye,
+  MoreHorizontal,
+  Search,
+  Download,
   RefreshCw,
   Clock,
   Mail,
@@ -36,6 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Icon } from '@iconify/react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -51,28 +52,30 @@ const REJECTION_OPTIONS = [
 
 export default function UsersPage() {
   const { data: session, status: sessionStatus } = useSession(); // ACTIVATE SESSION HOOK
-  
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [verificationFilter, setVerificationFilter] = useState("all");
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
   const [sortBy, setSortBy] = useState(null);
   const [sortDirection, setSortDirection] = useState("desc");
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  
+
   const [showUserDetailModal, setShowUserDetailModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  
+
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedReason, setSelectedReason] = useState(""); // For the dropdown
   const [customReason, setCustomReason] = useState(""); // For the textarea
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
 
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -102,7 +105,7 @@ export default function UsersPage() {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setStats({
@@ -132,7 +135,7 @@ export default function UsersPage() {
 
     setLoading(true);
     setError(null);
-    
+
     try {
       const params = new URLSearchParams({
         search: searchQuery,
@@ -150,18 +153,18 @@ export default function UsersPage() {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`Failed to fetch users: ${response.status} - ${errorData.error || response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to load users');
       }
-      
+
       let fetchedUsers = data.users || [];
 
       // --- Apply client-side sorting if needed (usually handled by backend) ---
@@ -184,7 +187,7 @@ export default function UsersPage() {
           fetchedUsers = fetchedUsers.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         } else if (sortBy === 'status') {
           const statusOrder = { verified: 0, pending: 1, unverified: 2 };
-          fetchedUsers = fetchedUsers.sort((a, b) => 
+          fetchedUsers = fetchedUsers.sort((a, b) =>
             (statusOrder[a.verification_status] || 3) - (statusOrder[b.verification_status] || 3)
           );
         }
@@ -195,7 +198,7 @@ export default function UsersPage() {
       setUsers(fetchedUsers);
       setTotalUsers(data.pagination.total);
       setTotalPages(data.pagination.total_pages);
-      
+
     } catch (err) {
       console.error("Error fetching users:", err);
       setError(err.message);
@@ -209,9 +212,9 @@ export default function UsersPage() {
 
   async function handleVerifyUser(userId) {
     const adminToken = session?.access;
-    if (!adminToken) { 
+    if (!adminToken) {
       alert("Authentication token expired. Please log in again.");
-      return; 
+      return;
     }
 
     if (isSubmitting) return;
@@ -219,7 +222,7 @@ export default function UsersPage() {
     try {
       const response = await fetch(`${API_BASE}/api/admin/verify-user/`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}` // FIX: ADD HEADER
         },
@@ -247,13 +250,13 @@ export default function UsersPage() {
 
   async function handleRejectVerification() {
     const adminToken = session?.access;
-    if (!adminToken) { 
+    if (!adminToken) {
       alert("Authentication token expired. Please log in again.");
-      return; 
+      return;
     }
 
     let finalReason = selectedReason;
-    
+
     if (selectedReason === "Others") {
       finalReason = customReason.trim();
     }
@@ -262,19 +265,19 @@ export default function UsersPage() {
       alert("Please provide a reason for rejection.");
       return;
     }
-    
+
     if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
       const response = await fetch(`${API_BASE}/api/admin/reject-verification/`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}` // FIX: ADD HEADER
         },
-        body: JSON.stringify({ 
-          user_id: selectedUser.id, 
+        body: JSON.stringify({
+          user_id: selectedUser.id,
           reason: finalReason // Send the determined reason
         })
       });
@@ -335,7 +338,7 @@ export default function UsersPage() {
     if (sortBy !== column) {
       return <ArrowUpDown className="w-3.5 h-3.5 text-white/30" />;
     }
-    return sortDirection === 'asc' 
+    return sortDirection === 'asc'
       ? <ArrowUp className="w-3.5 h-3.5 text-[#906EFF]" />
       : <ArrowDown className="w-3.5 h-3.5 text-[#906EFF]" />;
   }
@@ -365,56 +368,52 @@ export default function UsersPage() {
   }
 
   // Direct export to CSV (Excel compatible)
-  function handleExport() {
+  const escapeCsv = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
+
+  // 1. Local CSV Generation (Dependency-Free)
+  function handleExportCSV() {
     if (users.length === 0) {
       alert("No data to export.");
       return;
     }
 
-    // Define headers for the CSV
     const headers = [
       "User ID",
-      "Username", 
-      "Email", 
-      "Full Name", 
-      "Level", 
-      "Total XP", 
-      "Rating", 
-      "Rating Count", 
-      "Verification Status", 
-      "Active Reports", 
+      "Username",
+      "Email",
+      "Full Name",
+      "Level",
+      "Total XP",
+      "Rating",
+      "Rating Count",
+      "Verification Status",
+      "Active Reports",
       "Joined Date"
     ];
 
-    // Map users data to CSV rows
     const csvRows = [
-      headers.join(','), // Header row
+      headers.join(','),
       ...users.map(user => {
-        // Helper to escape quotes in strings (if names have commas)
-        const escape = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
-
         const row = [
           user.id,
-          escape(user.username),
-          escape(user.email),
-          escape(`${user.first_name} ${user.last_name}`.trim()),
+          escapeCsv(user.username),
+          escapeCsv(user.email),
+          escapeCsv(`${user.first_name} ${user.last_name}`.trim()),
           user.level || 1,
           user.total_xp || 0,
           user.rating?.toFixed(1) || 0,
           user.rating_count || 0,
-          escape(user.verification_status),
+          escapeCsv(user.verification_status),
           user.active_reports_count || 0,
-          escape(new Date(user.created_at).toLocaleDateString())
+          escapeCsv(new Date(user.created_at).toLocaleDateString())
         ];
         return row.join(',');
       })
     ];
 
-    // Create a Blob from the CSV string
     const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    
-    // Create a temporary download link and click it
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -423,6 +422,78 @@ export default function UsersPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  // 2. PDF/CSV API Download Handler
+  function handleExportReport(format) {
+    if (users.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    // If CSV is selected, run the local generation function and exit
+    if (format === 'csv') {
+      handleExportCSV();
+      setShowExportDropdown(false);
+      return;
+    }
+
+    // --- PDF API Download Logic (Follows user-report pattern) ---
+    const adminToken = session?.access;
+    const endpoint = '/api/admin/users-report/pdf/'; // New Admin Report Endpoint (MUST BE IMPLEMENTED IN DJANGO)
+    const reportUrl = `${API_BASE}${endpoint}`;
+
+    if (!adminToken) {
+      alert("Authentication token expired. Please log in again.");
+      setShowExportDropdown(false);
+      return;
+    }
+
+    fetch(reportUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+      },
+    })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(err => {
+            throw new Error(`Server error (${response.status}): ${err.error || response.statusText}`);
+          }).catch(() => {
+            throw new Error(`Failed to fetch PDF report: Server status ${response.status}`);
+          });
+        }
+
+        // Extract filename from header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `expair-users-admin-${new Date().toISOString().split('T')[0]}.pdf`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?(.+)"?$/i);
+          if (match && match[1]) {
+            filename = match[1];
+          }
+        }
+
+        return { blob: response.blob(), filename };
+      })
+      .then(async ({ blob: blobPromise, filename }) => {
+        const blob = await blobPromise;
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(error => {
+        console.error("PDF Download failed:", error);
+        alert(`Failed to download PDF report: ${error.message}`);
+      })
+      .finally(() => {
+        setShowExportDropdown(false);
+      });
   }
 
   if (loading && users.length === 0) {
@@ -437,9 +508,9 @@ export default function UsersPage() {
           <p>{error}</p>
           <button
             onClick={() => {
-                // Manually trigger fetchers after error
-                fetchUsers();
-                fetchStats();
+              // Manually trigger fetchers after error
+              fetchUsers();
+              fetchStats();
             }}
             className="mt-4 px-4 py-2 bg-[#906EFF] text-white rounded-lg hover:bg-[#7D5FE6] transition-colors"
           >
@@ -523,11 +594,10 @@ export default function UsersPage() {
 
             <button
               onClick={() => setShowFlaggedOnly(!showFlaggedOnly)}
-              className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${
-                showFlaggedOnly
-                  ? 'bg-red-500/20 border-red-500/30 text-red-400'
-                  : 'bg-[#1A0F3E] border-white/20 text-white/70 hover:text-white hover:bg-[#3C2E64]'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${showFlaggedOnly
+                ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                : 'bg-[#1A0F3E] border-white/20 text-white/70 hover:text-white hover:bg-[#3C2E64]'
+                }`}
             >
               <AlertTriangle className="w-4 h-4" />
               <span className="text-sm font-medium">
@@ -538,8 +608,8 @@ export default function UsersPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                    fetchUsers();
-                    fetchStats();
+                  fetchUsers();
+                  fetchStats();
                 }}
                 disabled={loading}
                 className="flex items-center gap-2 px-4 py-2.5 bg-[#1A0F3E] border border-white/20 rounded-lg text-white hover:bg-[#3C2E64] transition-colors disabled:opacity-50"
@@ -547,13 +617,49 @@ export default function UsersPage() {
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#906EFF] text-white rounded-lg hover:bg-[#7D5FE6] transition-colors font-medium"
-              >
-                <Download className="w-4 h-4" />
-                Export
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    fetchUsers();
+                    fetchStats();
+                  }}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-[#1A0F3E] border border-white/20 rounded-lg text-white hover:bg-[#3C2E64] transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+
+                {/* NEW EXPORT DROPDOWN */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowExportDropdown(!showExportDropdown)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#906EFF] text-white rounded-lg hover:bg-[#7D5FE6] transition-colors font-medium"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                  {showExportDropdown && (
+                    <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
+                      <button
+                        onClick={() => handleExportReport('pdf')}
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        PDF Report
+                      </button>
+                      <button
+                        onClick={() => handleExportReport('csv')}
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                      >
+                        <Icon icon="mdi:file-excel-box-outline" className="mr-2 h-4 w-4" />
+                        CSV Data
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -564,7 +670,7 @@ export default function UsersPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10 bg-[#1A0F3E]">
-                  <th 
+                  <th
                     className="text-left py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors group"
                     onClick={() => handleSort('name')}
                   >
@@ -573,7 +679,7 @@ export default function UsersPage() {
                       {getSortIcon('name')}
                     </div>
                   </th>
-                  <th 
+                  <th
                     className="text-left py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('email')}
                   >
@@ -582,7 +688,7 @@ export default function UsersPage() {
                       {getSortIcon('email')}
                     </div>
                   </th>
-                  <th 
+                  <th
                     className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('level')}
                   >
@@ -591,7 +697,7 @@ export default function UsersPage() {
                       {getSortIcon('level')}
                     </div>
                   </th>
-                  <th 
+                  <th
                     className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('rating')}
                   >
@@ -600,7 +706,7 @@ export default function UsersPage() {
                       {getSortIcon('rating')}
                     </div>
                   </th>
-                  <th 
+                  <th
                     className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('status')}
                   >
@@ -609,7 +715,7 @@ export default function UsersPage() {
                       {getSortIcon('status')}
                     </div>
                   </th>
-                  <th 
+                  <th
                     className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('joined')}
                   >
@@ -635,7 +741,7 @@ export default function UsersPage() {
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr 
+                    <tr
                       key={user.id}
                       className="border-b border-white/5 hover:bg-[#1A0F3E] transition-colors group cursor-pointer"
                       onClick={() => {
@@ -713,7 +819,7 @@ export default function UsersPage() {
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            
+
                             <DropdownMenuItem className="text-red-400 hover:bg-red-500/10 cursor-pointer">
                               <X className="w-4 h-4 mr-2" />
                               Suspend Account
@@ -812,7 +918,7 @@ export default function UsersPage() {
                     <p className="text-xs text-white/60">Rating</p>
                   </div>
                 </div>
-                
+
                 {/* Verification Document Section */}
                 {selectedUser.id_document && (
                   <div className="space-y-3">
@@ -829,9 +935,9 @@ export default function UsersPage() {
                           </p>
                         </div>
                       </div>
-                      <a 
-                        href={selectedUser.id_document} 
-                        target="_blank" 
+                      <a
+                        href={selectedUser.id_document}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 bg-[#906EFF] text-white text-sm rounded-lg hover:bg-[#7D5FE6] transition-colors"
                       >
@@ -893,17 +999,17 @@ export default function UsersPage() {
               >
                 Close
               </button>
-              
+
               {selectedUser.verification_status === 'pending' && (
                 <>
-                  <button 
+                  <button
                     onClick={() => setShowRejectModal(true)}
                     className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? "Submitting..." : "Reject Verification"}
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleVerifyUser(selectedUser.id)}
                     className="flex-1 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30 transition-colors font-medium"
                     disabled={isSubmitting}
@@ -990,8 +1096,8 @@ export default function UsersPage() {
                 onClick={handleRejectVerification}
                 className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={
-                  isSubmitting || 
-                  !selectedReason || 
+                  isSubmitting ||
+                  !selectedReason ||
                   (selectedReason === "Others" && !customReason.trim())
                 }
               >

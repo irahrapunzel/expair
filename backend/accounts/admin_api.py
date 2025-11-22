@@ -11,6 +11,19 @@ import traceback
 from django.shortcuts import get_object_or_404
 from .models import Report, User
 
+import io
+from reportlab.lib.pagesizes import letter, landscape 
+from reportlab.lib import colors 
+from reportlab.lib.styles import getSampleStyleSheet 
+from reportlab.platypus import ( 
+    SimpleDocTemplate, 
+    Paragraph, 
+    Spacer, 
+    Table, 
+    TableStyle
+)
+from reportlab.lib.units import inch 
+from django.http import HttpResponse
 
 
 try:
@@ -1814,3 +1827,219 @@ def admin_user_sanction_history(request, user_id):
         print(f"❌ Error in admin_user_sanction_history: {str(e)}")
         print(traceback.format_exc())
         return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+def _get_filtered_users_for_report(request):
+    """Fetches user data list based on query parameters, without pagination."""
+    search_query = request.GET.get('search', '').strip()
+    verification_filter = request.GET.get('verification', 'all').lower()
+    flagged_filter = request.GET.get('flagged', 'false').lower() == 'true'
+    
+    users = User.objects.all()
+    
+    # Apply filters (logic copied from admin_users_list)
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query)
+        )
+    
+    if verification_filter == 'verified':
+        verified_user_ids = UserVerification.objects.filter(
+            email_verified=True,
+            id_verification_status=VerificationStatus.VERIFIED
+        ).values_list('user_id', flat=True)
+        users = users.filter(id__in=list(verified_user_ids))
+    elif verification_filter == 'pending':
+        pending_user_ids = UserVerification.objects.filter(
+            id_verification_status=VerificationStatus.PENDING
+        ).values_list('user_id', flat=True)
+        users = users.filter(id__in=list(pending_user_ids))
+    elif verification_filter == 'unverified':
+        verified_or_pending_ids = UserVerification.objects.filter(
+            id_verification_status__in=[VerificationStatus.VERIFIED, VerificationStatus.PENDING]
+        ).values_list('user_id', flat=True)
+        users = users.exclude(id__in=list(verified_or_pending_ids))
+    
+    if flagged_filter:
+        flagged_user_ids = Report.objects.filter(
+            status='PENDING'
+        ).values_list('reported_user_id', flat=True).distinct()
+        users = users.filter(id__in=list(flagged_user_ids))
+        
+    # Order by newest first
+    users = users.order_by('-created_at')
+
+    # Prepare detailed data
+    users_data = []
+    for user in users:
+        # Calculate stats
+        completed_as_requester = TradeRequest.objects.filter(requester=user, status='COMPLETED').count()
+        completed_as_responder = TradeRequest.objects.filter(responder=user, status='COMPLETED').count()
+        completed_trades = completed_as_requester + completed_as_responder
+        
+        active_reports_count = Report.objects.filter(reported_user=user, status='PENDING').count()
+        
+        # Get verification status
+        verification_status = 'unverified'
+        try:
+            verification = UserVerification.objects.get(user_id=user.id)
+            if verification.email_verified and verification.id_verification_status == VerificationStatus.VERIFIED:
+                verification_status = 'verified'
+            elif verification.id_verification_status == VerificationStatus.PENDING:
+                verification_status = 'pending'
+        except UserVerification.DoesNotExist:
+            pass
+            
+        # Count ratings
+        rating_count = ReputationSystem.objects.filter(
+            Q(trade_request__requester_id=user.id) | 
+            Q(trade_request__responder_id=user.id)
+        ).count()
+        
+        users_data.append({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'full_name': f"{user.first_name} {user.last_name}".strip(),
+            'level': user.level or 1,
+            'total_xp': user.tot_XpPts or 0,
+            'rating': float(user.avgStars) if user.avgStars else 0.0,
+            'rating_count': rating_count,
+            'completed_trades': completed_trades,
+            'verification_status': verification_status,
+            'active_reports_count': active_reports_count,
+            'created_at': user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A',
+        })
+        
+    return users_data
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_users_report_pdf(request):
+    """
+    Generates a structured PDF report of the admin user list data using ReportLab 
+    (mimicking the CSV columns).
+    """
+    if not check_admin_access(request):
+        return Response(
+            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    user_data = _get_filtered_users_for_report(request)
+    
+    if not user_data:
+        return Response({'success': False, 'error': 'No users matched the criteria to generate a report.'}, 
+                        status=status.HTTP_404_NOT_FOUND)
+
+    # 1. Setup Document and Styles (LANDSCAPE ORIENTATION)
+    buffer = io.BytesIO()
+    
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter), 
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=50,
+        bottomMargin=30,
+        title=f"Expair Admin Users Report"
+    )
+    
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Custom Styles
+    title_style = styles['Heading1']
+    title_style.fontSize = 16
+    title_style.alignment = 1
+    title_style.spaceAfter = 12
+
+    cell_style = styles['Normal']
+    cell_style.fontSize = 7
+    cell_style.leading = 9 
+    
+    # Header
+    elements.append(Paragraph('EXPAIR ADMIN USERS REPORT', title_style))
+    elements.append(Paragraph(f"Generated by: {request.user.username} on {timezone.now().strftime('%B %d, %Y %I:%M %p')}", cell_style))
+    elements.append(Paragraph(f"Total Users in Report: {len(user_data)}", cell_style))
+    elements.append(Spacer(1, 12))
+    
+    # 2. Prepare Table Data
+    
+    table_data = [[
+        Paragraph('<b>ID</b>', cell_style),
+        Paragraph('<b>Username</b>', cell_style),
+        Paragraph('<b>Email</b>', cell_style),
+        Paragraph('<b>Full Name</b>', cell_style),
+        Paragraph('<b>Level</b>', cell_style),
+        Paragraph('<b>Total XP</b>', cell_style),
+        Paragraph('<b>Rating</b>', cell_style),
+        Paragraph('<b>Reviews</b>', cell_style),
+        Paragraph('<b>Verified</b>', cell_style),
+        Paragraph('<b>Active Reports</b>', cell_style),
+        Paragraph('<b>Joined Date</b>', cell_style),
+    ]]
+    
+    # Add Rows
+    for user in user_data:
+        row = [
+            Paragraph(str(user['id']), cell_style),
+            Paragraph(user['username'], cell_style),
+            Paragraph(user['email'], cell_style),
+            Paragraph(user['full_name'], cell_style),
+            Paragraph(str(user['level']), cell_style),
+            Paragraph(f"{user['total_xp']:,}", cell_style),
+            Paragraph(f"{user['rating']:.1f}", cell_style),
+            Paragraph(str(user['rating_count']), cell_style),
+            Paragraph(user['verification_status'].title(), cell_style),
+            Paragraph(str(user['active_reports_count']), cell_style),
+            Paragraph(user['created_at'], cell_style),
+        ]
+        table_data.append(row)
+        
+    # 3. Create and Style Table
+    
+    # Total usable width is approx 10.5 inches
+    table = Table(table_data, colWidths=[
+        0.5*inch,   # ID
+        1.1*inch,   # Username
+        1.7*inch,   # Email
+        1.7*inch,   # Full Name
+        0.6*inch,   # Level
+        0.7*inch,   # Total XP
+        0.6*inch,   # Rating
+        0.7*inch,   # Reviews
+        1.0*inch,   # Verified
+        1.0*inch,   # Active Reports
+        0.9*inch    # Joined Date
+    ])
+    
+    # Apply Styling
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0038FF')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (4, 0), (-1, -1), 'CENTER'), # Center numeric columns
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('TOPPADDING', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F5F5')]),
+    ]))
+    
+    elements.append(table)
+    
+    # 4. Build Document and Return Response
+    doc.build(elements)
+    
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="expair_admin_users_report.pdf"'
+    
+    return response
