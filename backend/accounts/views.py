@@ -1,7 +1,10 @@
+import csv
 import json
 import os
 from datetime import date, timezone, datetime
 from urllib import request
+import io
+import logging
 
 import requests
 import cloudinary
@@ -22,11 +25,21 @@ from django.template.loader import render_to_string
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth import get_user_model
 
-import logging
 from ai.services.classifier import categorize_tradereq
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import (
+    SimpleDocTemplate, 
+    Paragraph, 
+    Spacer, 
+    Table, 
+    TableStyle
+)
+from reportlab.lib.units import inch
 
 CustomUser = get_user_model()
 
@@ -5091,3 +5104,276 @@ def submit_appeal(request):
         import traceback
         traceback.print_exc()
         return Response({"error": f"Appeal failed due to a server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def get_user_trade_report_data(user):
+    # Fetch all COMPLETED trades where the user was a participant
+    completed_trades_query = TradeRequest.objects.filter(
+        status=TradeRequest.Status.COMPLETED,
+        requester__isnull=False,
+        responder__isnull=False
+    ).filter(
+        Q(requester=user) | Q(responder=user)
+    ).select_related('requester', 'responder').order_by('-tradereq_id')
+
+    # Prefetch related data to minimize queries
+    trade_ids = [t.tradereq_id for t in completed_trades_query]
+    reputations = ReputationSystem.objects.filter(trade_request_id__in=trade_ids)
+    histories = TradeHistory.objects.filter(trade_request_id__in=trade_ids)
+    
+    reputation_map = {r.trade_request_id: r for r in reputations}
+    history_map = {h.trade_request_id: h for h in histories}
+
+    report_data = []
+    
+    for trade in completed_trades_query:
+        is_requester = (trade.requester.id == user.id)
+        other_user = trade.responder if is_requester else trade.requester
+        rep = reputation_map.get(trade.tradereq_id)
+        history = history_map.get(trade.tradereq_id)
+
+        # Determine the user's role and the rating/review data
+        my_rating = 0
+        partner_rating = 0
+        my_review = ""
+        partner_review = ""
+        if rep:
+            if is_requester:
+                my_rating = rep.requester_starcount 
+                partner_rating = rep.responder_starcount 
+                my_review = rep.requester_rating_desc or ""
+                partner_review = rep.responder_rating_desc or ""
+            else:
+                my_rating = rep.responder_starcount 
+                partner_rating = rep.requester_starcount 
+                my_review = rep.responder_rating_desc or ""
+                partner_review = rep.requester_rating_desc or ""
+
+        # Determine trade titles (what requester needed/offered)
+        requester_needed = trade.reqname
+        requester_offered = trade.exchange
+        
+        # Determine the completion date
+        completed_at = history.completed_at if history and history.completed_at else trade.created_at
+
+        # NEW: Partner Full Name for the required format
+        partner_full_name = f"{other_user.first_name} {other_user.last_name}".strip()
+        partner_display_name = f"{partner_full_name} (@{other_user.username})" if partner_full_name else f"@{other_user.username}"
+
+
+        report_data.append({
+            "trade_id": trade.tradereq_id,
+            "role": "Requester" if is_requester else "Responder",
+            "partner_username": other_user.username,
+            "partner_display_name": partner_display_name, # NEW FIELD
+            "needed_by_requester": requester_needed,
+            "offered_by_requester": requester_offered,
+            "completed_at_str": completed_at.strftime('%Y-%m-%d %H:%M:%S') if completed_at else "N/A",
+            "my_rating": my_rating,
+            "partner_rating_of_me": partner_rating,
+            "my_review": my_review,
+            "partner_review": partner_review,
+        })
+        
+    return report_data
+
+# --- PDF VIEW ---
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def generate_trade_report_pdf(request):
+    """
+    Generates a structured PDF report of the user's completed trades 
+    and reviews using ReportLab in Landscape orientation.
+    """
+    user = request.user
+    report_data = get_user_trade_report_data(user)
+
+    # 1. Setup Document and Styles (LANDSCAPE ORIENTATION)
+    buffer = io.BytesIO()
+    
+    # Configure PDF Document (Use landscape(letter) for orientation)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        rightMargin=50, 
+        leftMargin=50,
+        topMargin=72,
+        bottomMargin=50,
+        title=f"Expair Trade Report for {user.username}"
+    )
+    
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Custom Styles 
+    title_style = styles['Heading1']
+    title_style.fontSize = 18
+    title_style.alignment = 1  # Center
+    title_style.spaceAfter = 18
+
+    heading_style = styles['Heading2']
+    heading_style.fontSize = 12
+    heading_style.spaceAfter = 6
+    
+    # Smallest font size for the main table content
+    table_cell_style = styles['Normal']
+    table_cell_style.fontSize = 7 
+    table_cell_style.leading = 9 
+    
+    review_cell_style = styles['Normal']
+    review_cell_style.fontSize = 8
+    review_cell_style.leading = 10
+    
+    # 2. Add Header and User Info
+    elements.append(Paragraph('Expair Trade History Report', title_style))
+    
+    elements.append(Paragraph(f"<b>Username:</b> @{user.username} (Level {user.level})", review_cell_style))
+    elements.append(Paragraph(f"<b>Full Name:</b> {user.first_name} {user.last_name}", review_cell_style))
+    elements.append(Paragraph(f"<b>Total Reviews:</b> {user.ratingCount} | <b>Avg. Rating:</b> {user.avgStars:.1f}/5.0", review_cell_style))
+    elements.append(Paragraph(f"<b>Report Generated:</b> {django_timezone.now().strftime('%B %d, %Y at %I:%M %p')}", review_cell_style))
+    elements.append(Spacer(1, 18))
+    
+    # 3. Prepare Main Trade Table Data 
+    
+    # Table Headers
+    table_data = [[
+        Paragraph('<b>ID</b>', table_cell_style),
+        Paragraph('<b>Your Role</b>', table_cell_style),
+        Paragraph('<b>Partner</b>', table_cell_style), # Changed from Partner Username
+        Paragraph('<b>Requester Needed</b>', table_cell_style),
+        Paragraph('<b>Requester Offered</b>', table_cell_style),
+        Paragraph('<b>Completed At</b>', table_cell_style),
+        Paragraph('<b>My Rating<br/>(Stars)</b>', table_cell_style),
+        Paragraph('<b>Partner Rating<br/>(Stars)</b>', table_cell_style)
+    ]]
+    
+    # Add Rows
+    for trade in report_data:
+        row = [
+            Paragraph(str(trade['trade_id']), table_cell_style),
+            Paragraph(trade['role'], table_cell_style),
+            Paragraph(trade['partner_display_name'], table_cell_style), # Use the new format
+            Paragraph(trade['needed_by_requester'], table_cell_style),
+            Paragraph(trade['offered_by_requester'], table_cell_style),
+            Paragraph(trade['completed_at_str'].split(" ")[0], table_cell_style), # Just date
+            Paragraph(f"{trade['my_rating']}", table_cell_style),
+            Paragraph(f"{trade['partner_rating_of_me']}", table_cell_style),
+        ]
+        table_data.append(row)
+        
+    # Create and Style Table (Adjusted widths for landscape)
+    
+    # Total width is approx 10.5 inches in landscape
+    table = Table(table_data, colWidths=[
+        0.4*inch,   # ID
+        0.8*inch,   # Your Role
+        1.8*inch,   # Partner (Full Name @username)
+        2.0*inch,   # Requester Needed
+        2.0*inch,   # Requester Offered
+        0.9*inch,   # Completed Date
+        0.7*inch,   # My Rating
+        0.9*inch    # Partner Rating
+    ])
+    
+    # Apply Styling
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#C7A3FF")), # Header
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (6, 0), (-1, -1), 'CENTER'), # Center ratings columns
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F5F5')]),
+    ]))
+    
+    elements.append(table)
+    elements.append(Spacer(1, 30))
+    
+    # 4. Detailed Reviews Table (New Section)
+    
+    elements.append(Paragraph('Detailed Reviews', heading_style))
+    elements.append(Spacer(1, 10))
+
+    review_elements = []
+    for trade in report_data:
+        # Review Table Structure: 3 rows, 1 wide column
+        review_table_data = [
+            [
+                Paragraph(f"<b>Trade ID {trade['trade_id']}</b> | Partner: {trade['partner_display_name']} | Completed: {trade['completed_at_str'].split(' ')[0]}", review_cell_style)
+            ],
+            [
+                Paragraph(f"<b>Your Review ({trade['my_rating']}/5):</b> {trade['my_review'] or 'No review provided.'}", review_cell_style)
+            ],
+            [
+                Paragraph(f"<b>Partner's Review ({trade['partner_rating_of_me']}/5):</b> {trade['partner_review'] or 'No review provided.'}", review_cell_style)
+            ]
+        ]
+        
+        # Review Table Style
+        review_table = Table(review_table_data, colWidths=[10.5*inch]) # Takes full width
+        
+        review_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), colors.HexColor("#B3A2F8")), # Header Row
+            ('BACKGROUND', (0, 1), (0, 2), colors.white), # Review Rows
+            ('BOTTOMPADDING', (0, 0), (0, 0), 6),
+            ('TOPPADDING', (0, 0), (0, 0), 6),
+            ('BOTTOMPADDING', (0, 1), (0, 2), 4),
+            ('TOPPADDING', (0, 1), (0, 2), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
+        ]))
+        
+        review_elements.append(review_table)
+        review_elements.append(Spacer(1, 10)) # Spacing between each trade's review block
+        
+    elements.extend(review_elements)
+
+
+    # 5. Build Document and Return Response
+    
+    doc.build(elements)
+    
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="expair_trade_report_{user.username}.pdf"'
+    
+    return response
+
+# --- CSV VIEW ---
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def generate_trade_report_csv(request):
+    """Generates a CSV report of the user's completed trades and reviews (Dependency-Free)."""
+    user = request.user
+    report_data = get_user_trade_report_data(user)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="expair_trade_report_{user.username}.csv"'
+
+    writer = csv.writer(response)
+    
+    # 1. Write Header
+    writer.writerow([
+        "Trade ID", "Your Role", "Partner Username", "Requester Needed", "Requester Offered", 
+        "Completed At", "My Rating (Stars)", "Partner Rating of Me (Stars)", "My Review", "Partner Review"
+    ])
+
+    # 2. Write Data Rows
+    for row in report_data:
+        writer.writerow([
+            row["trade_id"],
+            row["role"],
+            row["partner_username"],
+            row["needed_by_requester"],
+            row["offered_by_requester"],
+            row["completed_at_str"], 
+            row["my_rating"],
+            row["partner_rating_of_me"],
+            row["my_review"],
+            row["partner_review"],
+        ])
+
+    return response

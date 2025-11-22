@@ -17,8 +17,9 @@ import {
   Heart,
   Flag,
   Link as LinkIcon,
+  FileText,
+  Download,
 } from "lucide-react";
-import AnimatedLevelBar from "../../../../components/ui/animated-level-bar";
 import ProfileAvatar from "@/components/avatar";
 import VerificationModal from "../../../../components/profile/verification-modal";
 
@@ -122,6 +123,8 @@ export default function ProfilePage() {
   const [sortOption, setSortOption] = useState("Latest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
+  const [showReportDropdown, setShowReportDropdown] = useState(false);
+
   const slug = useMemo(() => {
     const raw = params?.userId;
     return Array.isArray(raw) ? raw[0] : raw || null;
@@ -148,6 +151,77 @@ export default function ProfilePage() {
     tot_xppts: 0,
     links: "",
   });
+
+  const handleGenerateReport = (format) => {
+    // 1. Determine the Correct Backend Base URL
+    // Use the RAW variable defined globally to avoid confusion with API_BASE
+    const RAW_BASE = RAW.replace(/\/+$/, ""); 
+    
+    // Determine the report endpoint based on format
+    const endpoint = format === 'pdf' ? '/user-report/pdf/' : '/user-report/csv/';
+    const reportUrl = `${RAW_BASE}${endpoint}`; // Use the non-API specific base URL
+    
+    // 2. Authentication Check
+    if (!session?.access) {
+        alert("Authentication required to download report.");
+        setShowReportDropdown(false);
+        return;
+    }
+    
+    // 3. Secure Download using Fetch/Blob (Best Practice)
+    // This method securely passes the JWT token in the header.
+    fetch(reportUrl, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${session.access}`,
+        },
+    })
+    .then(response => {
+        // Handle unauthorized or server errors
+        if (response.status === 401 || response.status === 403) {
+             throw new Error("You are not authorized to download this report. Please log in again.");
+        }
+        if (!response.ok) {
+            // Attempt to read JSON error if possible, otherwise use status text
+            return response.json().then(err => {
+                throw new Error(`Server error (${response.status}): ${err.error || response.statusText}`);
+            }).catch(() => {
+                 throw new Error(`Server error (${response.status}). Could not generate report.`);
+            });
+        }
+        
+        // Determine filename from header (Content-Disposition) if available, otherwise guess
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `expair_trade_report_${user.username}.${format}`;
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename="?(.+)"?$/i);
+            if (match && match[1]) {
+                filename = match[1];
+            }
+        }
+
+        return { blob: response.blob(), filename };
+    })
+    .then(async ({ blob: blobPromise, filename }) => {
+        const blob = await blobPromise;
+        // Create a temporary object URL and link to trigger download
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    })
+    .catch(error => {
+        console.error("Download failed:", error);
+        alert(`Failed to download report: ${error.message}`);
+    })
+    .finally(() => {
+        setShowReportDropdown(false);
+    });
+};
 
   const RAW_ORIGIN = RAW.replace(/\/api\/accounts\/?$/, "");
 
@@ -1076,72 +1150,72 @@ export default function ProfilePage() {
     }
   };
 
-async function handleSubmitVerification(submittedData) {
-  try {
-    if (!idFile) {
-      alert("Please choose a file first.");
-      return;
+  async function handleSubmitVerification(submittedData) {
+    try {
+      if (!idFile) {
+        alert("Please choose a file first.");
+        return;
+      }
+      const fd = new FormData();
+      fd.append("id_document", idFile);
+
+      if (user?.id) fd.append("user_id", String(user.id));
+
+      // ✅ Include birthdate and nationality from the modal
+      if (submittedData?.birthdate) {
+        fd.append("birthdate", submittedData.birthdate);
+      }
+      if (submittedData?.nationality) {
+        fd.append("nationality", submittedData.nationality);
+      }
+      if (submittedData?.id_type) {
+        fd.append("id_type", submittedData.id_type);
+      }
+
+      const headers = { Accept: "application/json" };
+      if (session?.access) {
+        headers.Authorization = `Bearer ${session.access}`;
+      }
+
+      const res = await fetch(`${API_BASE}/me/`, {
+        method: "PATCH",
+        credentials: "include",
+        headers, // DO NOT set Content-Type when sending FormData
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Upload failed (${res.status}): ${txt.slice(0, 120)}`);
+      }
+
+      const updated = await res.json();
+
+      console.log("[DEBUG] Verification response:", updated);
+
+      // ✅ Update local user state with all verification fields
+      setUser((prev) => ({
+        ...prev,
+        id_document: updated.id_document || prev.id_document || null,
+        is_verified: Boolean(updated.is_fully_verified),
+        verification_status: updated.id_verification_status ?? "PENDING",
+        birthdate: updated.birthdate || prev.birthdate,
+        nationality: updated.nationality || prev.nationality,
+      }));
+
+      // ✅ Immediately set status to "pending" for UI
+      setVerificationStatus("pending");
+
+      console.log("[SUCCESS] Verification status set to pending");
+
+      setShowVerificationPopup(false);
+      setIdFile(null);
+      setIdPreviewUrl(null);
+    } catch (e) {
+      console.error("[verify upload] error", e);
+      alert(e.message || "Upload failed.");
     }
-    const fd = new FormData();
-    fd.append("id_document", idFile);
-
-    if (user?.id) fd.append("user_id", String(user.id));
-    
-    // ✅ Include birthdate and nationality from the modal
-    if (submittedData?.birthdate) {
-      fd.append("birthdate", submittedData.birthdate);
-    }
-    if (submittedData?.nationality) {
-      fd.append("nationality", submittedData.nationality);
-    }
-    if (submittedData?.id_type) {
-      fd.append("id_type", submittedData.id_type);
-    }
-
-    const headers = { Accept: "application/json" };
-    if (session?.access) {
-      headers.Authorization = `Bearer ${session.access}`;
-    }
-
-    const res = await fetch(`${API_BASE}/me/`, {
-      method: "PATCH",
-      credentials: "include",
-      headers, // DO NOT set Content-Type when sending FormData
-      body: fd,
-    });
-
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(`Upload failed (${res.status}): ${txt.slice(0, 120)}`);
-    }
-
-    const updated = await res.json();
-    
-    console.log("[DEBUG] Verification response:", updated);
-
-    // ✅ Update local user state with all verification fields
-    setUser((prev) => ({
-      ...prev,
-      id_document: updated.id_document || prev.id_document || null,
-      is_verified: Boolean(updated.is_fully_verified),
-      verification_status: updated.id_verification_status ?? "PENDING",
-      birthdate: updated.birthdate || prev.birthdate,
-      nationality: updated.nationality || prev.nationality,
-    }));
-
-    // ✅ Immediately set status to "pending" for UI
-    setVerificationStatus("pending");
-    
-    console.log("[SUCCESS] Verification status set to pending");
-
-    setShowVerificationPopup(false);
-    setIdFile(null);
-    setIdPreviewUrl(null);
-  } catch (e) {
-    console.error("[verify upload] error", e);
-    alert(e.message || "Upload failed.");
   }
-}
 
   // Helper function to find differences between original and current skills
   const getSkillsDifferences = () => {
@@ -3988,6 +4062,38 @@ async function handleSubmitVerification(submittedData) {
                 {user.reviews} trades & reviews
               </span>
             </div>
+
+            {/* GENERATE REPORT BUTTON AND DROPDOWN */}
+            {user.reviews > 0 && isOwnProfile && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowReportDropdown(!showReportDropdown)}
+                  className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3 bg-[#120A2A] hover:bg-white/10 transition-colors"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Generate Report
+                  <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
+                </button>
+                {showReportDropdown && (
+                  <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
+                    <button
+                      onClick={() => handleGenerateReport('pdf')}
+                      className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      PDF Report
+                    </button>
+                    <button
+                      onClick={() => handleGenerateReport('csv')}
+                      className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                    >
+                      <Icon icon="mdi:file-excel-box-outline" className="mr-2 h-4 w-4" />
+                      CSV Data
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {reviews.length > 0 && (
               <div className="relative">
                 <button

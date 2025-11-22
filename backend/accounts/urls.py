@@ -4,7 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
-from .views import add_user_interests, user_interests, create_report
+from .views import add_user_interests, user_interests, create_report, generate_trade_report_pdf, generate_trade_report_csv
 from .admin_api import (
     admin_dashboard_stats,
     admin_recent_activity,
@@ -125,6 +125,10 @@ urlpatterns = [
     # Ticketing endpoints
     path('reports/', create_report, name='create-report'),
     path('create-support-ticket/', views.create_support_ticket, name='create_support_ticket'),
+    
+    # Trade report generation endpoints
+    path('user-report/pdf/', views.generate_trade_report_pdf, name='generate_trade_report_pdf'),
+    path('user-report/csv/', views.generate_trade_report_csv, name='generate_trade_report_csv'),
     
     # Admin endpoints
     path('api/admin/dashboard-stats/', admin_dashboard_stats, name='admin_dashboard_stats'),
