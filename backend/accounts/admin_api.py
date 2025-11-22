@@ -641,10 +641,10 @@ def admin_users_list(request):
             users = users.exclude(id__in=list(verified_or_pending_ids))
             print(f"❌ After unverified filter: {users.count()} users")
         
-        # ✅ FIX: Flagged filter - use 'status' field
+        # Flagged users filtering
         if flagged_filter:
             flagged_user_ids = Report.objects.filter(
-                status='PENDING'
+                status='Pending'
             ).values_list('reported_user_id', flat=True).distinct()
             users = users.filter(id__in=list(flagged_user_ids))
             print(f"🚩 After flagged filter: {users.count()} users")
