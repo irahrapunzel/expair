@@ -713,27 +713,7 @@ export default function UsersPage() {
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            {user.verification_status === 'pending' && (
-                              <DropdownMenuItem 
-                                onClick={() => handleVerifyUser(user.id)}
-                                className="text-green-400 hover:bg-green-500/10 cursor-pointer"
-                              >
-                                <Check className="w-4 h-4 mr-2" />
-                                Accept Verification
-                              </DropdownMenuItem>
-                            )}
-                            {user.verification_status === 'pending' && (
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setShowRejectModal(true);
-                                }}
-                                className="text-red-400 hover:bg-red-500/10 cursor-pointer"
-                              >
-                                <X className="w-4 h-4 mr-2" />
-                                Reject Verification
-                              </DropdownMenuItem>
-                            )}
+                            
                             <DropdownMenuItem className="text-red-400 hover:bg-red-500/10 cursor-pointer">
                               <X className="w-4 h-4 mr-2" />
                               Suspend Account

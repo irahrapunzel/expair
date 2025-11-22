@@ -15,7 +15,6 @@ const inter = Inter({ subsets: ["latin"] });
 
 export default function LoginPage() {
   const router = useRouter();
-  // Ensure 'session' is also retrieved to check for sanction details
   const { data: session, status } = useSession();
   const [captcha, setCaptcha] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +27,6 @@ export default function LoginPage() {
     e?.preventDefault?.();
     setErrorMessage("");
 
-    // Basic form checks
     if (!username || !password) {
       setErrorMessage("Please enter both username and password");
       return;
@@ -38,7 +36,7 @@ export default function LoginPage() {
       return;
     }
 
-    // --- EXECUTE NEXTAUTH LOGIN ---
+    // Execute NextAuth login
     const result = await signIn("credentials", {
       redirect: false,
       identifier: username,
@@ -47,64 +45,73 @@ export default function LoginPage() {
 
     console.log("NextAuth Sign-in Result:", result);
 
+    // ✅ DON'T redirect to suspension here - let the useEffect handle it
+    // The session will be updated after successful signIn
+    
     if (result?.error) {
-      let errorMsg = "Invalid login credentials."; // Default failure message
-
+      // Only handle non-suspension errors here
+      let errorMsg = "Invalid login credentials.";
+      
       try {
-        // Attempt to parse the custom JSON error (SANCTIONED/LOCKED OUT user)
         const errorData = JSON.parse(result.error);
-
-        if (errorData.sanction) {
-          const { reason, until } = errorData.sanction;
-          const originalReportId = errorData.sanction.source_report_id || 'N/A';
-
-          // CRITICAL: Immediately redirect to suspension page via URL params
-          router.push(`/suspension?reason=${encodeURIComponent(reason)}&until=${encodeURIComponent(until)}&originalReportId=${originalReportId}`);
-          return; // Stop execution after redirect
+        // If it's a sanction error, the useEffect will handle the redirect
+        if (!errorData.sanction) {
+          setErrorMessage(errorMsg);
         }
       } catch (e) {
-        // Error was not the custom JSON format
+        setErrorMessage(errorMsg);
       }
-
-      // If we reach here, the login failed for a non-sanction reason (wrong password, etc.)
-      setErrorMessage(errorMsg);
-      return;
-    }
-
-    // --- SUCCESSFUL LOGIN REDIRECT ---
-    // If NextAuth returns ok=true, redirect to the default home page
-    if (result?.ok) {
-      // The /home protected route logic (or the useEffect below) 
-      // should handle the Admin check and redirect if needed.
-      router.push("/home");
     }
   };
 
-
-  // --- CRITICAL FIX: ENSURE SUSPENDED USERS ARE BOUNCED HERE ---
+  // ✅ THIS is where suspension redirect should happen
   useEffect(() => {
-    if (status === "authenticated" && session) {
-      // 1. Check for Suspension (Existing Logic - MUST be first)
-      const sanctionStatus = session?.user?.sanction_status;
-
-      if (sanctionStatus === 'SUSPENSION' || sanctionStatus === 'BAN') {
-        // ... (Redirect to /suspension and return) ...
-        return; 
-      }
+    if (status === "authenticated" && session?.user) {
+      const user = session.user;
       
-      // --- 2. NEW CRITICAL CHECK: ADMIN REDIRECT ---
-      if (session?.user?.is_admin === true) {
-          console.log("Admin detected. Redirecting to Admin Dashboard.");
-          router.push("/admin/dashboard");
-          return; // Stop here!
-      }
-      // -------------------------------------------
+      console.log("Session user data:", user);
+      console.log("Sanction status:", user.sanction_status);
+      console.log("Sanction details:", user.sanction_details);
 
-      // 3. FINAL FALLBACK: If NOT suspended and NOT Admin, proceed to home
+      // 1. CHECK FOR SUSPENSION/BAN FIRST
+      if (user.sanction_status === 'SUSPENSION' || user.sanction_status === 'BAN') {
+        const sanctionDetails = user.sanction_details || {};
+        const reason = sanctionDetails.reason || "Violation of platform policies";
+        const until = sanctionDetails.until || null;
+        
+        // Get the report ID from sanction_details
+        const originalReportId = sanctionDetails.source_report_id || 
+                                 sanctionDetails.report_id || 
+                                 'N/A';
+
+        console.log("Redirecting to suspension page with:", {
+          reason,
+          until,
+          originalReportId
+        });
+
+        // Build the suspension URL with proper encoding
+        const params = new URLSearchParams({
+          reason: reason,
+          until: until || 'PERMANENT',
+          originalReportId: originalReportId
+        });
+
+        router.push(`/suspension?${params.toString()}`);
+        return;
+      }
+
+      // 2. CHECK FOR ADMIN
+      if (user.is_admin === true) {
+        console.log("Admin detected. Redirecting to Admin Dashboard.");
+        router.push("/admin/dashboard");
+        return;
+      }
+
+      // 3. REGULAR USER - go to home
       router.push("/home");
     }
-  }, [status, router, session]);
-
+  }, [status, session, router]);
 
   // Show loading while checking auth status
   if (status === "loading") {
@@ -126,7 +133,7 @@ export default function LoginPage() {
       >
         <div className="w-full max-w-md px-4 sm:px-6 text-white">
           {/* Header */}
-          <div className="flex flex-col items-center space-y-2 mb-[20px] ">
+          <div className="flex flex-col items-center space-y-2 mb-[20px]">
             <Image
               src="/assets/logos/Colored=Logo S.png"
               alt="Logo"
@@ -211,8 +218,6 @@ export default function LoginPage() {
           <Button
             variant="outline"
             className="cursor-pointer flex w-full sm:w-[400px] h-[50px] justify-center items-center gap-2 mt-3 text-black text-base sm:text-[20px] font-medium rounded-[15px] border border-gray-300 hover:bg-gray-100 mb-[35px] mx-auto"
-          // Note: The handleGoogleLogin function should be defined here or imported if used
-          // onClick={handleGoogleLogin} 
           >
             <img
               src="/assets/google_logo.png"
@@ -224,7 +229,7 @@ export default function LoginPage() {
 
           {/* Register Link */}
           <p className="text-center text-sm sm:text-[16px] mt-4">
-            Don’t have an account yet?{" "}
+            Don't have an account yet?{" "}
             <a href="/register" className="text-[#6DDFFF] hover:underline">
               Register now!
             </a>
@@ -233,4 +238,14 @@ export default function LoginPage() {
       </div>
     );
   }
+
+  // If authenticated but still rendering (before redirect), show loading
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center bg-cover bg-center"
+      style={{ backgroundImage: "url('/assets/bg_signin.png')" }}
+    >
+      <div className="text-white">Redirecting...</div>
+    </div>
+  );
 }

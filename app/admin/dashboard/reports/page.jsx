@@ -227,7 +227,7 @@ export default function ReportsPage() {
     const adminToken = session?.access;
     if (selectedReports.length === 0 || !adminToken || resolving) return;
 
-    if (!confirm(`Are you sure you want to dismiss ${selectedReports.length} report(s)? They will be marked 'RESOLVED'.`)) {
+    if (!confirm(`Are you sure you want to resolve ${selectedReports.length} report(s)? They will be marked 'RESOLVED'.`)) {
       return;
     }
 
@@ -260,7 +260,7 @@ export default function ReportsPage() {
         setSelectedReports([]);
         await fetchReports();
         await fetchStats();
-        alert(`Successfully dismissed ${data.updated_count} reports.`);
+        alert(`Successfully resolved ${data.updated_count} reports.`);
       }
     } catch (err) {
       console.error('Error bulk resolving reports:', err);
@@ -269,8 +269,6 @@ export default function ReportsPage() {
       setResolving(false);
     }
   };
-  // ----------------------------------------------------------------------
-
 
   // --- VIEW DETAILS & LIFECYCLE HOOKS ---
 
@@ -304,10 +302,12 @@ export default function ReportsPage() {
       );
 
       if (!response.ok) {
+        console.error("DEBUG: Detail Fetch Failed. Response:", errorText);
         throw new Error(`HTTP ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("DEBUG: SUCCESS RESPONSE RECEIVED, Attempting to set state with data:", data);
 
       if (data.success !== false && data.report) {
         setSelectedReport(data.report);
@@ -540,7 +540,7 @@ export default function ReportsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 bg-[#906EFF]/20 text-[#906EFF] border border-[#906EFF]/30 rounded-lg hover:bg-[#906EFF]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-4 h-4" />
-                {resolving ? 'Resolving...' : `Dismiss (${selectedReports.length})`}
+                {resolving ? 'Resolving...' : `Resolve (${selectedReports.length})`}
               </button>
             )}
 
@@ -967,7 +967,6 @@ export default function ReportsPage() {
                 )}
                 {/* --- END NEW ADMIN ACTION INPUT SECTION --- */}
 
-
               </div>
             </div>
 
@@ -978,11 +977,11 @@ export default function ReportsPage() {
                 <>
                   {/* Action 1: Dismiss Report (No Sanction) */}
                   <button
-                    onClick={() => handleSanctionAction(selectedReport.report_id, 'DISMISS', 'Report reviewed and dismissed as non-violative.')}
+                    onClick={() => handleSanctionAction(selectedReport.report_id, 'RESOLVE', 'Report reviewed and resolved as non-violative.')}
                     disabled={resolving}
                     className="px-4 py-2 bg-gray-500/20 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-gray-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
-                    Dismiss
+                    Resolve
                   </button>
 
                   {/* Action 2: Issue Warning */}

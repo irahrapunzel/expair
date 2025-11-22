@@ -8,6 +8,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 import traceback
+from django.shortcuts import get_object_or_404
+from .models import Report, User
+
+
 
 try:
     import pytz
@@ -370,11 +374,12 @@ def admin_recent_activity(request):
         # Recent user registrations
         recent_users = User.objects.order_by('-created_at')[:user_slice]
         for user in recent_users:
-            # ✅ Ensure created_at is timezone-aware
             created_at_aware = user.created_at
+            # ✅ Ensure created_at is timezone-aware
             if timezone.is_naive(created_at_aware):
-                created_at_aware = timezone.make_aware(created_at_aware, timezone.utc)
-            
+                # Use pytz.utc, which is the correct TimeZone object
+                created_at_aware = timezone.make_aware(created_at_aware, pytz.utc)
+                        
             # Convert to Manila time if pytz available
             if manila_tz:
                 created_at_manila = created_at_aware.astimezone(manila_tz)
@@ -399,8 +404,8 @@ def admin_recent_activity(request):
             # ✅ Ensure created_at is timezone-aware
             created_at_aware = trade.created_at
             if timezone.is_naive(created_at_aware):
-                created_at_aware = timezone.make_aware(created_at_aware, timezone.utc)
-            
+                created_at_aware = timezone.make_aware(created_at_aware, pytz.utc)     
+                       
             if manila_tz:
                 created_at_manila = created_at_aware.astimezone(manila_tz)
                 timestamp = created_at_manila.strftime('%B %d, %Y • %I:%M:%S %p (GMT+8)')
@@ -427,7 +432,7 @@ def admin_recent_activity(request):
             # ✅ Ensure created_at is timezone-aware
             created_at_aware = report.created_at
             if timezone.is_naive(created_at_aware):
-                created_at_aware = timezone.make_aware(created_at_aware, timezone.utc)
+                created_at_aware = timezone.make_aware(created_at_aware, pytz.utc)
             
             if manila_tz:
                 created_at_manila = created_at_aware.astimezone(manila_tz)
@@ -658,6 +663,9 @@ def admin_users_list(request):
         users_data = []
         for user in users_page:
             try:
+                id_document_link = None
+                id_type = None
+        
                 # Calculate completed trades
                 completed_as_requester = TradeRequest.objects.filter(
                     requester=user,
@@ -670,8 +678,7 @@ def admin_users_list(request):
                 ).count()
                 
                 completed_trades = completed_as_requester + completed_as_responder
-                
-                id_document_link = None # Initialize
+                                
                 # Get verification status
                 try:
                     verification = UserVerification.objects.get(user_id=user.id)
@@ -1055,127 +1062,117 @@ def admin_reports_list(request):
 def admin_report_detail(request, report_id):
     """
     GET /api/admin/report-detail/<report_id>/
-    Returns detailed information about a specific report.
+    Returns detailed information about a specific report for the Admin Modal.
     """
     if not check_admin_access(request):
         return Response(
-            {'success': False, 'error': 'Permission Denied: Admin access required.'}, 
+            {"error": "Permission Denied: Admin access required."},
             status=status.HTTP_403_FORBIDDEN
         )
         
     try:
-        report = Report.objects.select_related(
-            'reporter', 'reported_user', 'tradereq'
-        ).get(report_id=report_id)
+        # Fetch the report, ensuring related users are loaded
+        report = get_object_or_404(
+            Report.objects.select_related('reporter', 'reported_user', 'tradereq'),
+            report_id=report_id
+        )
         
-        # Calculate priority
-        if report.reported_user:
-            pending_count = Report.objects.filter(
-                reported_user=report.reported_user,
-                status='PENDING'
+        # Non-admin users can only view reports about themselves (Safety check)
+        if not request.user.is_superuser:
+            if report.reported_user_id != request.user.id:
+                return Response(
+                    {"error": "You can only view reports related to your account."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        sanctioned_user = report.reported_user
+        
+        # --- CALCULATE USER STATS FOR MODAL ---
+        
+        # 1. Get current pending reports against the reported user
+        reported_user_pending_count = 0
+        if sanctioned_user:
+            reported_user_pending_count = Report.objects.filter(
+                reported_user=sanctioned_user,
+                status__iexact='PENDING' # Case-insensitive pending count
             ).count()
+        
+        # 2. Get related reports (excluding the current one)
+        related_reports = []
+        if sanctioned_user:
+            related_reports_qs = Report.objects.filter(
+                reported_user=sanctioned_user
+            ).exclude(
+                report_id=report_id
+            ).order_by('-created_at')[:5]
             
-            if pending_count >= 5:
-                priority = 'Critical'
-            elif pending_count >= 3:
-                priority = 'High'
-            elif pending_count == 2:
-                priority = 'Medium'
-            else:
-                priority = 'Low'
-        else:
-            priority = 'Low'
+            related_reports = [{
+                'report_id': r.report_id,
+                'category': r.category,
+                'status': r.status,
+                'created_at': r.created_at.isoformat()
+            } for r in related_reports_qs]
+
+
+        # --- BUILD FINAL RESPONSE PAYLOAD ---
         
-        # Get all reports against this user
-        user_reports = []
-        if report.reported_user:
-            related_reports = Report.objects.filter(
-                reported_user=report.reported_user
-            ).exclude(report_id=report_id).order_by('-created_at')[:5]
+        response_data = {
+            "report_id": report.report_id,
+            "category": report.category,
+            "issue_detail": report.issue_detail,
+            "description": report.description,
+            "status": report.status,
+            "created_at": report.created_at.isoformat() if report.created_at else None,
             
-            for r in related_reports:
-                user_reports.append({
-                    'report_id': r.report_id,
-                    'category': r.category,
-                    'status': r.status,
-                    'created_at': r.created_at.isoformat()
-                })
-        
-        # Trade details if available
-        trade_data = None
-        if report.tradereq:
-            trade = report.tradereq
-            trade_data = {
-                'tradereq_id': trade.tradereq_id,
-                'reqname': trade.reqname,
-                'status': trade.status,
-                'created_at': trade.created_at.isoformat(),
-                'requester': {
-                    'user_id': trade.requester.id,
-                    'username': trade.requester.username
-                },
-                'responder': {
-                    'user_id': trade.responder.id,
-                    'username': trade.responder.username
-                } if trade.responder else None
-            }
-        
-        print("=========================================")
-        print(f"DEBUG: Report #{report_id} successful.")
-        print(f"DEBUG: Reported User Object: {report.reported_user}")
-        if report.reported_user:
-            # Check if reported_user object exists in Python
-            print(f"DEBUG: Reported User ID Check: {report.reported_user.id}")
-        else:
-            print("DEBUG: Reported User is NULL in Python object.")
-        print("=========================================")
-        
-        report_data = {
-            'report_id': report.report_id,
-            'reporter': {
-                'user_id': report.reporter.id,
-                'username': report.reporter.username,
-                'email': report.reporter.email,
-                'profile_pic': report.reporter.profilePic or '/defaultavatar.png',
-                'created_at': report.reporter.created_at.isoformat()
-            },
-            'reported_user': {
-                'user_id': report.reported_user.id,
-                'username': report.reported_user.username,
-                'email': report.reported_user.email,
-                'profile_pic': report.reported_user.profilePic or '/defaultavatar.png', 
-                'total_reports': pending_count,
-                'created_at': report.reported_user.created_at.isoformat()
-            } if report.reported_user else None,
-            'category': report.category,
-            'issue_detail': report.issue_detail,
-            'description': report.description,
-            'status': report.status,
-            'priority': priority,
-            'created_at': report.created_at.isoformat(),
-            'trade': trade_data,
-            'related_reports': user_reports
+            # Priority based on pending count
+            "priority": 'Critical' if reported_user_pending_count >= 5 else 
+                        'High' if reported_user_pending_count >= 3 else 
+                        'Medium' if reported_user_pending_count == 2 else 'Low',
+            
+            # REPORTER INFO
+            "reporter": {
+                "id": report.reporter.id,
+                "username": report.reporter.username,
+                "profile_pic": report.reporter.profilePic or '/defaultavatar.png',
+                "email": report.reporter.email,
+            } if report.reporter else None,
+            
+            # CRITICAL FIX: REPORTED USER INFO (Ensures all fields for UI are present)
+            "reported_user": {
+                "id": sanctioned_user.id,
+                "username": sanctioned_user.username,
+                "email": sanctioned_user.email,
+                "profile_pic": sanctioned_user.profilePic or '/defaultavatar.png',
+                "total_reports": reported_user_pending_count,
+            } if sanctioned_user else None,
+            
+            # TRADE INFO
+            "trade": {
+                "tradereq_id": report.tradereq.tradereq_id,
+                "reqname": report.tradereq.reqname,
+            } if report.tradereq else None,
+
+            "related_reports": related_reports,
+            
+            # SANCTION/APPEAL INFO
+            "sanction_applied": report.sanction_applied, 
+            "appeal_status": report.appeal_status,
+            "appeal_details": report.appeal_details or {},
+            
         }
         
-        return Response({
-            'success': True,
-            'report': report_data
-        }, status=status.HTTP_200_OK)
+        print(f"✅ Report detail fetched for report_id={report_id} (Success)")
         
-    except Report.DoesNotExist:
-        return Response({
-            'success': False,
-            'error': f'Report {report_id} not found'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return Response({"success": True, "report": response_data}, status=status.HTTP_200_OK)
+        
     except Exception as e:
-        print(f"❌ Error in admin_report_detail: {str(e)}")
+        print(f"❌ Critical Error in admin_report_detail: {str(e)}")
         print(traceback.format_exc())
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
+        return Response(
+            {"error": f"Failed to retrieve report details due to server error: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def admin_resolve_report(request):
@@ -1650,7 +1647,7 @@ def admin_apply_sanction(request):
                 sender=None, 
                 message=notification_message,
                 notification_type='SANCTION_ISSUED', 
-                link="/home/settings/sanctions" # Link to user's sanction viewing area
+                
             )
             
             message = f"Sanction {sanction_type} applied to user {reported_user.username} successfully."
