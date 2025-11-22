@@ -22,6 +22,8 @@ from django.contrib import admin
 
 from accounts import admin_api
 
+from accounts.report_views import generate_trade_report, get_user_trade_summary
+
 urlpatterns = [
     path('register/', views.register_user, name='register_user'),
     path('complete-registration/', views.complete_registration, name='complete_registration'),
@@ -147,4 +149,8 @@ urlpatterns = [
     path('api/admin/apply-sanction/', admin_api.admin_apply_sanction, name='admin_apply_sanction'), # NEW Core Action
     path('api/admin/appeal-review/', admin_api.admin_appeal_review, name='admin_appeal_review'),   # NEW Appeal Review
     path('api/admin/user-sanction-history/<int:user_id>/', admin_api.admin_user_sanction_history, name='admin_user_sanction_history'), # NEW History View
+
+    # Report Generation Endpoints
+    path('api/reports/trade-history/', generate_trade_report, name='generate_trade_report'),
+    path('api/reports/trade-summary/', get_user_trade_summary, name='get_user_trade_summary'),
 ]

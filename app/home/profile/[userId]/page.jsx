@@ -106,12 +106,126 @@ const API_BASE = RAW.includes("/api/accounts")
 
 const inter = Inter({ subsets: ["latin"] });
 
+const downloadReport = async (tradeIds, format, session) => {
+  try {
+    console.log('🚀 Downloading report:', { tradeIds, format });
+    console.log('📍 API URL:', process.env.NEXT_PUBLIC_API_URL);
+    console.log('🔑 Token present:', !!session?.access);
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/api/reports/trade-history/`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trade_ids: tradeIds,
+          format: format
+        })
+      }
+    );
+
+    console.log('📥 Response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Server error:', errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    // Get filename from Content-Disposition header
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = `trade_report_${Date.now()}.${format}`;
+    
+    if (contentDisposition) {
+      const matches = /filename="([^"]+)"/.exec(contentDisposition);
+      if (matches && matches[1]) {
+        filename = matches[1];
+      }
+    }
+
+    console.log('📄 Filename:', filename);
+
+    // Download file
+    const blob = await response.blob();
+    console.log('📦 Blob size:', blob.size, 'bytes');
+    
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    console.log('✅ Download successful!');
+    
+  } catch (error) {
+    console.error('❌ Download error:', error);
+    alert(`Failed to generate report: ${error.message}\n\nCheck browser console for details.`);
+  }
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   console.log("Session data:", session);
   console.log("=== ADDED DEBUG ===");
   console.log("Access token present:", !!session?.access);
+
+  // Add export handlers for individual and all trades
+  const handleExportIndividualTradeCSV = async (review) => {
+    if (!session?.access) {
+      alert('Please sign in to export reports');
+      return;
+    }
+    
+    await downloadReport([review.trade_id], 'csv', session);
+  };
+
+  const handleExportIndividualTradePDF = async (review) => {
+    if (!session?.access) {
+      alert('Please sign in to export reports');
+      return;
+    }
+    
+    await downloadReport([review.trade_id], 'pdf', session);
+  };
+
+  const handleExportAllTradesCSV = async () => {
+    if (!session?.access) {
+      alert('Please sign in to export reports');
+      return;
+    }
+    
+    const tradeIds = reviews.map(r => r.trade_id);
+    
+    if (tradeIds.length === 0) {
+      alert('No completed trades to export');
+      return;
+    }
+    
+    await downloadReport(tradeIds, 'csv', session);
+  };
+
+  const handleExportAllTradesPDF = async () => {
+    if (!session?.access) {
+      alert('Please sign in to export reports');
+      return;
+    }
+    
+    const tradeIds = reviews.map(r => r.trade_id);
+    
+    if (tradeIds.length === 0) {
+      alert('No completed trades to export');
+      return;
+    }
+    
+    await downloadReport(tradeIds, 'pdf', session);
+  };
 
   const params = useParams();
 
@@ -3988,37 +4102,61 @@ async function handleSubmitVerification(submittedData) {
                 {user.reviews} trades & reviews
               </span>
             </div>
-            {reviews.length > 0 && (
-              <div className="relative">
-                <button
-                  onClick={() => setShowSortDropdown(!showSortDropdown)}
-                  className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3"
-                >
-                  {sortOption}{" "}
-                  <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
-                </button>
-                {showSortDropdown && (
-                  <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
-                    {["Latest", "Highest Rating", "Lowest Rating"].map(
-                      (option) => (
-                        <button
-                          key={option}
-                          onClick={() => handleSortChange(option)}
-                          className={clsx(
-                            "block w-full text-left px-4 py-2 text-sm transition-colors",
-                            option === sortOption
-                              ? "text-[#906EFF] bg-white/10"
-                              : "text-white hover:bg-white/10"
-                          )}
-                        >
-                          {option}
-                        </button>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            
+            <div className="flex items-center gap-4">
+              {/* Export All Buttons - Only show for own profile with reviews */}
+              {isOwnProfile && reviews.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExportAllTradesPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#906EFF] hover:bg-[#7C5CE0] text-white rounded-lg transition-colors text-sm"
+                  >
+                    <Icon icon="mdi:file-pdf-box" className="w-4 h-4" />
+                    Export All (PDF)
+                  </button>
+                  <button
+                    onClick={handleExportAllTradesCSV}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#284CCC] hover:bg-[#1E3A99] text-white rounded-lg transition-colors text-sm"
+                  >
+                    <Icon icon="mdi:file-delimited" className="w-4 h-4" />
+                    Export All (CSV)
+                  </button>
+                </div>
+              )}
+              
+              {/* Existing Sort Dropdown */}
+              {reviews.length > 0 && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSortDropdown(!showSortDropdown)}
+                    className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3"
+                  >
+                    {sortOption}{" "}
+                    <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
+                  </button>
+                  {showSortDropdown && (
+                    <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
+                      {["Latest", "Highest Rating", "Lowest Rating"].map(
+                        (option) => (
+                          <button
+                            key={option}
+                            onClick={() => handleSortChange(option)}
+                            className={clsx(
+                              "block w-full text-left px-4 py-2 text-sm transition-colors",
+                              option === sortOption
+                                ? "text-[#906EFF] bg-white/10"
+                                : "text-white hover:bg-white/10"
+                            )}
+                          >
+                            {option}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Loading state */}
