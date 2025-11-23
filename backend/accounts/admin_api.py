@@ -1632,16 +1632,33 @@ def admin_apply_sanction(request):
             
             if sanction_order.index(sanction_type) >= sanction_order.index(current_level):
                 # Update User Status and Details
+                admin_username = admin_user.username if admin_user else 'System'
+                
+                # ✅ FIX: Calculate proper timestamp for 'until' field
+                until_timestamp = None
+                if sanction_type == SanctionType.SUSPENSION.value and sanction_until:
+                    until_timestamp = sanction_until.isoformat()
+                elif sanction_type == SanctionType.BAN.value:
+                    until_timestamp = 'PERMANENT'
+                
+                # ✅ CRITICAL FIX: Store complete sanction details
                 reported_user.sanction_status = sanction_type
                 reported_user.sanction_details = {
                     'level': sanction_type,
+                    'status': sanction_type,  # ✅ Add for backward compatibility
                     'reason': reason_note,
-                    'issued_by_admin': admin_user.username if admin_user else 'System',
+                    'until': until_timestamp,
+                    'source_report_id': report_id,  # ✅ CRITICAL: Store the report ID
+                    'report_id': report_id,  # ✅ Add alias for backward compatibility
+                    'issued_by_admin': admin_username,
                     'issued_at': timezone.now().isoformat(),
-                    'source_report_id': report_id,
-                    'until': sanction_until.isoformat() if sanction_until else None,
+                    'applied_at': timezone.now().isoformat(),  # ✅ Add alias
+                    'applied_by_admin': admin_username  # ✅ Add alias
                 }
                 reported_user.save()
+                
+                print(f"✅ Sanction applied: {sanction_type} to user {reported_user.username}")
+                print(f"📋 Sanction details: {reported_user.sanction_details}")
             
             # 4. Update Report Status (Resolved)
             report.status = 'RESOLVED'
