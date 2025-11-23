@@ -8,6 +8,7 @@ import { Button } from "../components/ui/button";
 import { Inter, Archivo } from "next/font/google";
 import FaqSection from "./(landing)/faqs";
 import Link from "next/link";
+import BrowseSection from "../components/trade-cards/browse-section";
 
 const inter = Inter({ subsets: ["latin"] });
 const archivo = Archivo({ subsets: ["latin"] });
@@ -253,6 +254,8 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
+
+        <BrowseSection />
 
         {/* FAQ Section */}
         <div id="FAQs" className="scroll-mt-[60px]">
