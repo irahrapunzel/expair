@@ -20,12 +20,8 @@ export default function AccountManagementPage() {
           </p>
           <ul className="space-y-2 pl-4">
             <li>
-              <strong>Q:</strong> I need to update my email—how?<br />
+              <strong>Q:</strong> I need to update my account details, how?<br />
               <strong>A:</strong> Go to Edit Profile in Account Settings.
-            </li>
-            <li>
-              <strong>Q:</strong> Do I have to verify the new email?<br />
-              <strong>A:</strong> Yes, for security reasons.
             </li>
           </ul>
         </div>
@@ -70,16 +66,16 @@ export default function AccountManagementPage() {
         <div>
           <h2 className="text-xl font-semibold mb-2">Notification Preferences</h2>
           <p className="mb-4">
-            Control your email and app notifications from <strong>Settings &gt; Notifications</strong>. You can choose which types of alerts you receive and how frequently.
+            View your app notifications from <strong>Notifications</strong>. You can view important trade transactions and notices here.
           </p>
           <ul className="space-y-2 pl-4">
             <li>
-              <strong>Q:</strong> How can I stop getting too many emails?<br />
-              <strong>A:</strong> Adjust your email frequency under Notification Settings.
+              <strong>Q:</strong> Where do I find out if someone accepted my trade?<br />
+              <strong>A:</strong> Check the notifications button on the menu bar above.
             </li>
             <li>
-              <strong>Q:</strong> Can I mute all alerts?<br />
-              <strong>A:</strong> Yes, but we recommend keeping important alerts enabled.
+              <strong>Q:</strong> Where do I find out if my trade partner has finished their end of the trade?<br />
+              <strong>A:</strong> Check the notifications button on the menu bar above.
             </li>
           </ul>
         </div>

@@ -75,7 +75,7 @@ export default function HelpSupportPage() {
           <ul className="space-y-2 pl-4">
             <li>
               <strong>Q:</strong> How can I check if Expair is down?<br />
-              <strong>A:</strong> Visit our System Status page for real-time updates.
+              <strong>A:</strong> Visit our social media pages for real-time updates on server maintenance.
             </li>
             <li>
               <strong>Q:</strong> I keep getting disconnected. Why?<br />

@@ -39,29 +39,11 @@ export default function ReportingSafetyPage() {
           <ul className="space-y-2 pl-4">
             <li>
               <strong>Q:</strong> Will I be notified after reporting someone?<br />
-              <strong>A:</strong> We’ll notify you via email and in-app if action has been taken.
+              <strong>A:</strong> We’ll notify you in-app if action has been taken. Synonymously, we'll also notify you if someone's report against you is validated.
             </li>
             <li>
               <strong>Q:</strong> Are reports anonymous?<br />
               <strong>A:</strong> Yes, your identity remains confidential.
-            </li>
-          </ul>
-        </div>
-
-        {/* Section: Blocking or Muting Users */}
-        <div>
-          <h2 className="text-xl font-semibold mb-2">Blocking or Muting Users</h2>
-          <p className="mb-4">
-            Expair offers the ability to block or mute users directly from their profile page. Blocking prevents contact altogether, while muting removes their content from your feed without alerting them.
-          </p>
-          <ul className="space-y-2 pl-4">
-            <li>
-              <strong>Q:</strong> Can a blocked user see my profile?<br />
-              <strong>A:</strong> No, blocked users cannot contact or view your updates.
-            </li>
-            <li>
-              <strong>Q:</strong> What happens when I mute someone?<br />
-              <strong>A:</strong> Their messages will no longer appear in your feed.
             </li>
           </ul>
         </div>

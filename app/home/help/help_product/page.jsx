@@ -25,25 +25,7 @@ export default function ProductInfoUsagePage() {
             </li>
             <li>
               <strong>Q:</strong> Can I opt out of matching?<br />
-              <strong>A:</strong> You may disable auto-match from your preferences.
-            </li>
-          </ul>
-        </div>
-
-        {/* Section: Using New Features */}
-        <div>
-          <h2 className="text-xl font-semibold mb-2">Using New Features</h2>
-          <p className="mb-4">
-            When new features are launched on Expair, a walkthrough or video tutorial is typically made available in our Notion page. You can also find detailed documentation in the “Features” section under “Product Updates.”
-          </p>
-          <ul className="space-y-2 pl-4">
-            <li>
-              <strong>Q:</strong> Where do I learn about new tools?<br />
-              <strong>A:</strong> Visit the “Features” section on our Notion one-pager.
-            </li>
-            <li>
-              <strong>Q:</strong> Are there tutorials for new updates?<br />
-              <strong>A:</strong> Yes, video tutorials are uploaded for major updates.
+              <strong>A:</strong> If the trade has not been locked in yet, then yes.
             </li>
           </ul>
         </div>
@@ -52,7 +34,7 @@ export default function ProductInfoUsagePage() {
         <div>
           <h2 className="text-xl font-semibold mb-2">System Requirements</h2>
           <p className="mb-4">
-            For the best experience, Expair runs on Windows 10 or later, macOS 10.15+, and at least 4GB RAM. For mobile, iOS 13+ and Android 8+ are supported.
+            For the best experience, Expair is recommended to run on desktop devices on Windows 10 or later, macOS 10.15+, and at least 4GB RAM. For mobile, iOS 13+ and Android 8+ are supported.
           </p>
           <ul className="space-y-2 pl-4">
             <li>
@@ -70,12 +52,12 @@ export default function ProductInfoUsagePage() {
         <div>
           <h2 className="text-xl font-semibold mb-2">Profile Customization</h2>
           <p className="mb-4">
-            You can customize your workspace layout and preferences. Change themes, adjust notification settings, and set your personal skill tags under Settings &gt; Preferences.
+            You can customize your profile's personal details, skills, interests, credentials and such to increase your credibility.
           </p>
           <ul className="space-y-2 pl-4">
             <li>
-              <strong>Q:</strong> Can I change how my workspace looks?<br />
-              <strong>A:</strong> Yes, head to the Setting tab under Preferences.
+              <strong>Q:</strong> Can I upload certifications or licenses for my skills?<br />
+              <strong>A:</strong> Yes, head to the Licenses & Certifications section to post your credentials.
             </li>
             <li>
               <strong>Q:</strong> Where can I update my skills list?<br />
@@ -97,7 +79,7 @@ export default function ProductInfoUsagePage() {
             </li>
             <li>
               <strong>Q:</strong> Are mobile features limited?<br />
-              <strong>A:</strong> Some advanced tools are desktop-exclusive.
+              <strong>A:</strong> Some advanced tools may be desktop-exclusive.
             </li>
           </ul>
         </div>
