@@ -4,26 +4,37 @@ import { Icon } from "@iconify/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function ActiveTradeHome({ 
-  name, 
-  profilePic, 
+export default function ActiveTradeHome({
+  name,
+  profilePic,
+  userId, // 👈 Required for reporting
   username,
-  offering, 
-  totalXp, 
+  offering,
+  totalXp,
   deadline,
+  tradereqId, // 👈 Required for reporting
+  onReportOpen, // 👈 NEW PROP from page.jsx
   isVerified = false,
 }) {
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
+
 
   const handleImageError = () => {
     setImageError(true);
   };
 
   const handleCardClick = () => {
-    router.push('/home/trades/active');
+    // Redirect to the active trades page/detail page
+    router.push('/home/trades/active'); 
   };
 
+  // 🆕 Handler calls the parent's function to open the modal globally
+  const handleReportClick = (e) => {
+    e.stopPropagation(); // Prevent card click (handleCardClick)
+    onReportOpen(userId, tradereqId); // Pass IDs up to the global state
+  };
+  
   return (
     <div
       className="flex flex-col w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[20px] relative cursor-pointer transition-all duration-300 hover:scale-[1.01]"
@@ -37,16 +48,16 @@ export default function ActiveTradeHome({
         <div className="flex items-center gap-[10px]">
           {/* Clickable Profile Picture */}
           {username ? (
-            <Link 
-              href={`/home/profile/${username}`} 
+            <Link
+              href={`/home/profile/${username}`}
               className="flex-shrink-0"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="relative w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#0038FF] transition-all">
                 <Image
                   src={
-                    !imageError && profilePic 
-                      ? profilePic 
+                    !imageError && profilePic
+                      ? profilePic
                       : "/assets/defaultavatar.png"
                   }
                   alt={`${name}'s avatar`}
@@ -60,8 +71,8 @@ export default function ActiveTradeHome({
           ) : (
             <Image
               src={
-                !imageError && profilePic 
-                  ? profilePic 
+                !imageError && profilePic
+                  ? profilePic
                   : "/assets/defaultavatar.png"
               }
               alt="Avatar"
@@ -71,13 +82,13 @@ export default function ActiveTradeHome({
               onError={handleImageError}
             />
           )}
-          
+
           <div className="flex items-center gap-[8px]">
             {/* Clickable Name */}
             <div className="flex items-center gap-2">
               {username ? (
-                <Link 
-                  href={`/home/profile/${username}`} 
+                <Link
+                  href={`/home/profile/${username}`}
                   className="hover:text-[#0038FF] transition-colors"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -106,18 +117,15 @@ export default function ActiveTradeHome({
             </div>
           </div>
         </div>
-        <Link 
-          href="/home/help"
-          onClick={(e) => e.stopPropagation()}
+        <button
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors"
+          onClick={handleReportClick}
         >
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
-            <Icon
-              icon="mdi:alert-circle-outline"
-              className="text-white text-base"
-            />
-            Report
-          </button>
-        </Link>
+          <Icon
+            icon="mdi:alert-circle-outline"
+            className="text-white text-base"
+          />
+        </button>
       </div>
 
       {/* Content */}
