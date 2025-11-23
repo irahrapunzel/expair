@@ -83,11 +83,11 @@ def check_sanction_lockout(user):
                 sanction_until = None
                 
             # Make sure Django's current time is timezone-aware for comparison
-            now_aware = django_timezone.now()
+            now_aware = timezone.now()
 
             # Ensure sanction_until is also timezone-aware for comparison
             if sanction_until and sanction_until.tzinfo is None:
-                 sanction_until = django_timezone.make_aware(sanction_until, django_timezone.get_current_timezone())
+                 sanction_until = timezone.make_aware(sanction_until, timezone.get_current_timezone())
             
             if sanction_until and now_aware < sanction_until:
                 # Still suspended
@@ -864,26 +864,54 @@ def user_credentials(request, user_id: int):
     """
     if request.method == 'GET':
         credentials = UserCredential.objects.filter(user_id=user_id).select_related(
-            'genskills_id', 'specskills_id'
+            'user'
         ).order_by('-created_at')
         
         serializer = UserCredentialSerializer(credentials, many=True)
         return Response({"credentials": serializer.data}, status=200)
 
-    elif request.method == 'POST':
-        # Add new credential
-        data = request.data.copy()
-        if 'user' not in data:
-            data['user'] = user_id  # Ensure user ID is set
+    if request.method == 'POST':
+        # Add new credential - using manual data mapping
+        data = request.data
         
-        serializer = UserCredentialSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(user_id=user_id)
+        # Extract fields
+        credential_title = data.get('credential_title')
+        issuer = data.get('issuer')
+        issue_date = data.get('issue_date')
+        expiry_date = data.get('expiry_date')
+        cred_id = data.get('cred_id')
+        cred_url = data.get('cred_url')
         
-        return Response(serializer.data, status=201)
+        # Get skill/category names directly
+        general_category_name = data.get('general_category_name') # New field
+        specific_skill_names = data.get('specific_skill_names', []) # New field (expected as list)
+        
+        if not credential_title or not issuer or not issue_date:
+            return Response({"error": "Title, issuer, and issue date are required."}, status=400)
+
+        try:
+            with transaction.atomic():
+                credential = UserCredential.objects.create(
+                    user_id=user_id,
+                    credential_title=credential_title,
+                    issuer=issuer,
+                    issue_date=issue_date,
+                    expiry_date=expiry_date,
+                    cred_id=cred_id,
+                    cred_url=cred_url,
+                    general_category_name=general_category_name,
+                    specific_skill_names=specific_skill_names,
+                )
+            
+            # Use the serializer just for consistent output formatting
+            serializer = UserCredentialSerializer(credential)
+            return Response(serializer.data, status=201)
+        except Exception as e:
+            return Response({"error": f"Failed to create credential: {str(e)}"}, status=500)
+
 
     elif request.method == 'PUT':
-        # Update existing credential
+        # Update existing credential - manual mapping
         credential_id = request.data.get('usercred_id')
         if not credential_id:
             return Response({"error": "usercred_id is required for updates"}, status=400)
@@ -896,15 +924,31 @@ def user_credentials(request, user_id: int):
         except UserCredential.DoesNotExist:
             return Response({"error": "Credential not found"}, status=404)
         
-        # Don't allow changing the user
-        data = request.data.copy()
-        data.pop('user', None)
+        data = request.data
         
-        serializer = UserCredentialSerializer(credential, data=data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        # Update fields only if they exist in the request
+        fields_to_update = {
+            'credential_title': data.get('credential_title'),
+            'issuer': data.get('issuer'),
+            'issue_date': data.get('issue_date'),
+            'expiry_date': data.get('expiry_date'),
+            'cred_id': data.get('cred_id'),
+            'cred_url': data.get('cred_url'),
+            'general_category_name': data.get('general_category_name'),
+            'specific_skill_names': data.get('specific_skill_names'),
+        }
         
-        return Response(serializer.data, status=200)
+        # Apply updates
+        for key, value in fields_to_update.items():
+            if value is not None:
+                setattr(credential, key, value)
+
+        try:
+            credential.save()
+            serializer = UserCredentialSerializer(credential)
+            return Response(serializer.data, status=200)
+        except Exception as e:
+            return Response({"error": f"Failed to update credential: {str(e)}"}, status=500)
 
     elif request.method == 'DELETE':
         # Delete credential
@@ -1473,7 +1517,7 @@ def complete_registration(request):
                 verification.id_document = upload_result['secure_url']
                 verification.id_type = id_type
                 verification.id_verification_status = VerificationStatus.PENDING
-                verification.id_submitted_at = django_timezone.now()
+                verification.id_submitted_at = timezone.now()
                 verification.save()
                 
                 print(f"[SUCCESS] Verification ID uploaded to Cloudinary: {upload_result['secure_url']}")
@@ -2782,13 +2826,13 @@ def confirm_trade_evaluation(request, tradereq_id):
                 if evaluation.requester_evaluation_status is not None:
                     return Response({"error": "You have already responded to this evaluation"}, status=400)
                 evaluation.requester_evaluation_status = Evaluation.EvaluationStatus.CONFIRMED
-                evaluation.requester_responded_at = django_timezone.now()
+                evaluation.requester_responded_at = timezone.now()
                 print(f"Set requester status to CONFIRMED")
             else:  # responder
                 if evaluation.responder_evaluation_status is not None:
                     return Response({"error": "You have already responded to this evaluation"}, status=400)
                 evaluation.responder_evaluation_status = Evaluation.EvaluationStatus.CONFIRMED
-                evaluation.responder_responded_at = django_timezone.now()
+                evaluation.responder_responded_at = timezone.now()
                 print(f"Set responder status to CONFIRMED")
             
             evaluation.save()
@@ -2893,12 +2937,12 @@ def reject_trade_evaluation(request, tradereq_id):
                 if evaluation.requester_evaluation_status is not None:
                     return Response({"error": "You have already responded to this evaluation"}, status=400)
                 evaluation.requester_evaluation_status = Evaluation.EvaluationStatus.REJECTED
-                evaluation.requester_responded_at = django_timezone.now()   
+                evaluation.requester_responded_at = timezone.now()   
             else:  # responder
                 if evaluation.responder_evaluation_status is not None:
                     return Response({"error": "You have already responded to this evaluation"}, status=400)
                 evaluation.responder_evaluation_status = Evaluation.EvaluationStatus.REJECTED
-                evaluation.responder_responded_at = django_timezone.now()
+                evaluation.responder_responded_at = timezone.now()
             
             evaluation.save()
             print(f"Evaluation rejection saved")
@@ -3462,7 +3506,7 @@ def upload_trade_proof(request):
                 "url": upload_result["secure_url"],
                 "filename": f.name,
                 "file_type": f.content_type,
-                "uploaded_at": django_timezone.now().isoformat()
+                "uploaded_at": timezone.now().isoformat()
             })
             print(f"✅ Uploaded file: {f.name} -> {upload_result['secure_url']}")
         except Exception as e:
@@ -3480,7 +3524,7 @@ def upload_trade_proof(request):
             "type": "link",
             "url": link,
             "filename": link,  # Use URL for consistency
-            "added_at": django_timezone.now().isoformat()
+            "added_at": timezone.now().isoformat()
         })
         print(f"✅ Added link: {link}")
 
@@ -3949,7 +3993,7 @@ def submit_trade_rating(request):
             # Save rating and description with timestamp
             # The rating YOU give goes to YOUR PARTNER
             # Your review description is stored under YOUR field (describing your experience)
-            current_time = django_timezone.now()
+            current_time = timezone.now()
             if current_user_is_requester:
                 # Requester's rating goes to responder
                 reputation_record.requester_starcount = rating  # This will update responder's avgStars
@@ -3999,7 +4043,7 @@ def submit_trade_rating(request):
                 
                 # Set completion timestamp in trade history
                 if not trade_history.completed_at:
-                    trade_history.completed_at = django_timezone.now()
+                    trade_history.completed_at = timezone.now()
                     trade_history.save()
                 
                 print(f"Trade {trade_request_id} marked as COMPLETED - both users have rated")
@@ -4222,7 +4266,7 @@ def user_verification(request, user_id: int):
                 )
                 
                 verification.id_document = upload_result['secure_url']
-                verification.id_submitted_at = django_timezone.now()
+                verification.id_submitted_at = timezone.now()
                 verification.id_verification_status = VerificationStatus.PENDING
                 
                 print(f"[SUCCESS] Verification document uploaded: {upload_result['secure_url']}")
@@ -4361,7 +4405,7 @@ def create_report(request):
             issue_detail=issue_detail,
             description=description,
             status="Pending",
-            created_at=django_timezone.now()
+            created_at=timezone.now()
         )
         
         print(Report.objects.last().__dict__)
@@ -4410,7 +4454,7 @@ def create_support_ticket(request):
         ticket_title=ticket_title,
         ticket_desc=ticket_desc,
         ticket_pic=ticket_pic,
-        ticket_datesubmitted=django_timezone.now()
+        ticket_datesubmitted=timezone.now()
     )
 
     # send emails (wrap in try/except so ticket creation won't fail on email error)
@@ -4750,7 +4794,7 @@ def send_verification_otp(request):
         otp_code = generate_otp()
         verification, _ = UserVerification.objects.get_or_create(user=user)
         verification.email_verification_otp = otp_code
-        verification.email_otp_created_at = django_timezone.now()
+        verification.email_otp_created_at = timezone.now()
         verification.email_verified = False
         verification.save()
         
@@ -4792,7 +4836,7 @@ def verify_otp(request):
         if not verification.email_otp_created_at:
             return Response({"error": "OTP session expired. Please request a new one."}, status=400)
             
-        time_diff = (django_timezone.now() - verification.email_otp_created_at).total_seconds()
+        time_diff = (timezone.now() - verification.email_otp_created_at).total_seconds()
         if time_diff > 300:
             return Response({"error": "OTP expired. Please request a new one."}, status=400)
         
@@ -4802,7 +4846,7 @@ def verify_otp(request):
         
         # ✅ Mark email as verified
         verification.email_verified = True
-        verification.email_verified_at = django_timezone.now()
+        verification.email_verified_at = timezone.now()
         verification.email_verification_otp = None  # Clear OTP for security
         verification.email_otp_created_at = None
         verification.save()
@@ -4840,7 +4884,7 @@ def resend_otp(request):
         
         # Check cooldown (5 minutes)
         if verification.email_otp_created_at:
-            time_diff = (django_timezone.now() - verification.email_otp_created_at).total_seconds()
+            time_diff = (timezone.now() - verification.email_otp_created_at).total_seconds()
             if time_diff < 300:
                 remaining = int(300 - time_diff)
                 return Response({
@@ -4850,7 +4894,7 @@ def resend_otp(request):
         # Generate new OTP
         otp_code = generate_otp()
         verification.email_verification_otp = otp_code
-        verification.email_otp_created_at = django_timezone.now()
+        verification.email_otp_created_at = timezone.now()
         verification.save()
         
         # Send email with HTML template

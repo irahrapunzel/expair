@@ -320,9 +320,10 @@ class UserSkillBulkSerializer(serializers.Serializer):
         return data
     
 class UserCredentialSerializer(serializers.ModelSerializer):
-    genskills_name = serializers.CharField(source='genskills_id.genCateg', read_only=True)
-    specskills_name = serializers.CharField(source='specskills_id.specName', read_only=True)
-
+    general_category_name = serializers.CharField(required=False, allow_null=True)
+    specific_skill_names = serializers.JSONField(required=False, allow_null=True)
+    
+    # Update get_skills to use the new JSON field
     skills = serializers.SerializerMethodField()
 
     class Meta:
@@ -336,24 +337,20 @@ class UserCredentialSerializer(serializers.ModelSerializer):
             'expiry_date',
             'cred_id',
             'cred_url',
-            'genskills_id',
-            'specskills_id',
-            'genskills_name',
-            'specskills_name',
+            'general_category_name', 
+            'specific_skill_names',
             'skills',
             'created_at',
         ]
         read_only_fields = ['user_id']
+        
+    def get_skills(self, obj):
+        """Return skills as an array for frontend compatibility, using the new JSON field"""
+        # The frontend expects 'skills' as a simple list of names
+        return obj.specific_skill_names or []
 
     def get_specskills_names(self, obj):
         return [s.specName for s in obj.specskills.all()]
-
-    def get_skills(self, obj):
-        """Return skills as an array for frontend compatibility"""
-        skills = []
-        if obj.specskills_id and obj.specskills_id.specName:
-            skills.append(obj.specskills_id.specName)
-        return skills
 
     def validate_issue_date(self, value):
         """Ensure issue date is not in the future"""

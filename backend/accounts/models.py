@@ -335,15 +335,18 @@ class UserCredential(models.Model):
     expiry_date = models.DateField(null=True, blank=True, db_column='expiry_date')
     cred_id = models.CharField(max_length=100, null=True, blank=True, db_column='cred_id')
     cred_url = models.TextField(null=True, blank=True, db_column='cred_url')
-    genskills_id = models.ForeignKey('GenSkill', db_column='genskills_id',
-                                     on_delete=models.RESTRICT, null=True, blank=True)
-    # keep only ONE specific skill
-    specskills_id = models.ForeignKey(
-        'SpecSkill', 
-        on_delete=models.SET_NULL, 
+    general_category_name = models.CharField(
+        max_length=100, 
         null=True, 
         blank=True, 
-        db_column='specskills_id'
+        db_column='general_category_name'
+    )
+    
+    specific_skill_names = models.JSONField(
+        default=list, 
+        null=True, 
+        blank=True, 
+        db_column='specific_skill_names'
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

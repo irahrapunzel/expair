@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import ProfileAvatar from "@/components/avatar";
 import VerificationModal from "../../../../components/profile/verification-modal";
+import DeleteCredentialDialog from "@/components/trade-cards/delete-credential-dialog";
 
 // ===== XP / Level  based on CUMULATIVE THRESHOLDS =====
 const LVL_CAPS = [
@@ -123,6 +124,9 @@ export default function ProfilePage() {
   const [sortOption, setSortOption] = useState("Latest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
+  const [showDeleteCredModal, setShowDeleteCredModal] = useState(false);
+  const [credentialToDelete, setCredentialToDelete] = useState(null); // The credential object
+
   const [showReportDropdown, setShowReportDropdown] = useState(false);
 
   const slug = useMemo(() => {
@@ -155,54 +159,54 @@ export default function ProfilePage() {
   const handleGenerateReport = (format) => {
     // 1. Determine the Correct Backend Base URL
     // Use the RAW variable defined globally to avoid confusion with API_BASE
-    const RAW_BASE = RAW.replace(/\/+$/, ""); 
-    
+    const RAW_BASE = RAW.replace(/\/+$/, "");
+
     // Determine the report endpoint based on format
     const endpoint = format === 'pdf' ? '/user-report/pdf/' : '/user-report/csv/';
     const reportUrl = `${RAW_BASE}${endpoint}`; // Use the non-API specific base URL
-    
+
     // 2. Authentication Check
     if (!session?.access) {
-        alert("Authentication required to download report.");
-        setShowReportDropdown(false);
-        return;
+      alert("Authentication required to download report.");
+      setShowReportDropdown(false);
+      return;
     }
-    
+
     // 3. Secure Download using Fetch/Blob (Best Practice)
     // This method securely passes the JWT token in the header.
     fetch(reportUrl, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${session.access}`,
-        },
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${session.access}`,
+      },
     })
-    .then(response => {
+      .then(response => {
         // Handle unauthorized or server errors
         if (response.status === 401 || response.status === 403) {
-             throw new Error("You are not authorized to download this report. Please log in again.");
+          throw new Error("You are not authorized to download this report. Please log in again.");
         }
         if (!response.ok) {
-            // Attempt to read JSON error if possible, otherwise use status text
-            return response.json().then(err => {
-                throw new Error(`Server error (${response.status}): ${err.error || response.statusText}`);
-            }).catch(() => {
-                 throw new Error(`Server error (${response.status}). Could not generate report.`);
-            });
+          // Attempt to read JSON error if possible, otherwise use status text
+          return response.json().then(err => {
+            throw new Error(`Server error (${response.status}): ${err.error || response.statusText}`);
+          }).catch(() => {
+            throw new Error(`Server error (${response.status}). Could not generate report.`);
+          });
         }
-        
+
         // Determine filename from header (Content-Disposition) if available, otherwise guess
         const contentDisposition = response.headers.get('Content-Disposition');
         let filename = `expair_trade_report_${user.username}.${format}`;
         if (contentDisposition) {
-            const match = contentDisposition.match(/filename="?(.+)"?$/i);
-            if (match && match[1]) {
-                filename = match[1];
-            }
+          const match = contentDisposition.match(/filename="?(.+)"?$/i);
+          if (match && match[1]) {
+            filename = match[1];
+          }
         }
 
         return { blob: response.blob(), filename };
-    })
-    .then(async ({ blob: blobPromise, filename }) => {
+      })
+      .then(async ({ blob: blobPromise, filename }) => {
         const blob = await blobPromise;
         // Create a temporary object URL and link to trigger download
         const url = window.URL.createObjectURL(blob);
@@ -213,15 +217,15 @@ export default function ProfilePage() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
-    })
-    .catch(error => {
+      })
+      .catch(error => {
         console.error("Download failed:", error);
         alert(`Failed to download report: ${error.message}`);
-    })
-    .finally(() => {
+      })
+      .finally(() => {
         setShowReportDropdown(false);
-    });
-};
+      });
+  };
 
   const RAW_ORIGIN = RAW.replace(/\/api\/accounts\/?$/, "");
 
@@ -1879,7 +1883,12 @@ export default function ProfilePage() {
     );
   };
 
-  const EditCredentialsPage = ({ credentialsToEdit, onCancel, onSave }) => {
+  const EditCredentialsPage = ({
+    credentialsToEdit,
+    onCancel,
+    onSave,
+    setShowDeleteCredModal,
+    setCredentialToDelete }) => {
     // Main Categories and Subcategories data
     const mainCategories = [
       "Creative & Design",
@@ -2029,8 +2038,8 @@ export default function ProfilePage() {
           expiryDate: cred.expiry_date || "",
           id: cred.cred_id || "",
           url: cred.cred_url || "",
-          skills: cred.skills || [],
-          skillCategory: "",
+          skills: cred.specific_skill_names || cred.skills || [],
+          skillCategory: cred.general_category_name || "",
           usercred_id: cred.usercred_id, // Keep the backend ID for updates
         }))
         : [defaultCredential]
@@ -2078,6 +2087,34 @@ export default function ProfilePage() {
       setFormData([...formData, defaultCredential]);
     };
 
+    const handleSave = () => {
+      // 1. Validation Logic
+      const errors = validateCredentials(formData);
+
+      if (errors.length > 0) {
+        alert("Validation Errors:\n" + errors.join("\n"));
+        // You might want to update a local error state here for better UX
+        return;
+      }
+
+      // 2. Call the prop function from the parent
+      onSave(formData);
+    };
+
+
+
+    const deleteCredential = (index, credential) => {
+      // If credential has an ID, confirm API delete, otherwise, just remove it from the form immediately
+      if (credential.usercred_id) {
+        setCredentialToDelete({ ...credential, index }); // Store index for local removal later
+        setShowDeleteCredModal(true); // Open the modal
+      } else {
+        // Just remove from local state if it's a newly added item without a DB ID
+        const newFormData = formData.filter((_, i) => i !== index);
+        setFormData(newFormData);
+      }
+    };
+
     return (
       <div className="flex flex-col gap-[25px]">
         <h4 className="text-[22px] font-semibold">
@@ -2088,9 +2125,19 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-8">
           {formData.map((cred, index) => (
             <div
-              key={index}
-              className="flex flex-col gap-5 p-6 border border-white/20 rounded-[15px]"
+              key={cred.usercred_id || `new-${index}`} // Use a key that handles new and existing items
+              className="flex flex-col gap-5 p-6 border border-white/20 rounded-[15px] relative" // Add relative
             >
+              {formData.length > 0 && (
+                <button
+                  onClick={() => deleteCredential(index, cred)} // Pass index and credential object
+                  className="absolute top-4 right-4 text-red-500 hover:text-red-700 transition-colors p-1 rounded-full bg-white/10 hover:bg-white/20"
+                  aria-label="Delete credential"
+                >
+                  <Icon icon="lucide:trash-2" className="w-5 h-5" />
+                </button>
+              )}
+
               {formData.length > 1 && (
                 <h5 className="text-lg font-semibold text-white/70">
                   Credential {index + 1}
@@ -2308,6 +2355,65 @@ export default function ProfilePage() {
     setEditingCredentials(credential);
   };
 
+  // Function called when user confirms deletion in the modal
+  const handleConfirmDeleteApi = async () => {
+    if (!credentialToDelete || !credentialToDelete.usercred_id) return;
+
+    const idToDelete = credentialToDelete.usercred_id;
+
+    try {
+      setCredentialsLoading(true);
+
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (session?.access) {
+        headers.Authorization = `Bearer ${session.access}`;
+      }
+
+      // API Call to delete credential
+      const deleteRes = await fetch(`${API_BASE}/users/${user.id}/credentials/`, {
+        method: "DELETE",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ usercred_id: idToDelete }),
+      });
+
+      if (!deleteRes.ok) {
+        const errorText = await deleteRes.text();
+        throw new Error(`Failed to delete credential: ${errorText}`);
+      }
+
+      // Optimistic UI update in the parent component
+      setUserCredentials(prev => prev.filter(c => c.usercred_id !== idToDelete));
+
+      // If the user is currently editing, update the editing view's form data
+      if (editingCredentials && Array.isArray(editingCredentials)) {
+        setEditingCredentials(prev => prev.filter(c => c.usercred_id !== idToDelete));
+      }
+
+      // If EditCredentialsPage is open, also update its local state (requires refactoring the editor to accept a delete callback)
+      // Since we are closing the modal and setting state, the main page will re-render.
+
+      // If coming from EditCredentialsPage, also remove locally from its view
+      if (editingCredentials) {
+        // This is a bit tricky: to remove it from the child's *current form data*, we need a different approach.
+        // For now, we rely on closing the editor and re-opening it to refetch/reinitialize.
+        setEditingCredentials(null); // Close the editor completely
+      }
+
+    } catch (e) {
+      console.error("[credentials] delete error:", e);
+      setCredentialsError(e.message || "Failed to delete credential");
+      // Re-throw the error so the dialog's submit handler knows it failed
+      throw e;
+    } finally {
+      setCredentialsLoading(false);
+      setShowDeleteCredModal(false); // Close the delete confirmation modal
+      setCredentialToDelete(null);
+    }
+  };
+
   // Handler for saving changes
   const handleSaveCredentials = async (updatedCredentials) => {
     // helper: normalize <input type="month"> values like "2024-09" -> "2024-09-01"
@@ -2328,6 +2434,31 @@ export default function ProfilePage() {
         headers.Authorization = `Bearer ${session.access}`;
       }
 
+      // 1. DETERMINE DELETIONS (Compare current IDs with original IDs)
+      const originalIds = new Set(userCredentials.map(c => c.usercred_id).filter(id => id));
+      const updatedIds = new Set(updatedCredentials.map(c => c.usercred_id).filter(id => id));
+
+      const idsToDelete = [...originalIds].filter(id => !updatedIds.has(id));
+
+      console.log("[credentials] IDs to delete:", idsToDelete);
+
+      // --- 2. EXECUTE DELETIONS ---
+      for (const id of idsToDelete) {
+        const delRes = await fetch(`${API_BASE}/users/${user.id}/credentials/`, {
+          method: "DELETE",
+          headers,
+          credentials: "include",
+          body: JSON.stringify({ usercred_id: id }), // Backend needs usercred_id
+        });
+
+        if (!delRes.ok) {
+          const errorText = await delRes.text();
+          console.error(`[credentials] DELETE failed for ID ${id}:`, delRes.status, errorText);
+          // Throw to abort the whole process if a deletion fails
+          throw new Error(`Deletion failed for credential ${id}.`);
+        }
+      }
+
       // Process each credential
       const credentialsArray = Array.isArray(updatedCredentials)
         ? updatedCredentials
@@ -2343,6 +2474,8 @@ export default function ProfilePage() {
           expiry_date: normalizeDate(cred.expiryDate),
           cred_id: cred.id || "",
           cred_url: cred.url || "",
+          general_category_name: cred.skillCategory || null, // Name of the general category
+          specific_skill_names: cred.skills || [],           // Array of specific skill names
         };
 
         const isUpdate = cred.usercred_id; // Your backend uses 'usercred_id' as primary key
@@ -2444,6 +2577,15 @@ export default function ProfilePage() {
           credentialsToEdit={credsToEdit}
           onCancel={() => setEditingCredentials(null)}
           onSave={handleSaveCredentials}
+          setShowDeleteCredModal={setShowDeleteCredModal}
+          setCredentialToDelete={setCredentialToDelete}
+        />
+
+        <DeleteCredentialDialog
+          isOpen={showDeleteCredModal}
+          onClose={() => setShowDeleteCredModal(false)}
+          onConfirmDelete={handleConfirmDeleteApi}
+          credentialTitle={credentialToDelete?.title || "Credential"}
         />
       </div>
     );
@@ -3515,22 +3657,41 @@ export default function ProfilePage() {
                   </div>
                   {/* Group 3 */}
                   <div className="mt-[15px]">
-                    <a
-                      href={cred.cred_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-[#0038FF] hover:underline transition-colors"
-                    >
-                      View credential
-                      <Icon icon="mdi:arrow-top-right" className="w-4 h-4" />
-                    </a>
+                    {cred.cred_url && (
+                      <a
+                        href={cred.cred_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-[#0038FF] hover:underline transition-colors"
+                      >
+                        View credential
+                        <Icon icon="mdi:arrow-top-right" className="w-4 h-4" />
+                      </a>
+                    )}
                   </div>
-                  {/* Group 4: Skill */}
+
+                  {/* Group 4: Skill Display (MODIFIED) */}
                   {(cred.skills || []).length > 0 && (
-                    <div className="mt-[20px] flex items-center gap-[10px]">
-                      {(cred.skills || []).map((skill, skillIndex) => (
-                        <TradePill key={skillIndex} content={skill} />
-                      ))}
+                    <div className="mt-[20px] flex flex-col gap-3">
+                      {/* 🌟 Display General Category Name 🌟 
+                      {cred.general_category_name && (
+                        <p className="text-[14px] text-white/70 font-medium">
+                          Category: <span className="text-white/90">{cred.general_category_name}</span>
+                        </p>
+                      )} */}
+
+                      {/* 🌟 Display Specific Skills (as pills) 🌟 */}
+                      <div className="flex flex-wrap gap-[10px]">
+                        {/* Check cred.skills array directly */}
+                        {(cred.skills || []).map((skill, skillIndex) => (
+                          <div
+                            key={skillIndex}
+                            className="inline-flex items-center px-[10px] py-[5px] text-[13px] rounded-full bg-[#906EFF33] border border-[#906EFF] text-white/90"
+                          >
+                            {skill}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -4056,7 +4217,7 @@ export default function ProfilePage() {
         {/* SECTION 5 - REVIEWS */}
         <div className="flex flex-col gap-[25px] mt-[25px]">
           <div className="flex items-start justify-between w-full">
-            
+
             {/* LEFT SIDE */}
             <div className="flex flex-col">
               <h5 className="text-white text-lg font-semibold">Reviews</h5>
@@ -4069,7 +4230,7 @@ export default function ProfilePage() {
 
             {/* RIGHT SIDE */}
             <div className="flex flex-col items-end">
-              
+
               {/* Row 1: Latest */}
               {reviews.length > 0 && (
                 <div className="relative mb-[6px]">
@@ -4279,6 +4440,7 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
     </div>
   );
 }
