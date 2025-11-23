@@ -13,6 +13,7 @@ import { Icon } from "@iconify/react";
 import ActiveTradeCardHome from "../../components/trade-cards/active-home";
 import SortDropdown from "../../components/shared/sortdropdown";
 import ExploreCard from "../../components/trade-cards/explore-card";
+import ReportDialog from "../../components/trade-cards/report-dialog"
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
@@ -37,6 +38,9 @@ export default function HomePage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState(null);
+
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportTarget, setReportTarget] = useState({ userId: null, tradereqId: null });
 
   // Explore section state
   const [exploreLoading, setExploreLoading] = useState(true);
@@ -178,6 +182,17 @@ export default function HomePage() {
   const handleExploreSortChange = (option) => {
     setExploreSortBy(option);
     setShowExploreSortMenu(false);
+  };
+
+  const handleOpenReportDialog = (userId, tradereqId) => {
+    // This handler is called by the child card (ActiveTradeCardHome)
+    setReportTarget({ userId, tradereqId });
+    setShowReportDialog(true);
+  };
+
+  const handleCloseReportDialog = () => {
+    setReportTarget({ userId: null, tradereqId: null });
+    setShowReportDialog(false);
   };
 
   const handleExploreFilterChange = (key, value) => {
@@ -626,6 +641,9 @@ export default function HomePage() {
               totalXp={trade.total_xp}
               deadline={trade.deadline_formatted}
               isVerified={trade.other_user.is_verified || trade.other_user.isVerified || false}
+              userId={trade.other_user.id} 
+              tradereqId={trade.tradereq_id}
+              onReportOpen={handleOpenReportDialog}
             />
           ))
         )}
@@ -963,6 +981,12 @@ export default function HomePage() {
           </div>
         </div>
       )}
+      <ReportDialog
+        isOpen={showReportDialog}
+        onClose={handleCloseReportDialog}
+        reportedUser={reportTarget.userId} 
+        tradeId={reportTarget.tradereqId} 
+      />
     </div>
   );
 }
