@@ -60,8 +60,8 @@ export default function TermsAndConditionsPage() {
             </li>
             <li>
               Any disputes arising from service exchanges should be resolved
-              between the users involved. We may assist in mediation but hold no
-              liability.
+              between the users involved. We may assist in mediation and provide
+              features but hold no liability.
             </li>
           </ul>
         </div>
