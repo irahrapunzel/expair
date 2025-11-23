@@ -9,7 +9,8 @@ import { usePathname } from "next/navigation";
 
 const inter = Inter({ subsets: ["latin"] });
 
-const sections = ["our-goal", "how-it-works", "FAQs"];
+// 🚀 UPDATED: Added 'browse' to the sections array
+const sections = ["our-goal", "how-it-works", "browse", "FAQs"];
 const helpSections = [
   "technical",
   "reporting",
@@ -83,7 +84,19 @@ export default function LandingNav() {
         {/* Desktop Menu */}
         <nav className="hidden md:flex items-center gap-[50px] px-[35px] py-[20px] rounded-[20px] bg-[#120A2A]">
           {sections.map((section) => {
-            const href = `/#${section}`; 
+            const href = `/#${section}`;
+
+            // Helper function to capitalize and format the section name for display
+            const formatSectionName = (name) => {
+              if (name === "FAQs") return "FAQs";
+              // Check if the name is 'browse' and handle it separately for simpler capitalization
+              if (name === "browse") return "Browse"; 
+              
+              // Apply existing logic for 'our-goal', 'how-it-works'
+              return name
+                      .replaceAll("-", " ")
+                      .replace(/\b\w/g, (char) => char.toUpperCase());
+            };
 
             return (
               <a
@@ -93,11 +106,8 @@ export default function LandingNav() {
                   activeSection === section ? "font-semibold text-[#0038FF]" : ""
                 }`}
               >
-                {section === "FAQs"
-                  ? "FAQs"
-                  : section
-                      .replaceAll("-", " ")
-                      .replace(/\b\w/g, (char) => char.toUpperCase())}
+                {/* Use the new formatting function */}
+                {formatSectionName(section)}
               </a>
             );
           })}
@@ -184,7 +194,16 @@ export default function LandingNav() {
 
           {/* Nav Links */}
           {sections.map((section) => {
-            const href = `/#${section}`; 
+            const href = `/#${section}`;
+
+            // Helper function for mobile view
+            const formatSectionName = (name) => {
+              if (name === "FAQs") return "FAQs";
+              if (name === "browse") return "Browse"; 
+              return name
+                      .replaceAll("-", " ")
+                      .replace(/\b\w/g, (char) => char.toUpperCase());
+            };
 
             return (
               <a
@@ -195,11 +214,7 @@ export default function LandingNav() {
                   activeSection === section ? "font-semibold text-[#0038FF]" : ""
                 }`}
               >
-                {section === "FAQs"
-                  ? "FAQs"
-                  : section
-                      .replaceAll("-", " ")
-                      .replace(/\b\w/g, (char) => char.toUpperCase())}
+                {formatSectionName(section)}
               </a>
             );
           })}

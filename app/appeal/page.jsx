@@ -4,15 +4,13 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import DragDropUploader from "../../components/admin/dragdropuploader";
-import { useSession } from "next-auth/react";
 import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
-console.log("--- APPEAL PAGE COMPONENT STARTED ---");
+
 export default function AppealPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
 
   // --- STATE FOR FETCHED DATA ---
   const [reportData, setReportData] = useState(null);
@@ -27,14 +25,15 @@ export default function AppealPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // Get report ID from URL
-  const reportId = searchParams?.get("originalReportId") || searchParams?.get("reportId");
+  // Get report ID from URL (using reportId param now)
+  const reportId = searchParams?.get("reportId");
 
-  console.log(`2. Initial Check: reportId=${reportId}, Session Access=${!!session?.access}`);
+  console.log("🔍 Appeal Page - Report ID:", reportId);
 
-  // --- FETCH REPORT DATA ON MOUNT ---
+  // --- FETCH REPORT DATA ON MOUNT (NO AUTH) ---
   useEffect(() => {
-    if (!reportId || !session?.access) {
+    if (!reportId || reportId === 'N/A') {
+      setFetchError("Invalid or missing report ID. Cannot load appeal form.");
       setLoading(false);
       return;
     }
@@ -44,29 +43,48 @@ export default function AppealPage() {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL;
         if (!baseUrl) throw new Error("Backend URL not configured.");
 
-        console.log("1. Starting API Fetch. Report ID:", reportId, "Token status:", !!session.access);
+        console.log("📡 Fetching report data from PUBLIC endpoint...");
 
-        // Call the admin report detail endpoint
-        const res = await fetch(`${baseUrl}/api/admin/report-detail/${reportId}/`, {
+        // Call the PUBLIC report endpoint (no auth required)
+        const res = await fetch(`${baseUrl}/api/report-appeal-data/${reportId}/`, {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${session.access}`,
             "Content-Type": "application/json",
           },
         });
 
         if (!res.ok) {
-          throw new Error(`Failed to fetch report: ${res.status}`);
+          const errorText = await res.text();
+          throw new Error(`Failed to fetch report: ${res.status} - ${errorText}`);
         }
 
         const data = await res.json();
-        console.log("2B. API Fetch Succeeded. Raw Data:", data);
+        console.log("✅ Report data fetched:", data);
+
+        // Check if user can appeal
+        if (!data.can_appeal) {
+          const appealStatus = data.existing_appeal_status || 'PENDING';
+          let userMessage = '';
+          
+          if (appealStatus === 'PENDING') {
+            userMessage = 'Your appeal is currently under review by our team. We typically respond within 24-48 hours.';
+          } else if (appealStatus === 'APPROVED') {
+            userMessage = 'Your appeal has been approved and your account has been restored. You can now log in normally.';
+          } else if (appealStatus === 'DENIED') {
+            userMessage = 'Your appeal has been reviewed and denied. The sanction remains in effect. Please contact support if you have additional information.';
+          } else {
+            userMessage = `An appeal has already been submitted for this case (Status: ${appealStatus}). Only one appeal is allowed per violation.`;
+          }
+          
+          setFetchError(userMessage);
+          setLoading(false);
+          return;
+        }
 
         setReportData(data);
         setFetchError(null);
       } catch (err) {
-        console.error("3. Critical Error during Fetch or Parsing:", err);
-
+        console.error("❌ Error fetching report:", err);
         setFetchError(err.message || "Failed to load violation details");
       } finally {
         setLoading(false);
@@ -74,7 +92,7 @@ export default function AppealPage() {
     };
 
     fetchReportData();
-  }, [reportId, session?.access]);
+  }, [reportId]);
 
   const onFilesChange = (items) => {
     setFiles(items.slice(0, 5));
@@ -82,12 +100,6 @@ export default function AppealPage() {
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
-    const token = session?.access;
-
-    if (!token) {
-      setMessage({ type: "error", text: "Session expired. Please log in again." });
-      return;
-    }
 
     if (!declaration) {
       setMessage({ type: "error", text: "Please confirm the declaration." });
@@ -99,8 +111,8 @@ export default function AppealPage() {
       return;
     }
 
-    if (!reportId) {
-      setMessage({ type: "error", text: "Missing violation record ID. Cannot submit appeal." });
+    if (!reportId || !reportData?.reported_user?.user_id) {
+      setMessage({ type: "error", text: "Missing required data. Cannot submit appeal." });
       return;
     }
 
@@ -113,6 +125,7 @@ export default function AppealPage() {
 
       const formData = new FormData();
       formData.append("original_report_id", reportId);
+      formData.append("user_id", reportData.reported_user.user_id); // ✅ Pass user_id
       formData.append("appeal_reason", appealText);
       formData.append("additional_context", additionalContext);
 
@@ -120,18 +133,28 @@ export default function AppealPage() {
         formData.append("evidence_files", f, f.name);
       });
 
-      const res = await fetch(`${baseUrl}/submit-appeal/`, {
+      console.log("📤 Submitting appeal to PUBLIC endpoint...");
+
+      const res = await fetch(`${baseUrl}/api/submit-appeal/`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
+        // ✅ NO Authorization header - public endpoint
       });
 
       if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || "Failed to submit appeal");
+        let errorMessage = "Failed to submit appeal";
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          const txt = await res.text();
+          errorMessage = txt || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await res.json();
+      console.log("✅ Appeal submitted:", result);
 
       setMessage({
         type: "success",
@@ -139,10 +162,10 @@ export default function AppealPage() {
       });
 
       setTimeout(() => {
-        router.push("/login?appealSubmitted=true");
+        router.push("/signin?appealSubmitted=true");
       }, 3000);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Appeal submission error:", err);
       setMessage({ type: "error", text: err.message || "Network error" });
     } finally {
       setSubmitting(false);
@@ -151,83 +174,42 @@ export default function AppealPage() {
 
   // --- HELPER FUNCTIONS ---
   const getSanctionDisplay = () => {
-
-    console.log("🔍 Report Data Loaded:", reportData);
-
-    // Safely retrieve sanction_details, defaulting to an empty object if null/undefined
     const details = reportData?.sanction_details || {};
-
-    // Safely destructure, setting defaults to "NONE" and null if keys are missing
     const { level = "NONE", until = null } = details;
 
-    // *** THIS LOG WILL NOW ALWAYS SHOW UP ***
-    console.log("🔍 Sanction Display - level:", level, "until:", until);
-    // ***************************************
-
-    if (level === "BAN") {
-      return "Permanent Ban";
-    }
-
+    if (level === "BAN") return "Permanent Ban";
+    
     if (level === "SUSPENSION") {
-      if (until === "INDEFINITE") {
-        return "Indefinite Suspension (until appeal review)";
-      }
-
+      if (until === "INDEFINITE") return "Indefinite Suspension (until appeal review)";
       if (until) {
         try {
           const date = new Date(until);
-          if (isNaN(date.getTime())) {
-            return `Suspension until ${until}`;
-          }
+          if (isNaN(date.getTime())) return `Suspension until ${until}`;
           return `Suspension until ${date.toLocaleDateString("en-US", {
             year: "numeric",
             month: "long",
             day: "numeric",
           })}`;
         } catch (e) {
-          console.error("Date parsing error:", e);
           return `Suspension until ${until}`;
         }
       }
-
       return "Suspension (duration unknown)";
     }
 
-    if (level === "WARNING") {
-      return "Warning (No account lock)";
-    }
-
-    // Fallback if level exists but is NONE or the default value
-    if (level === "NONE") {
-      return "No Sanction Currently Active";
-    }
-
-    return level || "No active sanction found for this report.";
+    if (level === "WARNING") return "Warning (No account lock)";
+    if (level === "NONE") return "No Sanction Currently Active";
+    
+    return level || "No active sanction found.";
   };
 
   const getSanctionReason = () => {
-    // Safely access reason from sanction_details
-    if (reportData?.sanction_details?.reason) {
-      return reportData.sanction_details.reason;
-    }
-
-    // Fallback: Extract the reason from the Report's modified description field
-    if (reportData?.description) {
-      const match = reportData.description.match(/\[Admin Action: \w+\]: (.*)/);
-      if (match && match[1]) {
-        return match[1].trim(); // Returns "try suspension ang sama mo kasi"
-      }
-    }
-
-    // Fallback: Report's original issue detail
-    if (reportData?.issue_detail) {
-      return reportData.issue_detail;
-    }
-
-    return "No reason specified";
+    return reportData?.sanction_details?.reason || 
+           reportData?.issue_detail || 
+           "No reason specified";
   };
 
-  // --- LOADING & ERROR STATES ---
+  // --- LOADING STATE ---
   if (loading) {
     return (
       <div
@@ -247,7 +229,13 @@ export default function AppealPage() {
     );
   }
 
-  if (fetchError && !reportData) {
+  // --- ERROR STATE ---
+  if (fetchError) {
+    // Determine if this is a "pending appeal" case vs other errors
+    const isPendingAppeal = fetchError.includes('under review') || fetchError.includes('currently');
+    const isApproved = fetchError.includes('approved');
+    const isDenied = fetchError.includes('denied');
+    
     return (
       <div
         className={`${inter.className} min-h-screen w-full bg-[#050015] text-white px-4 py-12`}
@@ -258,20 +246,117 @@ export default function AppealPage() {
         }}
       >
         <div className="max-w-4xl mx-auto">
-          <div className="bg-[#0B0521]/80 border border-[#120A2A] rounded-2xl p-8">
-            <p className="text-red-400 text-center">{fetchError}</p>
-            <button
-              onClick={() => router.back()}
-              className="mt-4 px-6 py-2 rounded-lg border border-[#2a2140] text-gray-200 mx-auto block"
-            >
-              Go Back
-            </button>
+          {/* Logo */}
+          <div className="flex items-center justify-start mb-8">
+            <Image
+              src="/expair.png"
+              alt="Expair Logo"
+              width={120}
+              height={40}
+              className="w-auto h-[40px]"
+            />
+          </div>
+
+          <div className="bg-[#0B0521]/80 border border-[#120A2A] rounded-2xl p-8 shadow-lg">
+            {/* Icon based on status */}
+            <div className="flex justify-center mb-6">
+              {isPendingAppeal && (
+                <div className="w-20 h-20 rounded-full bg-yellow-500/20 flex items-center justify-center border-4 border-yellow-500">
+                  <svg className="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              )}
+              {isApproved && (
+                <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center border-4 border-green-500">
+                  <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              {isDenied && (
+                <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center border-4 border-red-500">
+                  <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+              {!isPendingAppeal && !isApproved && !isDenied && (
+                <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center border-4 border-red-500">
+                  <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-white text-center mb-4">
+              {isPendingAppeal && "Appeal Under Review"}
+              {isApproved && "Appeal Approved"}
+              {isDenied && "Appeal Denied"}
+              {!isPendingAppeal && !isApproved && !isDenied && "Cannot Submit Appeal"}
+            </h2>
+
+            {/* Message */}
+            <div className={`p-4 rounded-lg mb-6 ${
+              isPendingAppeal ? 'bg-yellow-900/20 border border-yellow-500/30' :
+              isApproved ? 'bg-green-900/20 border border-green-500/30' :
+              isDenied ? 'bg-red-900/20 border border-red-500/30' :
+              'bg-red-900/20 border border-red-500/30'
+            }`}>
+              <p className={`text-center ${
+                isPendingAppeal ? 'text-yellow-200' :
+                isApproved ? 'text-green-200' :
+                'text-red-200'
+              }`}>
+                {fetchError}
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {isApproved && (
+                <button
+                  onClick={() => router.push("/signin")}
+                  className="px-6 py-3 rounded-lg bg-[#0038FF] hover:bg-[#1a4dff] text-white font-medium"
+                >
+                  Go to Sign In
+                </button>
+              )}
+              
+              {(isPendingAppeal || isDenied) && (
+                <button
+                  onClick={() => router.push("/help")}
+                  className="px-6 py-3 rounded-lg border border-[#2a2140] text-gray-200 hover:bg-[#2a2140]"
+                >
+                  Contact Support
+                </button>
+              )}
+
+              {!isApproved && (
+                <button
+                  onClick={() => router.push("/")}
+                  className="px-6 py-3 rounded-lg border border-[#2a2140] text-gray-200 hover:bg-[#2a2140]"
+                >
+                  Return Home
+                </button>
+              )}
+            </div>
+
+            {/* Additional Info for Pending */}
+            {isPendingAppeal && (
+              <div className="mt-6 text-center text-sm text-gray-400">
+                <p>Check your email for updates or visit the notifications page after logging in.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // --- MAIN FORM ---
   return (
     <div
       className={`${inter.className} min-h-screen w-full bg-[#050015] text-white px-4 py-12`}
@@ -299,75 +384,37 @@ export default function AppealPage() {
             clear and honest details below. You may upload up to 5 files.
           </p>
 
-          {/* DYNAMIC VIOLATION SUMMARY */}
+          {/* VIOLATION SUMMARY */}
           <div className="mb-6 bg-[#050015] border border-[#2a2140] rounded-lg p-4">
             <p className="text-xs text-gray-400 mb-3">
               <strong>Violation Summary</strong>
             </p>
 
-            {reportData ? (
+            {reportData && (
               <div className="space-y-2">
-                {/* Record ID */}
                 <p className="text-sm text-gray-200">
-                  Record ID:{" "}
-                  <span className="font-medium text-red-400">
-                    #{reportData.report_id}
-                  </span>
+                  Record ID: <span className="font-medium text-red-400">#{reportData.report_id}</span>
                 </p>
 
-                {/* Violation Category */}
                 <p className="text-sm text-gray-200">
-                  Violation Type:{" "}
-                  <span className="font-medium text-orange-400">
-                    {reportData.sanction_applied ? (
-                      reportData.sanction_applied === "DISMISS"
-                        ? "Dismissed"
-                        : reportData.sanction_applied
-                    ) : "None (Report Submitted)"}
-                  </span>
+                  Violation Type: <span className="font-medium text-orange-400">{reportData.category || "Not specified"}</span>
                 </p>
 
-                {/* Issue Detail */}
                 <p className="text-sm text-gray-200">
-                  Issue Detail:{" "}
-                  <span className="font-medium text-gray-100">
-                    {reportData.issue_detail || "No details provided"}
-                  </span>
+                  Issue Detail: <span className="font-medium text-gray-100">{reportData.issue_detail || "No details provided"}</span>
                 </p>
 
-                {/* Sanction Applied (from Report model) */}
                 <p className="text-sm text-gray-200">
-                  Sanction Applied:{" "}
-                  <span className="font-medium text-orange-400">
-                    {reportData.sanction_applied ? (
-                      reportData.sanction_applied === "DISMISS"
-                        ? "Dismissed"
-                        : reportData.sanction_applied
-                    ) : "None"}
-                  </span>
+                  Reason for Action: <span className="font-medium text-gray-100">{getSanctionReason()}</span>
                 </p>
 
-                {/* Sanction Reason (from User.sanction_details) */}
                 <p className="text-sm text-gray-200">
-                  Reason for Action:{" "}
-                  <span className="font-medium text-gray-100">
-                    {getSanctionReason()} 
-                  </span>
+                  Action: <span className="font-medium text-yellow-300">{getSanctionDisplay()}</span>
                 </p>
 
-                {/* Action Taken (formatted display) */}
-                <p className="text-sm text-gray-200">
-                  Action:{" "}
-                  <span className="font-medium text-yellow-300">
-                    {getSanctionDisplay()}
-                  </span>
-                </p>
-
-                {/* Issue Date */}
                 {reportData.created_at && (
                   <p className="text-xs text-gray-400 mt-2">
-                    Issued on:{" "}
-                    {new Date(reportData.created_at).toLocaleDateString("en-US", {
+                    Issued on: {new Date(reportData.created_at).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
@@ -375,15 +422,12 @@ export default function AppealPage() {
                   </p>
                 )}
               </div>
-            ) : (
-              <p className="text-sm text-gray-400">Report data not available</p>
             )}
 
             <p className="text-xs text-red-300 mt-3">
               Appeals must be truthful and supported by evidence.
             </p>
           </div>
-          {/* END DYNAMIC VIOLATION SUMMARY */}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -461,17 +505,18 @@ export default function AppealPage() {
 
               <button
                 type="button"
-                onClick={() => router.back()}
-                className="w-full sm:w-auto px-6 py-3 rounded-lg border border-[#2a2140] text-gray-200"
+                onClick={() => router.push("/help")}
+                className="w-full sm:w-auto px-6 py-3 rounded-lg border border-[#2a2140] text-gray-200 hover:bg-[#2a2140]"
               >
-                Cancel
+                Contact Support
               </button>
             </div>
 
             {message && (
               <div
-                className={`mt-4 p-3 rounded-md ${message.type === "error" ? "bg-red-900" : "bg-green-900"
-                  }`}
+                className={`mt-4 p-3 rounded-md ${
+                  message.type === "error" ? "bg-red-900/50 border border-red-500" : "bg-green-900/50 border border-green-500"
+                }`}
               >
                 <p className="text-sm">{message.text}</p>
               </div>

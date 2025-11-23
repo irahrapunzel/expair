@@ -18,7 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.contrib.auth.hashers import check_password, make_password
-from django.utils import timezone as django_timezone
+from django.utils import timezone
 from django.utils.timezone import localdate
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -1095,15 +1095,19 @@ def login_user(request):
         
         if is_locked:
             print(f"User {user.username} is locked out. Status: {user.sanction_status}")
-            # Ibalik ang sanction details para alam ng frontend kung saan i-redirect
+            print(f"Sanction details from DB: {user.sanction_details}")
+            
             return Response({
                 "error": "Account is locked. Cannot login.",
                 "code": "SANCTIONED_LOCKOUT", # Custom code for frontend to check
-                "sanction_details": {
-                    "status": user.sanction_status,
-                    "reason": reason,
-                    "until": until_date
-                }
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "sanction_status": user.sanction_status,
+                "sanction_details": user.sanction_details if user.sanction_details else {},
+                "is_admin": user.is_superuser,
             }, status=status.HTTP_403_FORBIDDEN) # Use 403 Forbidden for access restriction
 
         # Generate JWT tokens (tokens should only be generated if NOT locked out)
@@ -5016,16 +5020,97 @@ def send_admin_appeal_notification(report_id, reported_user_username, appeal_rea
     except Exception as e:
         print(f"❌ Failed to send HTML Admin Appeal Notification email: {e}")
 
+@api_view(['GET'])
+@permission_classes([AllowAny])  # ✅ Public access
+def get_report_for_appeal(request, report_id):
+    """
+    Public endpoint to fetch report details for appeal page.
+    No authentication required since suspended users can't authenticate.
+    
+    GET /api/report-appeal-data/<report_id>/
+    """
+    try:
+        # Validate report_id is numeric
+        if not report_id or report_id == 'N/A':
+            return Response(
+                {"error": "Invalid report ID provided."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            report_id = int(report_id)
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "Report ID must be a valid number."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Fetch the report
+        try:
+            report = Report.objects.select_related(
+                'reported_user', 
+                'reporter', 
+                'tradereq'
+            ).get(report_id=report_id)
+        except Report.DoesNotExist:
+            return Response(
+                {"error": "Report not found."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get reported user's sanction details
+        reported_user = report.reported_user
+        sanction_details = reported_user.sanction_details or {}
+        
+        # Build response with minimal data needed for appeal form
+        response_data = {
+            "report_id": report.report_id,
+            "category": report.category,
+            "issue_detail": report.issue_detail,
+            "description": report.description,
+            "status": report.status,
+            "created_at": report.created_at.isoformat() if report.created_at else None,
+            "sanction_applied": report.sanction_applied,
+            "appeal_status": report.appeal_status,
+            
+            # User's sanction details from users_tbl
+            "sanction_details": {
+                "level": sanction_details.get('level', 'NONE'),
+                "reason": sanction_details.get('reason', 'No reason specified'),
+                "until": sanction_details.get('until'),
+                "source_report_id": sanction_details.get('source_report_id', report.report_id),
+            },
+            
+            # Reported user info (minimal)
+            "reported_user": {
+                "user_id": reported_user.id,
+                "username": reported_user.username,
+            },
+            
+            # Check if appeal already exists
+            "can_appeal": report.appeal_status in [AppealStatus.NONE, None],
+            "existing_appeal_status": report.appeal_status if report.appeal_status else None,
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"❌ Error in get_report_for_appeal: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {"error": "Failed to fetch report data."}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])  # ✅ Changed from IsAuthenticated
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def submit_appeal(request):
     """
-    User submits an appeal against a sanction linked to a specific report.
-    Also handles file uploads (Evidence Upload).
+    User submits an appeal against a sanction.
+    Public endpoint - no auth required since user is suspended.
     """
-    user = request.user
-    
     try:
         data = request.data
         original_report_id = data.get('original_report_id') 
@@ -5033,27 +5118,60 @@ def submit_appeal(request):
         additional_context = data.get('additional_context', '')
         uploaded_files = request.FILES.getlist("evidence_files")
         
-        if not original_report_id or not appeal_reason:
-            return Response({"error": "Original report ID and a detailed reason for appeal are required."}, status=status.HTTP_400_BAD_REQUEST)
+        # Get user_id from request (can be passed as form data for suspended users)
+        user_id = data.get('user_id')
+        
+        if not original_report_id or not appeal_reason or not user_id:
+            return Response(
+                {"error": "Report ID, user ID, and appeal reason are required."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # 1. Get the original Report object
+        # Validate user exists
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get the original Report object
         try:
             report = Report.objects.select_related('reported_user').get(report_id=original_report_id)
         except Report.DoesNotExist:
-            return Response({"error": "Sanction record not found. Please verify the link or report ID."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Report not found."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        # 2. Validation: Check if the user is the one sanctioned
+        # Validation: Check if the user is the one sanctioned
         if report.reported_user_id != user.id:
-            return Response({"error": "You can only appeal actions related to your account."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "You can only appeal actions related to your account."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
         
-        # 3. Validation: Check if an appeal is already pending or resolved
+        # Validation: Check if an appeal is already pending or resolved
         if report.appeal_status in [AppealStatus.PENDING, AppealStatus.APPROVED, AppealStatus.DENIED]:
+            # Build user-friendly message based on status
+            if report.appeal_status == AppealStatus.PENDING:
+                message = "Your appeal is currently under review by our team. We typically respond within 24-48 hours."
+            elif report.appeal_status == AppealStatus.APPROVED:
+                message = "Your appeal has been approved and your account has been restored. You can now log in normally."
+            elif report.appeal_status == AppealStatus.DENIED:
+                message = "Your appeal has been reviewed and denied. The sanction remains in effect. If you have additional information, please contact support."
+            else:
+                message = f"An appeal has already been submitted for this case. Only one appeal is allowed per violation."
+            
             return Response({
-                "error": f"An appeal for this sanction is currently {report.appeal_status.lower()}. Only one appeal is allowed per violation.",
-                "current_status": report.appeal_status
+                "error": message,
+                "appeal_status": report.appeal_status,
+                "can_resubmit": False,
+                "support_url": "/help"
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # --- 4. Handle Evidence Uploads to Cloudinary ---
+        # Handle Evidence Uploads to Cloudinary
         evidence_links = []
         for f in uploaded_files:
             try:
@@ -5068,17 +5186,17 @@ def submit_appeal(request):
                     "type": "file",
                     "url": upload_result['secure_url'],
                     "filename": f.name,
-                    "uploaded_at": django_timezone.now().isoformat()
+                    "uploaded_at": timezone.now().isoformat()
                 })
             except Exception as e:
                 print(f"[ERROR] Cloudinary upload failed for appeal evidence: {e}")
                 continue 
 
-        # 5. Update the Report to PENDING appeal status
+        # Update the Report to PENDING appeal status
         report.appeal_status = AppealStatus.PENDING 
         
         report.appeal_details = {
-            'submitted_by_user_at': django_timezone.now().isoformat(),
+            'submitted_by_user_at': timezone.now().isoformat(),
             'user_reason': appeal_reason,
             'user_context': additional_context,
             'user_evidence_links': evidence_links, 
@@ -5086,7 +5204,7 @@ def submit_appeal(request):
         }
         report.save()
 
-        # 6. Notify Admins (CS Team)
+        # Notify Admins
         send_admin_appeal_notification(
             report.report_id, 
             user.username, 
@@ -5103,7 +5221,10 @@ def submit_appeal(request):
         print(f"Appeal submission error: {str(e)}")
         import traceback
         traceback.print_exc()
-        return Response({"error": f"Appeal failed due to a server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 def get_user_trade_report_data(user):
     # Fetch all COMPLETED trades where the user was a participant
@@ -5229,7 +5350,7 @@ def generate_trade_report_pdf(request):
     elements.append(Paragraph(f"<b>Username:</b> @{user.username} (Level {user.level})", review_cell_style))
     elements.append(Paragraph(f"<b>Full Name:</b> {user.first_name} {user.last_name}", review_cell_style))
     elements.append(Paragraph(f"<b>Total Reviews:</b> {user.ratingCount} | <b>Avg. Rating:</b> {user.avgStars:.1f}/5.0", review_cell_style))
-    elements.append(Paragraph(f"<b>Report Generated:</b> {django_timezone.now().strftime('%B %d, %Y at %I:%M %p')}", review_cell_style))
+    elements.append(Paragraph(f"<b>Report Generated:</b> {timezone.now().strftime('%B %d, %Y at %I:%M %p')}", review_cell_style))
     elements.append(Spacer(1, 18))
     
     # 3. Prepare Main Trade Table Data 

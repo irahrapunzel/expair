@@ -79,25 +79,57 @@ export default function LoginPage() {
         const reason = sanctionDetails.reason || "Violation of platform policies";
         const until = sanctionDetails.until || null;
         
-        // Get the report ID from sanction_details
+        // ✅ Handle multiple possible key names for report ID
         const originalReportId = sanctionDetails.source_report_id || 
                                  sanctionDetails.report_id || 
-                                 'N/A';
+                                 null;
 
-        console.log("Redirecting to suspension page with:", {
+        console.log("🔍 Suspension redirect debug:", {
           reason,
           until,
-          originalReportId
+          originalReportId,
+          fullSanctionDetails: sanctionDetails
         });
 
-        // Build the suspension URL with proper encoding
+        // Build the suspension URL
         const params = new URLSearchParams({
           reason: reason,
-          until: until || 'PERMANENT',
-          originalReportId: originalReportId
         });
 
-        router.push(`/suspension?${params.toString()}`);
+        // ✅ Handle 'until' timestamp properly
+        if (until && until !== 'PERMANENT') {
+          try {
+            // Try to parse and format the date
+            const dateObj = new Date(until);
+            if (!isNaN(dateObj.getTime())) {
+              params.append('until', dateObj.toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              }));
+            } else {
+              params.append('until', until);
+            }
+          } catch (e) {
+            params.append('until', until);
+          }
+        } else if (until === 'PERMANENT') {
+          params.append('until', 'PERMANENT');
+        }
+
+        // ✅ Only add originalReportId if it's a valid number
+        if (originalReportId && !isNaN(parseInt(originalReportId))) {
+          params.append('originalReportId', originalReportId);
+          console.log(`✅ Valid report ID found: ${originalReportId}`);
+        } else {
+          console.warn("⚠️ No valid report ID found in sanction_details");
+          console.warn("   Full sanction_details:", JSON.stringify(sanctionDetails, null, 2));
+        }
+
+        const suspensionUrl = `/suspension?${params.toString()}`;
+        console.log("📍 Redirecting to:", suspensionUrl);
+
+        router.push(suspensionUrl);
         return;
       }
 

@@ -79,7 +79,7 @@ export default NextAuth({
               first_name: data.first_name,
               last_name: data.last_name,
               is_admin: !!data.is_admin,
-              sanction_details: data.sanction_details || null,
+              sanction_details: data.sanction_details || {},
               sanction_status: data.sanction_status || 'SUSPENSION',
               isSuspendedOnly: true, // Crucial flag for JWT callback
             };
@@ -108,7 +108,7 @@ export default NextAuth({
               last_name: data.last_name,
               image: data.image,
               is_admin: isAdmin,
-              sanction_details: data.sanction_details || null,
+              sanction_details: data.sanction_details || {},
               sanction_status: data.sanction_status || 'NONE',
             };
           }
