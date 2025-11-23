@@ -250,6 +250,7 @@ export default function LoginPage() {
           <Button
             variant="outline"
             className="cursor-pointer flex w-full sm:w-[400px] h-[50px] justify-center items-center gap-2 mt-3 text-black text-base sm:text-[20px] font-medium rounded-[15px] border border-gray-300 hover:bg-gray-100 mb-[35px] mx-auto"
+            onClick={() => signIn("google")}
           >
             <img
               src="/assets/google_logo.png"
