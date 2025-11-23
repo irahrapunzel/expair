@@ -318,7 +318,7 @@ export default function HomePage() {
         timeoutId = setTimeout(() => {
           controller.abort();
           console.error("⏰ API request timed out");
-        }, 15000);
+        }, 30000);
 
         const resp = await fetch(`${BACKEND_URL}/api/ai/explore/`, {
           method: "GET",
