@@ -69,7 +69,7 @@ export default function LandingPage() {
             </div>
             <p className="text-sm sm:text-base md:text-lg leading-[120%] max-w-xl text-white font-sans">
               Change the way you obtain skills and services. <br />
-              Meet people who need what you have, and have what you don’t.
+              Meet people who need what you have, and have what you want.
             </p>
           </div>
 
