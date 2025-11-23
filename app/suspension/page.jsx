@@ -4,38 +4,41 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle } from "lucide-react"; 
 
 const inter = Inter({ subsets: ["latin"] });
 
-export default function SuspensionPage({ searchParams }) {
+export default function SuspensionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();  // ✅ Use useSearchParams hook
 
   // --- 1. CAPTURE ALL URL PARAMETERS ---
-  const reason = (searchParams && searchParams.reason) || "Violation of platform policies";
-  const until = (searchParams && searchParams.until) || null;
-  const originalReportId = (searchParams && searchParams.originalReportId) || "N/A";
+  const reason = searchParams.get("reason") || "Violation of platform policies";
+  const until = searchParams.get("until") || null;
+  const originalReportId = searchParams.get("originalReportId") || null;
+
+  console.log("🔍 Suspension page params:", { reason, until, originalReportId });
 
   // 2. CONSTRUCT THE APPEAL URL SAFELY
-  const encodedReason = encodeURIComponent(reason);
-  const encodedUntil = encodeURIComponent(until || 'Permanent Ban');
-  const encodedReportId = encodeURIComponent(originalReportId);
-
-  const appealUrl = `/appeal?reason=${encodedReason}&until=${encodedUntil}&originalReportId=${encodedReportId}`;
+  const isValidReportId = originalReportId && originalReportId !== "N/A" && !isNaN(parseInt(originalReportId));
+  
+  let appealUrl = "/appeal";
+  if (isValidReportId) {
+    appealUrl = `/appeal?reportId=${originalReportId}`;
+  }
 
   // 3. Display Logic
-  const isPermanent = !until;
+  const isPermanent = !until || until === 'PERMANENT';
   let displayAction;
   
   if (isPermanent) {
       displayAction = "Permanent Ban";
   } else {
-      // Highlight the suspension date
       displayAction = (
           <>
-              Account suspended until 
-              <span className="font-semibold text-white ml-1">
+              Account suspended until{" "}
+              <span className="font-semibold text-white">
                   {until}
               </span>
           </>
@@ -66,7 +69,7 @@ export default function SuspensionPage({ searchParams }) {
           </Link>
         </div>
 
-        {/* Main Content Card - Glow Effect Applied Here */}
+        {/* Main Content Card */}
         <div 
             className="w-full mx-auto p-8 md:p-12 text-center rounded-2xl shadow-2xl"
             style={{
@@ -75,7 +78,7 @@ export default function SuspensionPage({ searchParams }) {
                 boxShadow: '0 0 40px 5px rgba(144, 110, 255, 0.3)', 
             }}
         >
-          {/* Ban Icon (Styled AlertTriangle) */}
+          {/* Ban Icon */}
           <div className="flex justify-center mb-8">
             <div className="w-24 h-24 rounded-full bg-yellow-800/20 flex items-center justify-center border-4 border-yellow-500 shadow-yellow-500/30 shadow-lg">
               <AlertTriangle className="w-12 h-12 text-yellow-400" strokeWidth={1.5} /> 
@@ -104,56 +107,61 @@ export default function SuspensionPage({ searchParams }) {
             
             <div className="border-t border-[#2a2140] my-2"></div>
 
-            {/* Reason */}
             <div className="mb-3">
                 <p className="text-md text-gray-200 font-semibold">
-                    Reason: 
-                    <span className="text-gray-200 ml-2 font-normal">
+                    Reason:{" "}
+                    <span className="text-gray-200 font-normal">
                         {reason}
                     </span>
                 </p>
             </div>
 
-            {/* Action - Removed excess mb-3 wrapper */}
             <p className="text-md text-gray-200 font-semibold">
-                Action: 
-                <span className="text-gray-200 ml-2 font-normal">
+                Action:{" "}
+                <span className="text-gray-200 font-normal">
                     {displayAction}
                 </span>
             </p>
 
-            {/* Violation ID */}
-            {originalReportId !== "N/A" && (
+            {/* Show Case ID only if valid */}
+            {isValidReportId && (
               <p className="text-sm text-gray-400 mt-4">
                 <span className="font-medium text-gray-300">Case ID: </span>
                 <span className="font-mono text-xs">#{originalReportId}</span>
               </p>
             )}
+
+            {/* Warning if no valid report ID */}
+            {!isValidReportId && (
+              <p className="text-xs text-red-400 mt-4">
+                ⚠️ No case reference available. Contact support for details.
+              </p>
+            )}
           </div>
 
-          {/* Action Buttons (Rounded Rectangles) */}
+          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
             
-            {/* Submit Appeal Button (Primary) */}
             <button
               onClick={() => router.push(appealUrl)}
-              className={`w-full sm:w-auto px-6 py-3 rounded-lg bg-[#0038FF] hover:bg-[#1a4dff] text-white font-semibold transition-all duration-300 transform shadow-[0_8px_20px_-8px_rgba(0,56,255,0.6)]`}
+              disabled={!isValidReportId}
+              className={`w-full sm:w-auto px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 transform shadow-[0_8px_20px_-8px_rgba(0,56,255,0.6)] ${
+                isValidReportId 
+                  ? 'bg-[#0038FF] hover:bg-[#1a4dff] cursor-pointer' 
+                  : 'bg-gray-600 cursor-not-allowed opacity-50'
+              }`}
             >
-              Submit an Appeal
+              {isValidReportId ? 'Submit an Appeal' : 'Appeal Unavailable'}
             </button>
 
-            {/* Contact Support Button (Secondary) */}
             <button
-              onClick={() => {
-                router.push("/help");
-              }}
+              onClick={() => router.push("/help")}
               className="w-full sm:w-auto px-6 py-3 rounded-lg border border-[#2a2140] text-gray-300 hover:text-white hover:border-white/50 transition-all duration-300"
             >
               Contact Support
             </button>
           </div>
 
-          {/* Revised Disclaimer Text */}
           <p className="text-sm text-gray-500 mt-8">
             Appeals are generally reviewed within 24–48 hours. If you wish to submit an appeal, please provide full context regarding your violation.
           </p>

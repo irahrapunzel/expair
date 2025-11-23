@@ -109,6 +109,7 @@ urlpatterns = [
     
     path('validate-field/', validate_field, name='validate_field'),
 
+    path('report-appeal-data/<int:report_id>/', views.get_report_for_appeal, name='get_report_for_appeal'),
     path('submit-appeal/', views.submit_appeal, name='submit_appeal'),
     
     # Notification Endpoints
