@@ -4055,83 +4055,86 @@ export default function ProfilePage() {
 
         {/* SECTION 5 - REVIEWS */}
         <div className="flex flex-col gap-[25px] mt-[25px]">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between w-full">
+            
+            {/* LEFT SIDE */}
             <div className="flex flex-col">
               <h5 className="text-white text-lg font-semibold">Reviews</h5>
 
-              {/* trades & reviews + generate report */}
-              <div className="flex items-center gap-3 mt-[5px]">
-
-                <span className="text-[16px] text-white/50">
-                  {user.reviews} trades & reviews
-                </span>
-
-                {/* GENERATE REPORT BUTTON */}
-                {user.reviews > 0 && isOwnProfile && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowReportDropdown(!showReportDropdown)}
-                      className="flex items-center text-white text-[14px] border border-white/20 rounded-[10px] h-[28px] px-3 bg-[#120A2A] hover:bg-white/10 transition-colors"
-                    >
-                      <Download className="mr-1 h-4 w-4" />
-                      Generate
-                      <ChevronDownIcon className="ml-1 h-4 w-4 text-white" />
-                    </button>
-
-                    {showReportDropdown && (
-                      <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
-                        <button
-                          onClick={() => handleGenerateReport('pdf')}
-                          className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
-                        >
-                          <FileText className="mr-2 h-4 w-4" />
-                          PDF Report
-                        </button>
-                        <button
-                          onClick={() => handleGenerateReport('csv')}
-                          className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
-                        >
-                          <Icon icon="mdi:file-excel-box-outline" className="mr-2 h-4 w-4" />
-                          CSV Data
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              {/* Row 2: trades & reviews */}
+              <span className="text-[16px] text-white/50 mt-[6px]">
+                {user.reviews} trades & reviews
+              </span>
             </div>
 
-            {/* SORT DROPDOWN */}
-            {reviews.length > 0 && (
-              <div className="relative">
-                <button
-                  onClick={() => setShowSortDropdown(!showSortDropdown)}
-                  className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3"
-                >
-                  {sortOption}
-                  <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
-                </button>
+            {/* RIGHT SIDE */}
+            <div className="flex flex-col items-end">
+              
+              {/* Row 1: Latest */}
+              {reviews.length > 0 && (
+                <div className="relative mb-[6px]">
+                  <button
+                    onClick={() => setShowSortDropdown(!showSortDropdown)}
+                    className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3"
+                  >
+                    {sortOption}
+                    <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
+                  </button>
 
-                {showSortDropdown && (
-                  <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
-                    {["Latest", "Highest Rating", "Lowest Rating"].map((option) => (
+                  {showSortDropdown && (
+                    <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
+                      {["Latest", "Highest Rating", "Lowest Rating"].map((option) => (
+                        <button
+                          key={option}
+                          onClick={() => handleSortChange(option)}
+                          className={clsx(
+                            "block w-full text-left px-4 py-2 text-sm transition-colors",
+                            option === sortOption
+                              ? "text-[#906EFF] bg-white/10"
+                              : "text-white hover:bg-white/10"
+                          )}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Row 2: Generate Report */}
+              {user.reviews > 0 && isOwnProfile && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowReportDropdown(!showReportDropdown)}
+                    className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3 bg-[#120A2A] hover:bg-white/10 transition-colors"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Generate Report
+                    <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
+                  </button>
+
+                  {showReportDropdown && (
+                    <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
                       <button
-                        key={option}
-                        onClick={() => handleSortChange(option)}
-                        className={clsx(
-                          "block w-full text-left px-4 py-2 text-sm transition-colors",
-                          option === sortOption
-                            ? "text-[#906EFF] bg-white/10"
-                            : "text-white hover:bg-white/10"
-                        )}
+                        onClick={() => handleGenerateReport('pdf')}
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
                       >
-                        {option}
+                        <FileText className="mr-2 h-4 w-4" />
+                        PDF Report
                       </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                      <button
+                        onClick={() => handleGenerateReport('csv')}
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                      >
+                        <Icon icon="mdi:file-excel-box-outline" className="mr-2 h-4 w-4" />
+                        CSV Data
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Loading state */}
