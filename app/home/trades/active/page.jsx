@@ -42,6 +42,74 @@ export default function ActiveTradesPage() {
 
   const [showReportDialog, setShowReportDialog] = useState(false);
 
+  // State to hold the fetched evaluation data
+  const [evaluationData, setEvaluationData] = useState({
+    tradeScore: 0,
+    taskComplexity: 0,
+    timeCommitment: 0,
+    skillLevel: 0,
+    feedback: "Loading evaluation...",
+    isLoading: true, // New loading state for the dialog
+  });
+
+  const handleReviewDetails = async (trade) => {
+    setSelectedTrade(trade); // Set selected trade first
+    setEvaluationData(prev => ({ ...prev, isLoading: true, feedback: "Loading evaluation..." }));
+    setShowEvaluationDialog(true); // Open dialog immediately with loading state
+
+    const token = session?.access || session?.accessToken;
+    if (!token) {
+      setEvaluationData(prev => ({ ...prev, isLoading: false, feedback: "Authentication token missing." }));
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-requests/${trade.tradereq_id}/evaluation/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const evalDetails = data.evaluation;
+
+      // Set the complete fetched evaluation data
+      setEvaluationData({
+        tradereq_id: trade.tradereq_id,
+        requestTitle: evalDetails.requestTitle,
+        offerTitle: evalDetails.offerTitle,
+        tradeScore: evalDetails.tradeScore, // 0-10
+        taskComplexity: evalDetails.taskComplexity, // 0-100
+        timeCommitment: evalDetails.timeCommitment, // 0-100
+        skillLevel: evalDetails.skillLevel, // 0-100
+        feedback: evalDetails.feedback,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error("Error fetching evaluation details:", error);
+      setEvaluationData({
+        tradereq_id: trade.tradereq_id,
+        requestTitle: trade.requested,
+        offerTitle: trade.offering,
+        tradeScore: 0,
+        taskComplexity: 0,
+        timeCommitment: 0,
+        skillLevel: 0,
+        feedback: `Failed to load evaluation: ${error.message}`,
+        isLoading: false,
+      });
+    }
+  };
+
   // Fetch ACTIVE trades from backend
   useEffect(() => {
     let isMounted = true;
@@ -389,10 +457,10 @@ export default function ActiveTradesPage() {
           prevTrades.map((trade) =>
             trade.id === selectedTrade.id
               ? {
-                  ...trade,
-                  myProofSubmitted: true,
-                  proofWorkflowStatus: "waiting_for_approval",
-                }
+                ...trade,
+                myProofSubmitted: true,
+                proofWorkflowStatus: "waiting_for_approval",
+              }
               : trade
           )
         );
@@ -493,22 +561,22 @@ export default function ActiveTradesPage() {
           prevTrades.map((trade) =>
             trade.id === selectedTrade.id
               ? {
-                  ...trade,
-                  myProofApproved: true,
-                  partnerProofApproved: true,
-                  bothProofsApproved:
-                    approvalData.both_approved ||
-                    approvalData.trade_completed ||
-                    false,
-                  canRate:
-                    approvalData.both_approved ||
-                    approvalData.trade_completed ||
-                    false,
-                  proofWorkflowStatus:
-                    approvalData.both_approved || approvalData.trade_completed
-                      ? "ready_to_rate"
-                      : "waiting_for_approval",
-                }
+                ...trade,
+                myProofApproved: true,
+                partnerProofApproved: true,
+                bothProofsApproved:
+                  approvalData.both_approved ||
+                  approvalData.trade_completed ||
+                  false,
+                canRate:
+                  approvalData.both_approved ||
+                  approvalData.trade_completed ||
+                  false,
+                proofWorkflowStatus:
+                  approvalData.both_approved || approvalData.trade_completed
+                    ? "ready_to_rate"
+                    : "waiting_for_approval",
+              }
               : trade
           )
         );
@@ -553,14 +621,14 @@ export default function ActiveTradesPage() {
           prevTrades.map((trade) =>
             trade.id === selectedTrade.id
               ? {
-                  ...trade,
-                  partnerProofSubmitted: false, // Partner needs to resubmit
-                  partnerHasProof: false,
-                  myProofApproved: false,
-                  partnerProofApproved: false,
-                  bothProofsApproved: false,
-                  canRate: false,
-                }
+                ...trade,
+                partnerProofSubmitted: false, // Partner needs to resubmit
+                partnerHasProof: false,
+                myProofApproved: false,
+                partnerProofApproved: false,
+                bothProofsApproved: false,
+                canRate: false,
+              }
               : trade
           )
         );
@@ -775,7 +843,7 @@ export default function ActiveTradesPage() {
             <Icon icon="lucide:arrow-up-down" className="text-lg" /> 
           </div>*/}
 
-          
+
         </div>
       </div>
 
@@ -978,7 +1046,7 @@ export default function ActiveTradesPage() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedTrade(trade);
-                              setShowEvaluationDialog(true);
+                              handleReviewDetails(trade);
                             }}
                           >
                             <div className="flex items-center gap-[10px]">
@@ -1099,7 +1167,7 @@ export default function ActiveTradesPage() {
                     </div>
 
                     {/* Bottom Row - Due Date */}
-                    <div className="flex justify-end items-center w-full">                    
+                    <div className="flex justify-end items-center w-full">
                       <span className="text-[13px] font-normal text-white/60">
                         Due on {trade.deadline}
                       </span>
@@ -1107,7 +1175,7 @@ export default function ActiveTradesPage() {
 
 
                     <div className="flex justify-between items-center w-full">
-                      
+
                       {/* Chevron Down*/}
                       <div>
                         <Icon
@@ -1120,13 +1188,12 @@ export default function ActiveTradesPage() {
                       <div className="flex flex-wrap items-center gap-[15px]">
                         {/* Status Badge */}
                         <div
-                          className={`flex justify-center items-center h-[38px] px-[25px] py-[13px] rounded-[15px] ${ 
-                            trade.bothProofsApproved
-                              ? "bg-green-500/20 text-green-400 border border-green-500/30" 
+                          className={`flex justify-center items-center h-[38px] px-[25px] py-[13px] rounded-[15px] ${trade.bothProofsApproved
+                              ? "bg-green-500/20 text-green-400 border border-green-500/30"
                               : trade.proofWorkflowStatus === "waiting_for_approval"
-                              ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" 
-                              : "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
-                          }`}
+                                ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                                : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                            }`}
                         >
                           <span className="text-[16px] font-medium">
                             {getTradeStatusText(trade)}
@@ -1178,7 +1245,7 @@ export default function ActiveTradesPage() {
                               }}
                             >
                               <div className="flex items-center gap-[8px]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="#fff" d="M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20zm5-12.15L9.125 9.725q-.3.3-.712.288T7.7 9.7q-.275-.3-.288-.7t.288-.7l3.6-3.6q.15-.15.325-.212T12 4.425t.375.063t.325.212l3.6 3.6q.3.3.288.7t-.288.7q-.3.3-.712.313t-.713-.288L13 7.85V15q0 .425-.288.713T12 16t-.712-.288T11 15z"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="#fff" d="M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20zm5-12.15L9.125 9.725q-.3.3-.712.288T7.7 9.7q-.275-.3-.288-.7t.288-.7l3.6-3.6q.15-.15.325-.212T12 4.425t.375.063t.325.212l3.6 3.6q.3.3.288.7t-.288.7q-.3.3-.712.313t-.713-.288L13 7.85V15q0 .425-.288.713T12 16t-.712-.288T11 15z" /></svg>
                                 <span className="text-[16px] text-white">
                                   {proofButtonState.text}
                                 </span>
@@ -1187,7 +1254,7 @@ export default function ActiveTradesPage() {
 
                             {/* Partner Proof Button */}
                             <button
-                              className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] transition-all" 
+                              className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] transition-all"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 partnerProofButtonState.onClick &&
@@ -1236,7 +1303,7 @@ export default function ActiveTradesPage() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedTrade(trade);
-                              setShowEvaluationDialog(true);
+                              handleReviewDetails(trade);
                             }}
                           >
                             <StarEvaluateIcon size="55" />
@@ -1340,22 +1407,13 @@ export default function ActiveTradesPage() {
       <ActiveEvaluationDialog
         isOpen={showEvaluationDialog}
         onClose={() => setShowEvaluationDialog(false)}
-        tradeData={{
-          // Ensure a valid ID is provided (try common fields)
-          tradereq_id:
-            selectedTrade?.tradereq_id ??
-            selectedTrade?.trade_request_id ??
-            selectedTrade?.id ??
-            null,
-          requestTitle:
-            selectedTrade?.requested ??
-            selectedTrade?.reqname ??
-            selectedTrade?.requestTitle,
-          offerTitle:
-            selectedTrade?.offering ??
-            selectedTrade?.exchange ??
-            selectedTrade?.offerTitle,
-        }}
+        tradeData={
+          {
+            ...selectedTrade, // This includes requestTitle/offerTitle from fetch
+            ...evaluationData,
+            isLoading: evaluationData.isLoading // Ensure isLoading is propagated
+          }
+        }
       />
 
       {showReportDialog && selectedTrade && (

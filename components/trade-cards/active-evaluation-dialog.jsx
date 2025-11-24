@@ -30,9 +30,7 @@ const StarLogo = () => (
   </svg>
 );
 
-// This component now receives the *complete* tradeData, including evaluation scores
 export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
-  // const { data: session } = useSession(); // No longer needed, parent handles auth/fetch
 
   // We get the loading state directly from the parent prop
   const loading = tradeData?.isLoading || false;
@@ -46,9 +44,6 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
     timeCommitment: 0,
     skillLevel: 0,
   });
-
-  // *** REMOVED THE ENTIRE useEffect hook for fetching data ***
-  // The parent (page.jsx) now does all the fetching.
 
   // Trigger staggered animations
   // This now depends on the 'tradeData' prop instead of an internal state
