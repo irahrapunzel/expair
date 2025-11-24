@@ -130,7 +130,6 @@ export default function BrowseSection() {
             id="browse"
             className="scroll-mt-[60px] w-full relative py-16 sm:py-20 px-4 sm:px-6 md:px-10 lg:px-20 bg-[#050015] text-white overflow-hidden"
         >
-
             {/* Title and Header */}
             <div className="flex justify-center items-end text-center mb-12 sm:mb-16">
                 <h2
@@ -174,7 +173,7 @@ export default function BrowseSection() {
                 {/* Trade Card List - Horizontal Scroll Container */}
                 <div
                     ref={scrollContainerRef}
-                    className="flex gap-8 overflow-x-scroll no-scrollbar py-2 px-1 relative snap-x snap-mandatory"
+                    className="flex gap-4 sm:gap-6 md:gap-8 overflow-x-scroll no-scrollbar py-2 px-1 relative snap-x snap-mandatory"
                     style={{
                         maxWidth: CAROUSEL_MAX_WIDTH + 'px',
                         scrollSnapType: 'x mandatory'
@@ -184,7 +183,7 @@ export default function BrowseSection() {
                         <div
                             key={index}
                             className="flex-shrink-0 snap-center"
-                            style={{ width: '455px' }}
+                            style={{ width: '80%', maxWidth: '455px' }}
                         >
                             <ExploreCardLanding
                                 name={trade.name || "Anonymous"}
@@ -201,8 +200,8 @@ export default function BrowseSection() {
                         </div>
                     ))}
 
-                    {/* Add padding element to ensure the last card can scroll into view */}
-                    <div className="flex-shrink-0" style={{ width: '100px' }} />
+                    {/* Padding for last card */}
+                    <div className="flex-shrink-0" style={{ width: '60px' }} />
                 </div>
 
                 {/* Right Scroll Button */}
@@ -218,7 +217,7 @@ export default function BrowseSection() {
                 </button>
             </div>
 
-            {/* See All Trades CTA (Like the image provided) */}
+            {/* See All Trades CTA */}
             <div className="text-center mt-12">
                 <Link href="/signin">
                     <button
