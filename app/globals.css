@@ -166,3 +166,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+@media (max-width: 1024px) {
+  html {
+    width: 100%;
+    overflow-x: hidden;
+  }
+  body {
+    width: 100%;
+    overflow-x: hidden;
+  }
+}
+
+@media (max-device-width: 767px) {
+  .force-mobile-nav {
+    display: flex !important;
+  }
+  .force-desktop-nav {
+    display: none !important;
+  }
+}

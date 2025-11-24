@@ -201,13 +201,13 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
           {!showRating ? (
             // First phase - Feedback Input
             <div
-              className="w-[618px] flex flex-col items-center justify-center p-[50px] relative"
+              className="w-[650px] flex flex-col items-center justify-center p-[40px] relative"
               style={{
-                background: "rgba(18, 10, 42, 0.95)",
+                background: "rgba(0, 0, 0, 0.05)",
                 border: "2px solid #0038FF",
-                boxShadow: "0px 4px 15px rgba(40, 76, 204, 0.8)",
-                backdropFilter: "blur(10px)",
-                borderRadius: "20px",
+                boxShadow: "0px 4px 15px #D78DE5",
+                backdropFilter: "blur(30px)",
+                borderRadius: "15px",
               }}
             >
               {/* Background gradients */}
@@ -224,7 +224,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
 
               <div className="flex flex-col items-center gap-[30px] w-full relative z-10">
                 {/* Success Icon */}
-                <div className="w-[70px] h-[70px] rounded-full bg-gradient-to-r from-[#0038FF] to-[#906EFF] flex items-center justify-center shadow-[0px_0px_20px_#284CCC]">
+                <div className="w-[70px] h-[70px] rounded-full bg-[#0038FF] flex items-center justify-center">
                   <Icon icon="lucide:check" className="w-[40px] h-[40px] text-white" />
                 </div>
 
@@ -311,11 +311,11 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
           ) : (
             // Second phase - AI-Generated Rating Display
             <div
-              className="w-[618px] flex flex-col items-center justify-center p-[50px] relative"
+              className="w-[650px] flex flex-col items-center justify-center p-[40px] relative"
               style={{
-                background: "rgba(18, 10, 42, 0.95)",
+                background: "rgba(0, 0, 0, 0.05)",
                 border: "2px solid #0038FF",
-                boxShadow: "0px 4px 15px rgba(40, 76, 204, 0.8)",
+                boxShadow: "0px 4px 15px #D78DE5",
                 backdropFilter: "blur(30px)",
                 borderRadius: "15px",
               }}
@@ -333,8 +333,8 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
               <div className="absolute bottom-[-40px] right-[-40px] w-[100px] h-[100px] rounded-full bg-[#906EFF]/15 blur-[35px]"></div>
 
               <div className="flex flex-col items-center gap-[30px] w-full relative z-10">
-                {/* Clean success icon (no gradients, no sparkles) */}
-                <div className="w-[70px] h-[70px] rounded-full bg-[#0038FF] flex items-center justify-center shadow-[0px_0px_15px_#284CCC]">
+                {/* success icon */}
+                <div className="w-[70px] h-[70px] rounded-full bg-[#0038FF] flex items-center justify-center">
                   <Icon icon="lucide:check" className="w-[40px] h-[40px] text-white" />
                 </div>
 

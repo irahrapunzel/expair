@@ -82,7 +82,7 @@ export default function LandingNav() {
         </div>
 
         {/* Desktop Menu */}
-        <nav className="hidden md:flex items-center gap-[50px] px-[35px] py-[20px] rounded-[20px] bg-[#120A2A]">
+        <nav className="hidden md:flex force-desktop-nav items-center gap-[50px] px-[35px] py-[20px] rounded-[20px] bg-[#120A2A]">
           {sections.map((section) => {
             const href = `/#${section}`;
 
@@ -133,7 +133,7 @@ export default function LandingNav() {
         </div>
 
         {/* Mobile Menu Button */}
-        <div className="md:hidden bg-black p-2 rounded">
+        <div className="md:hidden force-mobile-nav bg-black p-2 rounded">
           <button
             className="text-white"
             onClick={() => setMenuOpen(true)}
