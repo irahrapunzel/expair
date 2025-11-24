@@ -295,8 +295,9 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'expaircs@gmail.com'
-EMAIL_HOST_PASSWORD = 'qjfy dmyf vmff xkpa'
+EMAIL_HOST_PASSWORD = 'hsvy ntjx rjor lpfn'
 DEFAULT_FROM_EMAIL = 'expaircs@gmail.com'
+EMAIL_TIMEOUT = 5
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',

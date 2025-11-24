@@ -29,11 +29,6 @@ urlpatterns = [
     path('complete-registration/', views.complete_registration, name='complete_registration'),
     path('api/users/<int:user_id>/verification/', views.user_verification, name='user_verification'),
     
-    # OTP Email Verification
-    path('send-verification-otp/', views.send_verification_otp, name='send_verification_otp'),
-    path('verify-otp/', views.verify_otp, name='verify_otp'),
-    path('resend-otp/', views.resend_otp, name='resend_otp'),
-    
     path('skills/general/', views.list_general_skills),
     path('skills/interests/', views.user_interests),
     path('skills/specific/', views.list_specific_skills),

@@ -1109,9 +1109,9 @@ export default function PendingTradesPage() {
                       <span className="text-sm text-white/80 font-medium">Needs</span>
                       <div
                         className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
-                        title={trade.offers}
+                        title={trade.needs}
                       >
-                        {trade.offers}
+                        {trade.needs}
                       </div>
                     </div>
 
@@ -1122,9 +1122,9 @@ export default function PendingTradesPage() {
                       </span>
                       <div
                         className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
-                        title={trade.needs}
+                        title={trade.offers}
                       >
-                        {trade.needs}
+                        {trade.offers}
                       </div>
                     </div>
                   </div>

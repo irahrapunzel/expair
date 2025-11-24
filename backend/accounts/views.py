@@ -1,3 +1,4 @@
+import binascii
 import csv
 import json
 import os
@@ -357,7 +358,7 @@ def validate_field(request):
                 exists = User.objects.filter(email__iexact=value).exists()
             else:
                 return JsonResponse({'error': 'Invalid field for validation.'}, status=400)
-
+            
             return JsonResponse({'exists': exists})
         except json.JSONDecodeError as e:
             print(f"DEBUG: JSON decode error: {e}")
@@ -1357,12 +1358,11 @@ def add_user_skills(request):
 def complete_registration(request):
     """
     Complete user registration with profile, interests, and skills.
-    Supports file uploads to Cloudinary and full FormData payload.
-    UPDATED: Now handles UserVerification model separately
+    Handles the initial user creation and instantly sets email_verified=True.
     """
     import json
 
-    print("=== COMPLETE REGISTRATION DEBUG ===")
+    print("=== COMPLETE REGISTRATION (NO OTP) DEBUG ===")
     print("Request data keys:", list(request.data.keys()))
     print("Request files:", list(request.FILES.keys()))
 
@@ -1393,43 +1393,17 @@ def complete_registration(request):
     print(f"Links parsed: {links_array}")
     print(f"User data: {username}, {email}, {first_name}, {last_name}")
 
-    # Validate required fields
+    # 1. Validate required fields
     if not username or not email or not password:
         return Response({
             "error": "Username, email, and password are required"
         }, status=400)
 
-    # Check if user already exists (from OTP flow)
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        return Response({
-            "error": "Email not found in verification records. Please restart registration."
-        }, status=400)
-
-    # Verify email was verified
-    if not user.verification.email_verified:
-        return Response({"error": "Please verify your email first"}, status=400)
-
-    # ✅ Update the existing verified user
-    user.username = username
-    user.first_name = first_name
-    user.last_name = last_name
-    user.bio = bio
-    user.location = location
-    user.links = links_array
-    if birthdate:
-        user.birthdate = birthdate
-    if nationality:
-        user.nationality = nationality
-        
-    if password:
-        user.set_password(password)
-    user.save()
-    print(f"[INFO] Updated existing user from OTP flow: {user.id}")
-
-
-    # Handling genSkills_ids (Array of IDs)
+    # 2. Check for existence (should already be done by frontend, but safety check)
+    if User.objects.filter(Q(username__iexact=username) | Q(email__iexact=email)).exists():
+        return Response({"error": "Username or Email is already registered."}, status=400)
+    
+    # Handle genSkills_ids (Array of IDs)
     genSkills_ids_raw = request.data.get("genSkills_ids", "[]")
     try:
         genSkills_ids = json.loads(genSkills_ids_raw) if isinstance(genSkills_ids_raw, str) else genSkills_ids_raw
@@ -1449,136 +1423,166 @@ def complete_registration(request):
     else:
         return Response({"error": "genSkills_ids should be an array"}, status=400)
 
+
+    # 3. Create the user
     try:
-        print(f"User created successfully with ID: {user.id}")
-        
-        # UserVerification is automatically created by the post_save signal
-
-        # Handle profilePic upload to Cloudinary
-        profilePic = request.FILES.get("profilePic")
-        if profilePic:
-            try:
-                upload_result = cloudinary.uploader.upload(
-                    profilePic,
-                    folder="media/profile_pics",
-                    public_id=f"user_{user.id}_profile",
-                    resource_type="image",
-                    overwrite=True,
-                    invalidate=True
-                )
-                user.profilePic = upload_result['secure_url']
-                print(f"[SUCCESS] Profile pic uploaded to Cloudinary: {upload_result['secure_url']}")
-            except Exception as e:
-                print(f"[ERROR] Cloudinary upload failed for profilePic: {e}")
-                import traceback
-                traceback.print_exc()
-        else:
-            # Check if this is a Google user with profile picture URL
-            google_image_url = request.data.get("google_image_url")
-            if google_image_url:
-                try:
-                    # Download the Google profile picture
-                    response = requests.get(google_image_url, timeout=10)
-                    response.raise_for_status()
-                    
-                    # Upload to Cloudinary
-                    from io import BytesIO
-                    upload_result = cloudinary.uploader.upload(
-                        BytesIO(response.content),
-                        folder="media/profile_pics",
-                        public_id=f"user_{user.id}_google_profile",
-                        resource_type="image",
-                        overwrite=True
-                    )
-                    user.profilePic = upload_result['secure_url']
-                    print(f"[SUCCESS] Google profile picture uploaded to Cloudinary: {upload_result['secure_url']}")
-                except Exception as e:
-                    print(f"[ERROR] Failed to download/upload Google profile picture: {e}")
+        user = User.objects.create(
+            email=email,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            bio=bio,
+            location=location,
+            links=links_array,
+            nationality=nationality,
+        )
+        if birthdate:
+            user.birthdate = birthdate
             
-        # Handle ID verification document upload to Cloudinary
-        id_document_file = request.FILES.get("id_document")
-        id_type = request.data.get("id_type", "Government ID")
+        if password:
+            user.set_password(password)
         
-        if id_document_file:
-            try:
-                # Determine resource type (image or raw for PDFs)
-                resource_type = "image" if id_document_file.content_type.startswith("image/") else "raw"                
-                upload_result = cloudinary.uploader.upload(
-                    id_document_file,
-                    folder="media/user_verifications",
-                    public_id=f"user_{username}_verification",
-                    resource_type=resource_type,
-                    overwrite=True,
-                    invalidate=True
-                )
-                
-                # Get the UserVerification record (created by signal)
-                verification = user.verification
-                verification.id_document = upload_result['secure_url']
-                verification.id_type = id_type
-                verification.id_verification_status = VerificationStatus.PENDING
-                verification.id_submitted_at = timezone.now()
-                verification.save()
-                
-                print(f"[SUCCESS] Verification ID uploaded to Cloudinary: {upload_result['secure_url']}")
-            except Exception as e:
-                print(f"[ERROR] Cloudinary upload failed for id_document: {e}")
-                import traceback
-                traceback.print_exc()
+        user.save() # Save the password hash and other fields
+        print(f"[INFO] Created new user: {user.id}")
+
+    except IntegrityError as e:
+         # Handle race condition where two users try to create the same username/email simultaneously
+        print(f"[ERROR] Integrity Error during creation: {e}")
+        return Response({"error": "Username or Email is already registered."}, status=400)
         
-        # Save user with uploaded file URLs
-        user.save()
-        print(f"User saved with Cloudinary URLs")
-
-        # Save general interests
-        interests_added = 0
-        for gid in genSkills_ids:
-            try:
-                GenSkill.objects.get(pk=gid)
-                UserInterest.objects.get_or_create(
-                    user_id=user.id,
-                    genSkills_id_id=gid
-                )
-                interests_added += 1
-            except GenSkill.DoesNotExist:
-                print(f"GenSkill {gid} does not exist")
-                continue
-
-        # Save specific skills
-        skills_added = 0
-        for gid_str, spec_ids in specSkills.items():
-            try:
-                gid = int(gid_str)
-                for sid in spec_ids:
-                    try:
-                        spec = SpecSkill.objects.get(pk=sid, genSkills_id_id=gid)
-                        UserSkill.objects.get_or_create(
-                            user_id=user.id,
-                            specSkills_id=sid
-                        )
-                        skills_added += 1
-                    except SpecSkill.DoesNotExist:
-                        print(f"SpecSkill {sid} does not exist for GenSkill {gid}")
-                        continue
-            except ValueError:
-                continue
-
-        return Response({
-            "message": "Registration completed successfully",
-            "user_id": user.id,
-            "interests_added": interests_added,
-            "skills_added": skills_added,
-            "profilePic_uploaded": bool(user.profilePic),
-            "verification_id_uploaded": bool(id_document_file)
-        }, status=201)
-
     except Exception as e:
-        print(f"Registration error: {str(e)}")
+        print(f"[ERROR] User creation failed: {e}")
         import traceback
         traceback.print_exc()
-        return Response({
-            "error": f"Registration failed: {str(e)}"
-        }, status=500)
+        return Response({"error": f"Initial user creation failed: {str(e)}"}, status=500)
+    
+    # 4. Mark Email as Verified Immediately (No OTP Step)
+    try:
+        verification, _ = UserVerification.objects.get_or_create(user=user)
+        verification.email_verified = True
+        verification.email_verified_at = timezone.now()
+        verification.save()
+        print(f"[INFO] Email automatically marked as verified for user: {user.id}")
+    except Exception as e:
+        print(f"[ERROR] Failed to set verification status: {e}")
+        # Proceed, but log error.
+
+    # 5. Handle profilePic upload to Cloudinary (remains the same as old function logic)
+    profilePic = request.FILES.get("profilePic")
+    if profilePic:
+        try:
+            upload_result = cloudinary.uploader.upload(
+                profilePic,
+                folder="media/profile_pics",
+                public_id=f"user_{user.id}_profile",
+                resource_type="image",
+                overwrite=True,
+                invalidate=True
+            )
+            user.profilePic = upload_result['secure_url']
+            print(f"[SUCCESS] Profile pic uploaded to Cloudinary: {upload_result['secure_url']}")
+        except Exception as e:
+            print(f"[ERROR] Cloudinary upload failed for profilePic: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        # Check if this is a Google user with profile picture URL
+        google_image_url = request.data.get("google_image_url")
+        if google_image_url:
+            try:
+                # Download the Google profile picture
+                response = requests.get(google_image_url, timeout=10)
+                response.raise_for_status()
+                
+                # Upload to Cloudinary
+                from io import BytesIO
+                upload_result = cloudinary.uploader.upload(
+                    BytesIO(response.content),
+                    folder="media/profile_pics",
+                    public_id=f"user_{user.id}_google_profile",
+                    resource_type="image",
+                    overwrite=True
+                )
+                user.profilePic = upload_result['secure_url']
+                print(f"[SUCCESS] Google profile picture uploaded to Cloudinary: {upload_result['secure_url']}")
+            except Exception as e:
+                print(f"[ERROR] Failed to download/upload Google profile picture: {e}")
+        
+    # 6. Handle ID verification document upload to Cloudinary (remains the same as old function logic)
+    id_document_file = request.FILES.get("id_document")
+    id_type = request.data.get("id_type", "Government ID")
+    
+    if id_document_file:
+        try:
+            # Determine resource type (image or raw for PDFs)
+            resource_type = "image" if id_document_file.content_type.startswith("image/") else "raw"                
+            upload_result = cloudinary.uploader.upload(
+                id_document_file,
+                folder="media/user_verifications",
+                public_id=f"user_{username}_verification",
+                resource_type=resource_type,
+                overwrite=True,
+                invalidate=True
+            )
+            
+            # Get the UserVerification record (created by signal)
+            verification.id_document = upload_result['secure_url']
+            verification.id_type = id_type
+            verification.id_verification_status = VerificationStatus.PENDING
+            verification.id_submitted_at = timezone.now()
+            verification.save()
+            
+            print(f"[SUCCESS] Verification ID uploaded to Cloudinary: {upload_result['secure_url']}")
+        except Exception as e:
+            print(f"[ERROR] Cloudinary upload failed for id_document: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Save user with uploaded file URLs
+    user.save()
+    print(f"User saved with Cloudinary URLs")
+
+    # 7. Save general interests
+    interests_added = 0
+    for gid in genSkills_ids:
+        try:
+            GenSkill.objects.get(pk=gid)
+            UserInterest.objects.get_or_create(
+                user_id=user.id,
+                genSkills_id_id=gid
+            )
+            interests_added += 1
+        except GenSkill.DoesNotExist:
+            print(f"GenSkill {gid} does not exist")
+            continue
+
+    # 8. Save specific skills
+    skills_added = 0
+    for gid_str, spec_ids in specSkills.items():
+        try:
+            gid = int(gid_str)
+            for sid in spec_ids:
+                try:
+                    spec = SpecSkill.objects.get(pk=sid, genSkills_id_id=gid)
+                    UserSkill.objects.get_or_create(
+                        user_id=user.id,
+                        specSkills_id=sid
+                    )
+                    skills_added += 1
+                except SpecSkill.DoesNotExist:
+                    print(f"SpecSkill {sid} does not exist for GenSkill {gid}")
+                    continue
+        except ValueError:
+            continue
+
+    return Response({
+        "message": "Registration completed successfully",
+        "user_id": user.id,
+        "interests_added": interests_added,
+        "skills_added": skills_added,
+        "profilePic_uploaded": bool(user.profilePic),
+        "verification_id_uploaded": bool(id_document_file)
+    }, status=201) 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -4744,177 +4748,6 @@ def get_completed_trades(request):
             "count": 0
         }, status=500)
         
-# 1. Send OTP (when user submits Step 1)
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def send_verification_otp(request):
-    """Send OTP to email for verification - with complete Step 1 data"""
-    email = request.data.get('email')
-    username = request.data.get('username')
-    first_name = request.data.get('first_name', '')
-    last_name = request.data.get('last_name', '')
-    password = request.data.get('password')
-    
-    if not email or not username:
-        return Response({"error": "Email and username are required"}, status=400)
-    
-    try:
-        # Check if user already exists
-        existing_user = User.objects.filter(Q(username=username) | Q(email=email)).first()
-        
-        if existing_user:
-            # Check if already verified
-            if existing_user.verification.email_verified:
-                return Response({"error": "Email already registered and verified"}, status=400)
-            
-            # User exists but not verified - update their info and resend OTP
-            user = existing_user
-            user.username = username
-            user.first_name = first_name
-            user.last_name = last_name
-            user.email = email
-            if password:
-                user.set_password(password)
-            user.save()
-            print(f"[INFO] Updated existing unverified user: {user.id}")
-        else:
-            # Create new user with correct username
-            user = User.objects.create(
-                email=email,
-                username=username,
-                first_name=first_name,
-                last_name=last_name,
-            )
-            if password:
-                user.set_password(password)
-                user.save()
-            print(f"[INFO] Created new user for OTP: {user.id}")
-        
-        # Generate and store OTP
-        otp_code = generate_otp()
-        verification, _ = UserVerification.objects.get_or_create(user=user)
-        verification.email_verification_otp = otp_code
-        verification.email_otp_created_at = timezone.now()
-        verification.email_verified = False
-        verification.save()
-        
-        # Send email
-        send_otp_email(user, otp_code)
-        
-        return Response({
-            "message": "OTP sent successfully",
-            "email": email,
-            "username": username
-        }, status=200)
-        
-    except Exception as e:
-        print(f"[ERROR] Send OTP error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return Response({"error": "Failed to send OTP. Please try again."}, status=500)
-
-# 2. Verify OTP
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def verify_otp(request):
-    """Verify OTP code"""
-    email = request.data.get('email')
-    otp_code = request.data.get('otp')
-    
-    if not email or not otp_code:
-        return Response({"error": "Email and OTP are required"}, status=400)
-    
-    try:
-        user = User.objects.get(email=email)
-        verification = user.verification
-        
-        # Check if OTP exists
-        if not verification.email_verification_otp:
-            return Response({"error": "No OTP found. Please request a new one."}, status=400)
-        
-        # Check if OTP expired (5 minutes)
-        if not verification.email_otp_created_at:
-            return Response({"error": "OTP session expired. Please request a new one."}, status=400)
-            
-        time_diff = (timezone.now() - verification.email_otp_created_at).total_seconds()
-        if time_diff > 300:
-            return Response({"error": "OTP expired. Please request a new one."}, status=400)
-        
-        # Check if OTP matches (case-insensitive, strip whitespace)
-        if verification.email_verification_otp.strip() != otp_code.strip():
-            return Response({"error": "Invalid OTP code"}, status=400)
-        
-        # ✅ Mark email as verified
-        verification.email_verified = True
-        verification.email_verified_at = timezone.now()
-        verification.email_verification_otp = None  # Clear OTP for security
-        verification.email_otp_created_at = None
-        verification.save()
-        
-        print(f"[SUCCESS] Email verified for user: {user.email}")
-        
-        return Response({
-            "message": "Email verified successfully",
-            "email": email,
-            "verified": True
-        }, status=200)
-        
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=404)
-    except Exception as e:
-        print(f"[ERROR] Verify OTP error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return Response({"error": "Verification failed. Please try again."}, status=500)
-
-
-# 3. Resend OTP
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def resend_otp(request):
-    """Resend OTP code"""
-    email = request.data.get('email')
-    
-    if not email:
-        return Response({"error": "Email is required"}, status=400)
-    
-    try:
-        user = User.objects.get(email=email)
-        verification = user.verification
-        
-        # Check cooldown (5 minutes)
-        if verification.email_otp_created_at:
-            time_diff = (timezone.now() - verification.email_otp_created_at).total_seconds()
-            if time_diff < 300:
-                remaining = int(300 - time_diff)
-                return Response({
-                    "error": f"Please wait {remaining} seconds before requesting a new code"
-                }, status=429)
-        
-        # Generate new OTP
-        otp_code = generate_otp()
-        verification.email_verification_otp = otp_code
-        verification.email_otp_created_at = timezone.now()
-        verification.save()
-        
-        # Send email with HTML template
-        send_otp_email(user, otp_code)
-        
-        print(f"[SUCCESS] OTP resent to {user.email}")
-        
-        return Response({
-            "message": "New OTP sent successfully"
-        }, status=200)
-        
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=404)
-    except Exception as e:
-        print(f"[ERROR] Resend OTP error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return Response({"error": "Failed to resend OTP. Please try again."}, status=500)
-    
-# [PALITAN] 'yung luma mong list_notifications function
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_notifications(request):
