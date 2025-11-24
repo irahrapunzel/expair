@@ -182,7 +182,7 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
       {/* Disclaimer - Keep styling but ensure z-index doesn't block scroll interaction underneath on mobile if needed */}
-      <div className="fixed bottom-[20px] sm:bottom-[60px] left-4 sm:left-[40px] max-w-[280px] sm:max-w-[422px] text-[10px] sm:text-[13px] text-white/40 text-left z-50 pointer-events-none sm:pointer-events-auto">
+      <div className="absolute bottom-[20px] sm:bottom-[60px] left-4 sm:left-[40px] max-w-[280px] sm:max-w-[422px] text-[10px] sm:text-[13px] text-white/40 text-left z-50 pointer-events-none sm:pointer-events-auto">
         Disclaimer: By linking your social media accounts, you agree to share
         selected public information for verification purposes. Expair will not
         post on your behalf or access private data. Use caution when linking

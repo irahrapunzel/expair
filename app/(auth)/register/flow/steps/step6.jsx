@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronDown, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, X } from "lucide-react"; 
 import Image from "next/image";
 import { Inter } from "next/font/google";
 import { Loader2 } from "lucide-react";
@@ -188,19 +188,20 @@ export default function Step6({
   onConfirm,
   isSubmitting,
 }) {
-  const [openDropdowns, setOpenDropdowns] = useState({}); // { [genId]: boolean }
-  const [errorMessage, setErrorMessage] = useState(""); // UI error text
-  const [checkedOptions, setCheckedOptions] = useState({}); // { [genId]: number[] } -> specskills_ids
-  const [specByGen, setSpecByGen] = useState({}); // { [genId]: [{id, name}] } from backend
+  const [openDropdowns, setOpenDropdowns] = useState({});
+  const [errorMessage, setErrorMessage] = useState("");
+  const [checkedOptions, setCheckedOptions] = useState({});
+  const [specByGen, setSpecByGen] = useState({});
   const [loadingSpecs, setLoadingSpecs] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false); // <-- Added modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // 🔥 FIX: Store the derived categories in a local state
+  const [localCategories, setLocalCategories] = useState([]);
 
-  // Fix: Use step6Data directly and handle the data format from step5
   const safeSelected = Array.isArray(step6Data) ? step6Data : [];
   const selectedCategoryIds = useMemo(() => {
     return safeSelected
       .map((s) => {
-        // Handle the data format from step5 (which has category_id)
         if (typeof s === "number") return s;
         if (typeof s === "string" && !isNaN(Number(s))) return Number(s);
         return s?.category_id ?? s?.genskills_id ?? null;
@@ -208,10 +209,28 @@ export default function Step6({
       .filter(Boolean);
   }, [safeSelected]);
 
-  const categories = useMemo(
+  // Derived categories from props
+  const categoriesFromProps = useMemo(
     () => allCategories.filter((c) => selectedCategoryIds.includes(c.id)),
     [selectedCategoryIds]
   );
+  
+  // 🔥 FIX: Update localCategories whenever categoriesFromProps changes
+  useEffect(() => {
+    if (categoriesFromProps.length > 0) {
+      setLocalCategories(categoriesFromProps);
+    }
+    // Note: We intentionally *don't* clear localCategories if categoriesFromProps is empty,
+    // which allows the component to display the current categories during submission (when isSubmitting is true).
+  }, [categoriesFromProps]);
+
+  // Use localCategories for rendering
+  const categoriesToRender = useMemo(() => {
+    // If the component is submitting, use the locally preserved categories.
+    // Otherwise, use the fresh data from props.
+    return isSubmitting && localCategories.length > 0 ? localCategories : categoriesFromProps;
+  }, [isSubmitting, localCategories, categoriesFromProps]);
+
 
   useEffect(() => {
     let isCancelled = false;
@@ -264,7 +283,6 @@ export default function Step6({
           [categoryId]: currentOptions.filter((item) => item !== option),
         };
 
-        // Clear error if there's at least one selection across all categories
         const hasSelections = Object.values(newOptions).some(
           (arr) => arr && arr.length > 0
         );
@@ -274,7 +292,7 @@ export default function Step6({
 
         return newOptions;
       } else {
-        setErrorMessage(""); // Clear error when adding a selection
+        setErrorMessage("");
         return {
           ...prev,
           [categoryId]: [...currentOptions, option],
@@ -287,7 +305,7 @@ export default function Step6({
     (checkedOptions[genId] || []).includes(specId);
 
   const handleContinue = () => {
-    const missing = categories
+    const missing = categoriesToRender
       .filter(
         (cat) => !(checkedOptions[cat.id] && checkedOptions[cat.id].length > 0)
       )
@@ -301,16 +319,14 @@ export default function Step6({
       return;
     }
 
-    // Show the confirmation modal
     setShowConfirmModal(true);
   };
 
   const handleConfirm = (e) => {
     e.preventDefault();
-    // pass selections up to parent
     onConfirm?.({
-      selectedCategoryIds, // array of genskills ids
-      checkedOptions, // object { genId: [specSkillId, ...], ... }
+      selectedCategoryIds,
+      checkedOptions,
     });
   };
 
@@ -335,9 +351,9 @@ export default function Step6({
             alt="Logo"
             width={249.3}
             height={76}
-            className="mb-[30px]"
+            className="mb-[30px] w-[180px] sm:w-[249.3px]"
           />
-          <h1 className="font-[600] text-[25px] text-center mb-[60px]">
+          <h1 className="font-[600] text-[20px] sm:text-[25px] text-center mb-[40px] sm:mb-[60px]">
             Set up your skills.
           </h1>
         </div>
@@ -347,29 +363,32 @@ export default function Step6({
           <div className="text-white mb-4">Loading specializations...</div>
         )}
 
-        {!loadingSpecs && categories.length === 0 && (
+        {/* 🔥 FIX: Check categoriesToRender length */}
+        {!loadingSpecs && categoriesToRender.length === 0 && (
           <div className="text-white mb-4">
             No categories selected. Please go back to Step 5.
           </div>
         )}
 
         {/* Main content - Grows to fill space */}
-        {categories.length > 0 && (
+        {/* 🔥 FIX: Use categoriesToRender for conditional rendering */}
+        {categoriesToRender.length > 0 && (
           <div className="flex flex-col items-center justify-start w-full max-w-[922px] mx-auto flex-grow">
-            <h2 className="text-[20px] font-[500] text-center text-white mb-[20px]">
+            <h2 className="text-[18px] sm:text-[20px] font-[500] text-center text-white mb-[20px] px-2">
               Select your specializations in each skill category.
             </h2>
 
-            {/* Your existing dropdown content */}
+            {/* SKILL SELECTION GRID */}
             <div
-              className={`flex flex-row gap-[120px] w-full ${
-                categories.length === 1 ? "justify-center" : ""
+              className={`flex flex-col lg:flex-row gap-5 lg:gap-[120px] w-full items-center lg:items-start ${
+                categoriesToRender.length === 1 ? "lg:justify-center" : ""
               }`}
             >
               {" "}
-              <div className="flex flex-col gap-[20px] w-[401px]">
-                {categories
-                  .slice(0, Math.ceil(categories.length / 2))
+              {/* Left Column (Full-width on mobile) */}
+              <div className="flex flex-col gap-[20px] w-full lg:w-[401px] max-w-sm sm:max-w-md lg:max-w-none">
+                {categoriesToRender
+                  .slice(0, Math.ceil(categoriesToRender.length / 2))
                   .map((category) => (
                     <div key={category.id} className="w-full">
                       <div className="flex flex-col gap-[15px]">
@@ -379,7 +398,7 @@ export default function Step6({
                         <div className="relative">
                           {!openDropdowns[category.id] && (
                             <div
-                              className="w-[400px] h-[50px] bg-[#120A2A] border border-white/40 rounded-[15px] flex items-center justify-between px-4 cursor-pointer"
+                              className="w-full h-[50px] bg-[#120A2A] border border-white/40 rounded-[15px] flex items-center justify-between px-4 cursor-pointer"
                               onClick={() => toggleDropdown(category.id)}
                             >
                               <span className="text-[#413663] text-[16px]">
@@ -390,7 +409,7 @@ export default function Step6({
                           )}
 
                           {openDropdowns[category.id] && (
-                            <div className="w-[400px] bg-[#120A2A] border border-white/40 rounded-[15px] p-[20px_15px_10px_20px] flex flex-col justify-between transition-all duration-300">
+                            <div className="w-full bg-[#120A2A] border border-white/40 rounded-[15px] p-[20px_15px_10px_20px] flex flex-col justify-between transition-all duration-300">
                               {specByGen[category.id]?.map((spec) => (
                                 <div
                                   key={spec.id}
@@ -434,12 +453,14 @@ export default function Step6({
                         </div>
                       </div>
                     </div>
-                  ))}
+                    ))}
               </div>
-              {categories.length > 1 && (
-                <div className="flex flex-col gap-[20px] w-[401px]">
-                  {categories
-                    .slice(Math.ceil(categories.length / 2))
+              
+              {/* Right Column (Only show if there are multiple categories) */}
+              {categoriesToRender.length > 1 && (
+                <div className="flex flex-col gap-[20px] w-full lg:w-[401px] max-w-sm sm:max-w-md lg:max-w-none">
+                  {categoriesToRender
+                    .slice(Math.ceil(categoriesToRender.length / 2))
                     .map((category) => (
                       <div key={category.id} className="w-full">
                         <div className="flex flex-col gap-[15px]">
@@ -449,7 +470,7 @@ export default function Step6({
                           <div className="relative">
                             {!openDropdowns[category.id] && (
                               <div
-                                className="w-[400px] h-[50px] bg-[#120A2A] border border-white/40 rounded-[15px] flex items-center justify-between px-4 cursor-pointer"
+                                className="w-full h-[50px] bg-[#120A2A] border border-white/40 rounded-[15px] flex items-center justify-between px-4 cursor-pointer"
                                 onClick={() => toggleDropdown(category.id)}
                               >
                                 <span className="text-[#413663] text-[16px]">
@@ -460,7 +481,7 @@ export default function Step6({
                             )}
 
                             {openDropdowns[category.id] && (
-                              <div className="w-[400px] bg-[#120A2A] border border-white/40 rounded-[15px] p-[20px_15px_10px_20px] flex flex-col justify-between transition-all duration-300">
+                              <div className="w-full bg-[#120A2A] border border-white/40 rounded-[15px] p-[20px_15px_10px_20px] flex flex-col justify-between transition-all duration-300">
                                 {specByGen[category.id]?.map((spec) => (
                                   <div
                                     key={spec.id}
@@ -521,7 +542,8 @@ export default function Step6({
         </div>
 
         {/* Continue Button - Fixed at bottom */}
-        {categories.length > 0 && (
+        {/* 🔥 FIX: Use categoriesToRender for conditional rendering */}
+        {categoriesToRender.length > 0 && (
           <div className="flex justify-center mt-[60px] sm:mt-[50px] mb-[47.5px] sm:mb-[47.5px]">
             <Button
               className="cursor-pointer flex w-[200px] sm:w-[240px] h-[45px] sm:h-[50px] justify-center items-center px-[20px] sm:px-[38px] py-[10px] sm:py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[18px] sm:text-[20px] font-[500] transition rounded-[15px]"
@@ -549,8 +571,8 @@ export default function Step6({
             onClick={onPrev}
           />
           <span>6 of 6</span>
-          <ChevronLeft
-            className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white transform rotate-180"
+          <ChevronRight 
+            className="w-5 h-5 cursor-pointer text-gray-300 hover:text-white"
             onClick={handleNextClick}
           />
         </div>
@@ -562,7 +584,7 @@ export default function Step6({
               className="absolute inset-0 bg-black/50"
               onClick={handleCancel}
             ></div>
-            <div className="relative flex flex-col items-center justify-center w-[500px] h-[220px] bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 overflow-hidden">
+            <div className="relative flex flex-col items-center justify-center w-[90%] max-w-[500px] h-[220px] bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 overflow-hidden">
               {/* Decorative elements */}
               <div className="absolute top-[-100px] left-[-100px] w-[200px] h-[200px] rounded-full bg-[#0038FF]/20 blur-[60px]"></div>
               <div className="absolute bottom-[-80px] right-[-80px] w-[180px] h-[180px] rounded-full bg-[#D78DE5]/20 blur-[60px]"></div>
@@ -577,7 +599,7 @@ export default function Step6({
 
               <div className="flex flex-col items-center gap-4 w-full px-8 text-center">
                 {/* Title */}
-                <h2 className="font-bold text-[22px] text-white leading-tight">
+                <h2 className="font-bold text-[20px] sm:text-[22px] text-white leading-tight">
                   Are all your account details accurate?
                 </h2>
 
@@ -592,7 +614,7 @@ export default function Step6({
                   <button
                     className="flex items-center justify-center w-[130px] h-[38px] bg-[#0038FF] rounded-[15px] text-white text-[15px] font-medium shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors cursor-pointer disabled:opacity-50"
                     onClick={handleConfirm}
-                    disabled={isSubmitting} // <-- USE NEW PROP TO DISABLE
+                    disabled={isSubmitting}
                   >
                     {/* Display Spinner or Text based on submission state */}
                     {isSubmitting ? (
@@ -603,7 +625,7 @@ export default function Step6({
                   </button>
                 </div>
                 {/* Subtitle */}
-                <p className="text-white/60 text-[14px]">
+                <p className="text-white/60 text-[13px] sm:text-[14px]">
                   You may edit these details again in your profile.
                 </p>
               </div>
