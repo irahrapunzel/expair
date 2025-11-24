@@ -28,14 +28,26 @@ function deriveFromTotalXp(totalXp) {
   }
   // if you exceed the last cap
   const last = LVL_CAPS.length;
+  // Use the last cap value for calculations, but the current total XP for display
   return {
     level: last,
-    xpInLevel: LVL_CAPS[last - 1],
-    levelWidth: LVL_CAPS[last - 1],
+    xpInLevel: t - (cumulative - LVL_CAPS[last - 1]), // Remaining XP beyond max cap
+    levelWidth: LVL_CAPS[last - 1], // The last defined cap
     prevCap: cumulative - LVL_CAPS[last - 1],
     currCap: cumulative,
   };
 }
+
+// Helper function to calculate progress percentage
+const calculateProgress = (xpData) => {
+  return xpData.levelWidth ? Math.max(0, Math.min(100, (xpData.xpInLevel / xpData.levelWidth) * 100)) : 0;
+};
+
+// Helper function to display XP/Cap based on level data
+const getXpText = (levelData) => {
+  return `${levelData.xpInLevel}/${levelData.levelWidth}`;
+};
+
 
 export default function XpGainedDialog({
   isOpen,
@@ -82,7 +94,7 @@ export default function XpGainedDialog({
         
         console.log("[XP Dialog] Current user data:", { userId, currentUserTotalXp });
         
-        // 2) Get trade details - ✅ FIXED ENDPOINT
+        // 2) Get trade details
         const tradeResponse = await fetch(`${apiBase}/trade-details/${tradereqId}/`, {
           headers: { Authorization: `Bearer ${authToken}` }
         });
@@ -92,10 +104,8 @@ export default function XpGainedDialog({
         }
         
         const tradeData = await tradeResponse.json();
-        console.log("[XP Dialog] Trade data:", tradeData);
         
-        // ✅ FIXED: Get PARTNER's trade detail (not your own)
-        // You receive XP from what your partner submitted
+        // Get PARTNER's trade detail (you receive XP from what your partner submitted)
         const partnerTradeDetail = tradeData?.details?.find(
           detail => Number(detail.user_id) !== userId
         );
@@ -106,17 +116,10 @@ export default function XpGainedDialog({
         }
         
         const tradeXpGained = Number(partnerTradeDetail.total_xp || 0);
-        console.log("[XP Dialog] Partner's XP (what you gained):", tradeXpGained);
         
         // Calculate previous total XP (before this trade)
         const previousXp = Math.max(0, currentUserTotalXp - tradeXpGained);
         const afterTotal = currentUserTotalXp;
-
-        console.log("[XP Dialog] XP calculation:", {
-          previousXp,
-          afterTotal,
-          gained: tradeXpGained
-        });
 
         // Set state values
         setXpGained(tradeXpGained);
@@ -125,12 +128,6 @@ export default function XpGainedDialog({
         
         // Calculate level based on previous XP for initial display
         const initialLevelData = deriveFromTotalXp(previousXp);
-        const finalLevelData = deriveFromTotalXp(afterTotal);
-        
-        console.log("[XP Dialog] Level data:", {
-          initialLevel: initialLevelData.level,
-          finalLevel: finalLevelData.level
-        });
         
         setDisplayLevel(initialLevelData.level);
         
@@ -157,37 +154,28 @@ export default function XpGainedDialog({
   const levelData = deriveFromTotalXp(currentTotalXp);
   const beforeData = deriveFromTotalXp(previousTotalXp);
   
-  console.log("[XP Dialog] Progress calculation:", {
-    currentTotalXp,
-    previousTotalXp,
-    levelData,
-    beforeData
-  });
-  
-  // Calculate progress percentages
-  let progressFrom = beforeData.levelWidth ? Math.max(0, Math.min(100, (beforeData.xpInLevel / beforeData.levelWidth) * 100)) : 0;
-  let progressTo = levelData.levelWidth ? Math.max(0, Math.min(100, (levelData.xpInLevel / levelData.levelWidth) * 100)) : 0;
-  
-  // If we leveled up, show the animation filling to 100% first
+  // Calculate initial and final progress percentages
+  const initialProgress = calculateProgress(beforeData);
+  const finalProgressValue = calculateProgress(levelData);
   const didLevelUp = levelData.level > beforeData.level;
-  if (didLevelUp && progressFrom !== 100) {
-    progressTo = 100;
-  }
-
+  
   // Animation effects
   useEffect(() => {
+    // Reset dependency to use the correct starting point
+    let progressFrom = initialProgress; 
+
     if (isOpen && xpGained > 0 && !loading) {
+      
       // Reset animation states
-      setAnimatedWidth(progressFrom);
+      setAnimatedWidth(progressFrom); // Start from initial percentage
       setAnimatedXp(0);
       setShowBurst(false);
       setShowGlow(false);
       setShowLevelUpFlash(false);
       setDisplayLevel(beforeData.level);
 
-      const didLevelUp = levelData.level > beforeData.level;
-      const finalProgress = levelData.levelWidth ? Math.max(0, Math.min(100, (levelData.xpInLevel / levelData.levelWidth) * 100)) : 0;
-
+      let timeOffset = 300;
+      
       // Stage 1: Show glow effect
       const glowTimeout = setTimeout(() => setShowGlow(true), 100);
       
@@ -207,11 +195,11 @@ export default function XpGainedDialog({
           }
         };
         animateXp();
-      }, 300);
+      }, timeOffset);
+      timeOffset += 100;
       
       if (didLevelUp) {
         // Multi-stage animation for level up
-        let timeOffset = 800;
         
         // Step 1: Fill current level to 100%
         const fillTimeout = setTimeout(() => setAnimatedWidth(100), timeOffset);
@@ -228,13 +216,13 @@ export default function XpGainedDialog({
         const resetTimeout = setTimeout(() => {
           setShowLevelUpFlash(false);
           setDisplayLevel(levelData.level);
-          setAnimatedWidth(0);
+          setAnimatedWidth(0); // Bar resets to 0% for new level
         }, timeOffset);
         timeOffset += 200;
         
         // Step 4: Fill to final progress in new level
         const finalFillTimeout = setTimeout(() => {
-          setAnimatedWidth(finalProgress);
+          setAnimatedWidth(finalProgressValue); // Use the correct final value
         }, timeOffset);
 
         return () => {
@@ -247,7 +235,7 @@ export default function XpGainedDialog({
         };
       } else {
         // Normal progress animation (no level up)
-        const barTimeout = setTimeout(() => setAnimatedWidth(progressTo), 800);
+        const barTimeout = setTimeout(() => setAnimatedWidth(finalProgressValue), 800); // Use the correct final value
         const burstTimeout = setTimeout(() => setShowBurst(true), 1200);
 
         return () => {
@@ -266,9 +254,31 @@ export default function XpGainedDialog({
       setShowLevelUpFlash(false);
       setDisplayLevel(levelProp);
     }
-  }, [isOpen, xpGained, progressFrom, progressTo, loading, levelData.level, beforeData.level, levelData.levelWidth, levelData.xpInLevel, levelProp]);
+  }, [isOpen, xpGained, initialProgress, finalProgressValue, loading, didLevelUp, beforeData.level, levelData.level, levelProp]);
+
 
   if (!isOpen) return null;
+
+  // Calculate XP values for display based on animation state
+  const currentLevelData = didLevelUp && displayLevel > beforeData.level ? levelData : beforeData;
+  const currentXpInLevelDisplay = currentLevelData.xpInLevel + animatedXp;
+  
+  // Calculate total XP while animating (only used before final level settles)
+  const totalXpWhileAnimating = Math.min(previousTotalXp + animatedXp, currentTotalXp);
+  const animatedXpData = deriveFromTotalXp(totalXpWhileAnimating);
+  
+  // Determine which data to show in the XP/Cap display
+  let xpDisplayData;
+  if (didLevelUp && displayLevel === beforeData.level) {
+      // During Step 1 (filling to 100% of old bar)
+      xpDisplayData = animatedXpData;
+  } else if (displayLevel === beforeData.level) {
+      // Normal animation, before final jump
+      xpDisplayData = animatedXpData;
+  } else {
+      // After level up or normal animation finished
+      xpDisplayData = levelData;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -398,10 +408,7 @@ export default function XpGainedDialog({
                   </div>
                   
                   <span className="text-[16px] text-white">
-                    {displayLevel === levelData.level ? 
-                      `${levelData.xpInLevel}/${levelData.levelWidth}` : 
-                      `${beforeData.xpInLevel}/${beforeData.levelWidth}`
-                    }
+                    {getXpText(xpDisplayData)}
                   </span>
                 </div>
               </div>

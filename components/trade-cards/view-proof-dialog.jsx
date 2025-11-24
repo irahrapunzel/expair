@@ -14,6 +14,8 @@ export default function ViewProofDialog({ isOpen, onClose, onApprove, onReject, 
   const partnerName = trade?.partnerProofData?.partner_name || trade?.firstname || "Partner";
   const proofArray = trade?.partnerProofData?.proof_file || [];
 
+  const isProofAlreadyApproved = trade?.partnerProofApproved || false;
+
   // Count downloadable items (i.e., files, not links)
   const downloadableCount = proofArray.filter(item => item.type !== "link").length;
 
@@ -189,22 +191,29 @@ export default function ViewProofDialog({ isOpen, onClose, onApprove, onReject, 
                 </span>
               </button>
 
-              <div className="flex gap-[15px]">
-                <button
-                  onClick={handleReject}
-                  disabled={isApproving || isRejecting}
-                  className="w-[110px] h-[40px] border-2 border-red-500 rounded-[15px] text-red-500 text-[16px] hover:bg-red-500/10 transition-colors disabled:opacity-50"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={handleApprove}
-                  disabled={isApproving || isRejecting}
-                  className="w-[110px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] shadow-[0px_0px_15px_#284CCC] disabled:opacity-50"
-                >
-                  Approve
-                </button>
-              </div>
+              {/* Display Status or Buttons */}
+              {isProofAlreadyApproved ? (
+                <div className="px-4 py-2 rounded-[15px] bg-green-500/20 text-green-400 border border-green-500/30">
+                  <span className="text-[16px] font-medium">Proof Approved ✓</span>
+                </div>
+              ) : (
+                <div className="flex gap-[15px]">
+                  <button
+                    onClick={handleReject}
+                    disabled={isApproving || isRejecting}
+                    className="w-[110px] h-[40px] border-2 border-red-500 rounded-[15px] text-red-500 text-[16px] hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={handleApprove}
+                    disabled={isApproving || isRejecting}
+                    className="w-[110px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] shadow-[0px_0px_15px_#284CCC] disabled:opacity-50"
+                  >
+                    Approve
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

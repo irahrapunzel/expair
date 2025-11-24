@@ -9,6 +9,7 @@ import logging
 
 import requests
 import cloudinary
+import cloudinary.api
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -2437,7 +2438,7 @@ def accept_trade_interest(request, interest_id):
                 Notification.objects.create(
                     recipient=trade_interest.interested_user, # Notify the user who was accepted
                     sender=request.user, # The requester
-                    message=f"{request.user.first_name or request.user.username} accepted your trade for \"{trade_request.reqname}\". Add details to the trade now!",
+                    message=f"{request.user.first_name or request.user.username} accepted your trade interest for \"{trade_request.reqname}\". Add details to the trade now!",
                     notification_type=Notification.NotificationType.TRADE_ACCEPTED,
                     link=f"/home/trades/pending/"
                 )
@@ -2880,10 +2881,37 @@ def confirm_trade_evaluation(request, tradereq_id):
                 )
                 declined_count = other_interests.update(status=TradeInterest.InterestStatus.DECLINED)
     
-
                 print(f"Trade status set to ACTIVE")
                 message = "Trade confirmed by both parties! Trade is now active."
                 trade_status = "ACTIVE"
+                
+                # ✅ NEW: Notification to BOTH users that the trade is officially ACTIVE
+                requester = trade_request.requester
+                responder = trade_request.responder
+                
+                active_message = f"Your trade for \"{trade_request.reqname}\" is officially ACTIVE! Start exchanging now."
+                
+                try:
+                    # Notify Requester
+                    Notification.objects.create(
+                        recipient=requester, 
+                        sender=responder, # Sender is the partner who triggered the final confirmation
+                        message=active_message,
+                        notification_type=Notification.NotificationType.TRADE_CONFIRMED,
+                        link=f"/home/trades/active/" 
+                    )
+                    # Notify Responder (if not the one who confirmed last)
+                    if request.user != responder:
+                        Notification.objects.create(
+                            recipient=responder, 
+                            sender=requester,
+                            message=active_message,
+                            notification_type=Notification.NotificationType.TRADE_CONFIRMED,
+                            link=f"/home/trades/active/" 
+                        )
+                except Exception as e:
+                    print(f"Failed to create ACTIVE notification: {e}")
+
             else:
                 # Waiting for other user
                 other_user_name = (trade_request.responder.first_name if request.user == trade_request.requester 
@@ -2935,6 +2963,9 @@ def reject_trade_evaluation(request, tradereq_id):
         if not evaluation:
             return Response({"error": "No evaluation found for this trade"}, status=404)
         
+        # Determine the partner user for notification
+        partner_user = trade_request.responder if request.user == trade_request.requester else trade_request.requester
+        
         with transaction.atomic():
             # Set user's evaluation status to REJECTED
             if request.user == trade_request.requester:
@@ -2955,6 +2986,24 @@ def reject_trade_evaluation(request, tradereq_id):
             trade_request.status = TradeRequest.Status.CANCELLED
             trade_request.save()
             print(f"Trade status set to CANCELLED")
+
+            # ✅ NEW: Notification to partner about trade cancellation
+            if partner_user:
+                try:
+                    cancellation_message = (
+                        f"Trade CANCELLED: {request.user.first_name or request.user.username} rejected the trade evaluation "
+                        f"for \"{trade_request.reqname}\"."
+                    )
+                    
+                    Notification.objects.create(
+                        recipient=partner_user, 
+                        sender=request.user,
+                        message=cancellation_message,
+                        notification_type=Notification.NotificationType.TRADE_INTEREST, # Reusing for trade status update
+                        link=f"/home/trades/pending/" # Link to pending trades (where they might see the cancelled status)
+                    )
+                except Exception as e:
+                    print(f"Failed to create CANCELLATION notification: {e}")
         
         return Response({
             "message": "Trade rejected successfully. Trade has been cancelled.",
@@ -2981,7 +3030,8 @@ def cancel_active_trade(request, tradereq_id):
     - Reverts TradeRequest status to NULL (available for new offers)
     - Clears responder_id (resets to NULL)
     - Clears exchange field (resets to NULL)
-    - ✅ NEW: Optionally soft-deletes the conversation for both users
+    - NEW: Soft-deletes the conversation for current user
+    - NEW: Sends notification to partner
     """
     print(f"=== CANCEL ACTIVE TRADE DEBUG ===")
     print(f"Trade ID: {tradereq_id}")
@@ -3000,6 +3050,9 @@ def cancel_active_trade(request, tradereq_id):
             return Response({
                 "error": "You are not authorized to cancel this trade"
             }, status=403)
+        
+        # Determine the partner user before clearing responder
+        partner_user = trade_request.responder if trade_request.requester == request.user else trade_request.requester
         
         with transaction.atomic():
             # Store responder before clearing it (for conversation cleanup)
@@ -3024,15 +3077,30 @@ def cancel_active_trade(request, tradereq_id):
             
             print(f"Trade {tradereq_id} reverted to NULL status")
             
-            # Soft-delete the conversation for both users
+            # Soft-delete the conversation for the user who cancelled
             conversation = Conversation.objects.filter(trade_request=trade_request).first()
             if conversation:
-                # Delete for the user who cancelled
                 DeletedConversation.objects.get_or_create(
                     conversation=conversation,
                     user=request.user
                 )
-                
+
+            # ✅ NEW: Notification to partner about cancellation
+            if partner_user:
+                try:
+                    cancellation_message = (
+                        f"Trade CANCELLED: {request.user.first_name or request.user.username} has cancelled the trade for \"{trade_request.reqname}\". "
+                    )
+                    
+                    Notification.objects.create(
+                        recipient=partner_user, 
+                        sender=request.user,
+                        message=cancellation_message,
+                        notification_type=Notification.NotificationType.TRADE_INTEREST, # Reusing type for status change
+                        link=f"/home/explore/" # Direct partner to explore/re-express interest
+                    )
+                except Exception as e:
+                    print(f"Failed to create CANCELLATION notification: {e}")
         
         return Response({
             "message": "Trade cancelled successfully. Trade is now available for new offers.",
@@ -3041,7 +3109,7 @@ def cancel_active_trade(request, tradereq_id):
             "responder_id": None,
             "exchange": None,
             "reverted_to_explore": True,
-            "conversation_deleted": True  # Conversation removed from both users' lists
+            "conversation_deleted": True  # Conversation removed from current user's list
         }, status=200)
         
     except TradeRequest.DoesNotExist:
@@ -3275,6 +3343,7 @@ def add_trade_details(request, tradereq_id):
             
             if context_pic_file:
                 try:
+                    import cloudinary.uploader
                     # Generate unique public_id for this trade detail
                     public_id = f"trade_{tradereq_id}_user_{request.user.id}_context"
                     
@@ -3294,7 +3363,7 @@ def add_trade_details(request, tradereq_id):
                     traceback.print_exc()
                     return Response({"error": f"Failed to upload image: {str(e)}"}, status=500)
             
-            # Create or update trade detail
+            # Get existing detail or create new one
             trade_detail, created = TradeDetail.objects.get_or_create(
                 trade_request=trade_request,
                 user=request.user,
@@ -3317,14 +3386,42 @@ def add_trade_details(request, tradereq_id):
                 trade_detail.total_xp = total_xp
                 
                 # Only update contextpic if new file was uploaded
-                context_pic_url = detail.contextpic if detail.contextpic else None
-
+                if context_pic_file:
+                    trade_detail.contextpic = context_pic_url
                 
                 trade_detail.save()
-            
+
             # Check if both users have submitted details
-            total_details = TradeDetail.objects.filter(trade_request=trade_request).count()
+            trade_details_qs = TradeDetail.objects.filter(trade_request=trade_request)
+            total_details = trade_details_qs.count()
             both_submitted = total_details >= 2
+            
+            # Determine partner and check their status
+            partner_user = trade_request.responder if trade_request.requester == request.user else trade_request.requester
+            
+            # Check if the partner has already submitted their details
+            partner_submitted = trade_details_qs.filter(user=partner_user).exists()
+            
+            # ✅ Notification to partner to submit their details (only if they haven't yet)
+            if partner_user and not partner_submitted:
+                try:
+                    from .models import Notification
+                    message = (
+                        f"{request.user.first_name or request.user.username} submitted their trade details for \"{trade_request.reqname}\". "
+                        f"Please submit your details now to proceed to evaluation."
+                    )
+                    
+                    Notification.objects.create(
+                        recipient=partner_user, 
+                        sender=request.user,
+                        message=message,
+                        notification_type=Notification.NotificationType.TRADE_CONFIRMED, # Reusing type for phase change
+                        link=f"/home/trades/pending/" 
+                    )
+                    print(f"[DEBUG] Notification sent to partner {partner_user.id} to submit details.")
+                except Exception as e:
+                    print(f"[ERROR] Failed to create partner details notification: {e}")
+
             
             print(f"Trade detail {'created' if created else 'updated'} successfully")
             print(f"Both users submitted details: {both_submitted}")
@@ -3535,31 +3632,58 @@ def upload_trade_proof(request):
     if not proof_items:
         return Response({"error": "No new proof files or links were provided."}, status=400)
 
-    # ✅ Append new proof items to the existing list, don't overwrite
+    # ✅ Update Proof Status and Send Notification
     try:
         with transaction.atomic():
+            
+            # 1. Determine who is who and update proof/status
             partner_user = None
             
             if is_requester:
                 existing_proof = trade_history.requester_proof or []
                 trade_history.requester_proof = existing_proof + proof_items
                 trade_history.requester_proof_status = TradeHistory.ProofStatus.PENDING
+                partner_user = trade_request.responder
+                
+                # Check partner's submission status based on trade_history
+                partner_has_proof = bool(trade_history.responder_proof)
+                
             elif is_responder:
                 existing_proof = trade_history.responder_proof or []
                 trade_history.responder_proof = existing_proof + proof_items
                 trade_history.responder_proof_status = TradeHistory.ProofStatus.PENDING
+                partner_user = trade_request.requester
+                
+                # Check partner's submission status based on trade_history
+                partner_has_proof = bool(trade_history.requester_proof)
 
             trade_history.save()
             
-            # Notification to partner about proof submission
-            if partner_user:
+            # 2. Notification to partner about proof submission
+            if partner_user and partner_user.id:
+                # Determine notification message
+                
+                if partner_has_proof:
+                    # Case 1: Both submitted proof. Partner needs to approve/rate (This is the waiting-for-approval stage)
+                    message = (
+                        f"{request.user.first_name or request.user.username} submitted their proof for \"{trade_request.reqname}\". "
+                        f"Both proofs are now in! Check their proof and rate the trade if everything is approved."
+                    )
+                else:
+                    # Case 2: Current user submitted, partner has not. Partner needs to submit their proof.
+                    message = (
+                        f"{request.user.first_name or request.user.username} submitted their proof for \"{trade_request.reqname}\". "
+                        f"Submit yours now so the trade can proceed to evaluation and rating!"
+                    )
+                
                 try:
                     Notification.objects.create(
-                        recipient=partner_user, # Notify the partner
+                        recipient=partner_user, 
                         sender=request.user,
-                        message=f"{request.user.first_name or request.user.username} finished their output for \"{trade_request.reqname}\". Check out and evaluate their proof!",
+                        # ✅ Use the context-aware message
+                        message=message, 
                         notification_type=Notification.NotificationType.PROOF_SUBMITTED,
-                        link=f"/home/trades/active/"
+                        link=f"/home/trades/active/" # ✅ Link to Active Trades
                     )
                 except Exception as e:
                     print(f"Failed to create PROOF_SUBMITTED notification: {e}")
@@ -3760,12 +3884,11 @@ def get_my_proof(request, tradereq_id):
         import traceback
         traceback.print_exc()
         return Response({"error": f"Failed to get proof: {str(e)}"}, status=500)  
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def approve_partner_proof(request, tradereq_id):
     """
-    Approve partner's proof submission
+    Approve partner's proof submission.
     """
     is_locked, error_msg, _ = check_sanction_lockout(request.user)
     if is_locked:
@@ -3786,8 +3909,13 @@ def approve_partner_proof(request, tradereq_id):
         
         # Determine which proof to approve
         current_user_is_requester = (request.user == trade_request.requester)
-        partner_user = None
         
+        # Determine partner user for notification
+        if current_user_is_requester:
+            partner_user = trade_request.responder
+        else:
+            partner_user = trade_request.requester
+
         with transaction.atomic():
             if current_user_is_requester:
                 # Requester approving responder's proof
@@ -3809,14 +3937,20 @@ def approve_partner_proof(request, tradereq_id):
             )
             
             # Notification to partner about proof approval
-            if partner_user:
+            if partner_user and partner_user.id:
                 try:
+                    # ✅ Updated Message: Encourage rating
+                    message = (
+                        f"{request.user.first_name or request.user.username} approved your output proof. "
+                        f"Submit your proof now (if you haven't yet) and don't forget to rate them after both are approved!"
+                    )
+
                     Notification.objects.create(
-                        recipient=partner_user, # Notify the partner
+                        recipient=partner_user, 
                         sender=request.user,
-                        message=f"{request.user.first_name or request.user.username} approved your output proof. Don’t forget to rate them!",
+                        message=message,
                         notification_type=Notification.NotificationType.PROOF_APPROVED,
-                        link=f"/home/trades/active/"
+                        link=f"/home/trades/active/" # ✅ Link to Active Trades
                     )
                 except Exception as e:
                     print(f"Failed to create PROOF_APPROVED notification: {e}")
@@ -3841,8 +3975,9 @@ def approve_partner_proof(request, tradereq_id):
 def reject_partner_proof(request, tradereq_id):
     """
     Reject partner's proof submission.
-    ✅ UPDATED: Sets partner's proof status to REJECTED, clears their proof array,
+    Sets partner's proof status to REJECTED, clears their proof array,
     and deletes their submitted files from Cloudinary.
+    ✅ Includes notification to the partner.
     """
     is_locked, error_msg, _ = check_sanction_lockout(request.user)
     if is_locked:
@@ -3851,7 +3986,7 @@ def reject_partner_proof(request, tradereq_id):
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
             tradereq_id=tradereq_id,
-            status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED] # Allow rejection in completed state too
+            status__in=[TradeRequest.Status.ACTIVE, TradeRequest.Status.COMPLETED]
         )
         
         if request.user not in [trade_request.requester, trade_request.responder]:
@@ -3863,6 +3998,12 @@ def reject_partner_proof(request, tradereq_id):
         
         current_user_is_requester = (request.user == trade_request.requester)
         
+        # Determine partner user for notification
+        if current_user_is_requester:
+            partner_user = trade_request.responder
+        else:
+            partner_user = trade_request.requester
+        
         with transaction.atomic():
             proof_to_clear = []
             if current_user_is_requester:
@@ -3870,23 +4011,22 @@ def reject_partner_proof(request, tradereq_id):
                 if not trade_history.responder_proof:
                      return Response({"error": "Partner has not submitted proof to reject."}, status=400)
                 proof_to_clear = trade_history.responder_proof
-                trade_history.responder_proof = [] # Clear the proof array
-                trade_history.responder_proof_status = TradeHistory.ProofStatus.REJECTED # ✅ Set status to REJECTED
+                trade_history.responder_proof = [] 
+                trade_history.responder_proof_status = TradeHistory.ProofStatus.REJECTED 
             else:
                 # Responder rejecting requester's proof
                 if not trade_history.requester_proof:
                     return Response({"error": "Partner has not submitted proof to reject."}, status=400)
                 proof_to_clear = trade_history.requester_proof
-                trade_history.requester_proof = [] # Clear the proof array
-                trade_history.requester_proof_status = TradeHistory.ProofStatus.REJECTED # ✅ Set status to REJECTED
+                trade_history.requester_proof = [] 
+                trade_history.requester_proof_status = TradeHistory.ProofStatus.REJECTED 
             
             trade_history.save()
 
-            # ✅ Delete rejected files from Cloudinary
+            # Delete rejected files from Cloudinary
             public_ids_to_delete = []
             for item in proof_to_clear:
                 if item.get("type") == "file":
-                    # Extract public_id from URL (e.g., .../media/trade_proofs/file.jpg)
                     try:
                         parts = item["url"].split('/')
                         folder_index = parts.index("media")
@@ -3903,6 +4043,23 @@ def reject_partner_proof(request, tradereq_id):
                     print(f"Deleted {len(public_ids_to_delete)} rejected files from Cloudinary: {public_ids_to_delete}")
                 except Exception as e:
                     print(f"Warning: Cloudinary deletion failed for some resources: {e}")
+
+            # ✅ Notification to partner about proof rejection
+            if partner_user and partner_user.id:
+                try:
+                    reject_message = (
+                        f"{request.user.first_name or request.user.username} rejected your submitted proof for \"{trade_request.reqname}\". "
+                        f"Please submit new proof to continue the trade."
+                    )
+                    Notification.objects.create(
+                        recipient=partner_user, 
+                        sender=request.user,
+                        message=reject_message,
+                        notification_type=Notification.NotificationType.PROOF_SUBMITTED, # Reuse P_S or add new type like P_REJECTED
+                        link=f"/home/trades/active/" # Link to Active Trades
+                    )
+                except Exception as e:
+                    print(f"Failed to create PROOF_REJECTED notification: {e}")
 
         return Response({
             "message": "Proof rejected successfully. Partner has been notified to resubmit.",

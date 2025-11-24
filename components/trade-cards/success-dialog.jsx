@@ -1,3 +1,4 @@
+// --- success-dialog.jsx ---
 "use client";
 
 import { useState, useEffect } from "react";
@@ -41,12 +42,13 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
         
         // If user already rated, skip directly to XP display
         if (data.current_user_rated) {
+          // Note: Since we don't have the final XP data from /status, 
+          // we rely on the XpGainedDialog to fetch the real data.
           setSubmissionResult({
-            ...data,
-            xp_awarded: trade?.total_xp || 0,
-            new_total_xp: trade?.user_new_total_xp,
-            new_level: trade?.user_new_level,
-            new_rating: trade?.user_new_rating
+            // Minimal data to pass to XpGainedDialog
+            xp_awarded: 0, 
+            new_total_xp: 0,
+            new_level: 0,
           });
           setShowXpGained(true);
         }
@@ -72,11 +74,11 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
     setError("");
 
     try {
-      // ✅ STEP 1: AI Sentiment Analysis + Rating Submission
-      console.log("🤖 Calling AI sentiment analysis...");
+      // ✅ STEP 1: AI Sentiment Analysis + Rating Submission (The backend /reports/ endpoint should handle XP award)
+      console.log("🤖 Calling AI sentiment analysis and rating submission...");
       
       const sentimentResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/submit-rating/`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/submit-rating/`, // This endpoint performs rating and returns XP/Level
         {
           method: 'POST',
           headers: {
@@ -92,70 +94,36 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
 
       if (!sentimentResponse.ok) {
         const errorData = await sentimentResponse.json();
-        throw new Error(errorData.error || "Failed to analyze sentiment");
+        throw new Error(errorData.error || "Failed to submit rating/analyze sentiment");
       }
 
       const sentimentData = await sentimentResponse.json();
-      console.log("✅ AI Sentiment Result:", sentimentData);
+      console.log("✅ Submission Result (includes XP/Level from backend):", sentimentData);
 
-      // ✅ STEP 2: Award XP Based on Trade Complexity
-      console.log("🎁 Awarding XP...");
-      
-      let xpData = { 
-        xp_awarded: 0, 
-        new_total_xp: session?.user?.tot_XpPts || 0, 
-        new_level: session?.user?.level || 1 
-      };
-      
-      try {
-        const xpResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/trade-xp/award/${trade.tradereq_id}/`,  // ✅ CORRECTED URL
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session?.access}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (xpResponse.ok) {
-          xpData = await xpResponse.json();
-          console.log("✅ XP Awarded:", xpData.xp_awarded);
-        } else {
-          const errorData = await xpResponse.json();
-          console.warn("⚠️ XP award failed:", errorData.error || "Unknown error");
-          // Continue anyway - rating submission was successful
-        }
-      } catch (xpError) {
-        console.error("❌ XP award error:", xpError);
-        // Continue anyway - rating was the primary goal
-      }
-
-      // ✅ STEP 3: Combine Results
+      // ✅ STEP 2: Set Results using the single, comprehensive response
       setSubmissionResult({
         // Rating data from AI
         user_rating_submitted: sentimentData.stars,
-        both_users_rated: false,
+        both_users_rated: sentimentData.both_users_rated, 
         sentiment: sentimentData.sentiment,
         confidence: sentimentData.confidence,
         
         // Partner data
         partner_name: sentimentData.partner_updated.username,
         partner_new_rating: sentimentData.partner_updated.new_avg_stars,
-        partner_total_ratings: sentimentData.partner_updated.total_ratings,
+        partner_total_ratings: sentimentData.partner_updated.new_rating_count,
         
-        // XP data from separate endpoint
-        xp_awarded: xpData.xp_awarded,
-        new_total_xp: xpData.new_total_xp,
-        new_level: xpData.new_level,
+        // XP data returned by the rating submission endpoint
+        xp_awarded: sentimentData.xp_awarded, 
+        new_total_xp: sentimentData.new_total_xp, 
+        new_level: sentimentData.new_level, 
       });
 
       // Move to rating display phase
       setShowRating(true);
 
     } catch (error) {
-      console.error("❌ Sentiment analysis error:", error);
+      console.error("❌ Rating submission error:", error);
       setError(error.message || "Failed to submit rating. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -189,6 +157,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
         <XpGainedDialog
           isOpen={showXpGained}
           onClose={handleXpGainedClose}
+          // Note: XpGainedDialog will fetch the real, up-to-date XP/Level data based on the partner's detail
           xpGained={submissionResult?.xp_awarded || 0}  
           level={submissionResult?.new_level}           
           currentXp={submissionResult?.new_total_xp}   

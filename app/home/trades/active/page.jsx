@@ -54,7 +54,18 @@ export default function ActiveTradesPage() {
 
   const handleReviewDetails = async (trade) => {
     setSelectedTrade(trade); // Set selected trade first
-    setEvaluationData(prev => ({ ...prev, isLoading: true, feedback: "Loading evaluation..." }));
+    // Set initial loading state and default titles
+    setEvaluationData({
+      tradereq_id: trade.tradereq_id,
+      requestTitle: trade.requested,
+      offerTitle: trade.offering,
+      tradeScore: 0,
+      taskComplexity: 0,
+      timeCommitment: 0,
+      skillLevel: 0,
+      feedback: "Loading evaluation...",
+      isLoading: true
+    });
     setShowEvaluationDialog(true); // Open dialog immediately with loading state
 
     const token = session?.access || session?.accessToken;
@@ -686,14 +697,16 @@ export default function ActiveTradesPage() {
   };
 
   const getPartnerProofButtonState = (trade) => {
-    if (!trade.myProofSubmitted) {
+    // Priority 1: Proof is already approved. Show checkmark and disable.
+    if (trade.partnerProofApproved) {
       return {
-        text: `${trade.firstname}'s Proof`,
-        disabled: true,
-        onClick: null,
+        text: `${trade.firstname}'s Proof ✓`,
+        disabled: false,
+        onClick: () => handleViewPartnerProof(trade), // Still allows viewing if needed
       };
     }
 
+    // Priority 2: Waiting for partner to submit
     if (!trade.partnerHasProof) {
       return {
         text: `Waiting for ${trade.firstname}`,
@@ -702,14 +715,16 @@ export default function ActiveTradesPage() {
       };
     }
 
-    if (trade.partnerProofApproved) {
+    // Priority 3: Current user hasn't submitted their own proof yet (cannot approve partner's)
+    if (!trade.myProofSubmitted) {
       return {
-        text: `${trade.firstname}'s Proof ✓`,
-        disabled: false,
-        onClick: () => handleViewPartnerProof(trade),
+        text: `${trade.firstname}'s Proof`,
+        disabled: true,
+        onClick: null,
       };
     }
 
+    // Default: Partner has submitted, and current user can approve/reject
     return {
       text: `${trade.firstname}'s Proof`,
       disabled: false,
@@ -1045,8 +1060,7 @@ export default function ActiveTradesPage() {
                             className="min-w-[170px] h-[40px] flex justify-center items-center rounded-[15px] border-2 border-[#7E59F8] bg-[#120A2A] shadow-[0_0_15px_#D78DE5] cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedTrade(trade);
-                              handleReviewDetails(trade);
+                              handleReviewDetails(trade); 
                             }}
                           >
                             <div className="flex items-center gap-[10px]">
@@ -1189,10 +1203,10 @@ export default function ActiveTradesPage() {
                         {/* Status Badge */}
                         <div
                           className={`flex justify-center items-center h-[38px] px-[25px] py-[13px] rounded-[15px] ${trade.bothProofsApproved
-                              ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                              : trade.proofWorkflowStatus === "waiting_for_approval"
-                                ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                                : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                            ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                            : trade.proofWorkflowStatus === "waiting_for_approval"
+                              ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                              : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                             }`}
                         >
                           <span className="text-[16px] font-medium">
@@ -1407,13 +1421,9 @@ export default function ActiveTradesPage() {
       <ActiveEvaluationDialog
         isOpen={showEvaluationDialog}
         onClose={() => setShowEvaluationDialog(false)}
-        tradeData={
-          {
-            ...selectedTrade, // This includes requestTitle/offerTitle from fetch
-            ...evaluationData,
-            isLoading: evaluationData.isLoading // Ensure isLoading is propagated
-          }
-        }
+        tradeData={{
+          ...evaluationData,
+        }}
       />
 
       {showReportDialog && selectedTrade && (
