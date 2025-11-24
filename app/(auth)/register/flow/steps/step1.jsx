@@ -291,49 +291,50 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
             )}
           </div>
 
-          <div className="relative w-full max-w-[400px] text-left">
+          <div className="relative max-w-[400px] text-left">
             <p className="text-white font-normal mb-[8px]">Password</p>
+            
             <div className="relative flex items-center">
               <Input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full h-[50px] p-4 pr-12"
+                placeholder="Enter password"
               />
               <div className="absolute right-4 top-0 h-full flex items-center justify-center">
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-400 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
 
-            <div className="mt-2 space-y-1 text-sm min-h-[90px]">
-              {password &&
-                passwordRules.map((rule, idx) => {
+            {password && (
+              <div className="mt-3 space-y-1 text-sm bg-gray-800/50 p-3 rounded-md animate-in fade-in slide-in-from-top-1 duration-200">
+                {passwordRules.map((rule, idx) => {
                   const valid = rule.test.test(password);
                   return (
                     <div key={idx} className="flex items-center gap-2">
                       {valid ? (
                         <Check size={16} className="text-green-400" />
                       ) : (
-                        <X size={16} className="text-red-400" />
+                        <X size={16} className="text-gray-500" />
                       )}
-                      <span
-                        className={valid ? "text-green-400" : "text-red-400"}
-                      >
+                      <span className={valid ? "text-green-400" : "text-gray-400"}>
                         {rule.label}
                       </span>
                     </div>
                   );
                 })}
-            </div>
+              </div>
+            )}
           </div>
 
-          <div className="relative w-full max-w-[400px] text-left">
+          <div className="relative max-w-[400px] text-left">
             <p className="text-white font-normal mb-[8px]">Repeat password</p>
             <div className="relative flex items-center">
               <Input
@@ -341,12 +342,13 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
                 value={repeatPassword}
                 onChange={(e) => setRepeatPassword(e.target.value)}
                 className="w-full h-[50px] p-4 pr-12"
+                placeholder="Confirm password"
               />
               <div className="absolute right-4 top-0 h-full flex items-center justify-center">
                 <button
                   type="button"
                   onClick={() => setShowRepeatPassword(!showRepeatPassword)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-400 hover:text-white transition-colors"
                 >
                   {showRepeatPassword ? (
                     <EyeOff size={20} />

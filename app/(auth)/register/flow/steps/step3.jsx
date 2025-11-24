@@ -178,11 +178,11 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
 
   return (
     <div
-      className={`pt-[50px] pb-[50px] flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
+      className={`flex h-auto sm:min-h-screen w-full items-start sm:items-center justify-center bg-cover bg-center bg-no-repeat pt-[50px] pb-[120px] sm:pb-[50px] ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
-      {/* Disclaimer */}
-      <div className="fixed bottom-[20px] sm:bottom-[60px] left-4 sm:left-[40px] max-w-xs sm:max-w-[422px] text-[11px] sm:text-[13px] text-white/40 text-left z-50">
+      {/* Disclaimer - Keep styling but ensure z-index doesn't block scroll interaction underneath on mobile if needed */}
+      <div className="fixed bottom-[20px] sm:bottom-[60px] left-4 sm:left-[40px] max-w-[280px] sm:max-w-[422px] text-[10px] sm:text-[13px] text-white/40 text-left z-50 pointer-events-none sm:pointer-events-auto">
         Disclaimer: By linking your social media accounts, you agree to share
         selected public information for verification purposes. Expair will not
         post on your behalf or access private data. Use caution when linking
@@ -191,7 +191,7 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
 
       <div className="relative z-10 w-full max-w-6xl text-center px-4">
         {/* Header */}
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center mt-8 sm:mt-0">
           <Image
             src="/assets/logos/Logotype=Logotype M.png"
             alt="Logo"
@@ -199,15 +199,17 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
             height={76}
             className="rounded-full mb-[30px] w-[180px] sm:w-[250px]"
           />
-          <h1 className="font-[600] text-[18px] sm:text-[25px] text-center mb-[40px] sm:mb-[70px]">
+          <h1 className="font-[600] text-[18px] sm:text-[25px] text-center mb-[40px] sm:mb-[70px] px-2">
             Customize your profile for additional verification.
           </h1>
         </div>
 
         {/* Main content */}
-        <div className="flex flex-col lg:flex-row justify-center gap-[40px] lg:gap-[100px] mb-[40px]">
+        {/* Container ensures full width on mobile */}
+        <div className="flex flex-col lg:flex-row justify-center gap-[40px] lg:gap-[100px] mb-[40px] w-full">
+          
           {/* Left column - Photo upload */}
-          <div className="flex flex-col items-center min-w-[250px]">
+          <div className="flex flex-col items-center w-full lg:w-auto">
             <p className="text-white font-[500] text-[18px] sm:text-[20px] mb-[20px] sm:mb-[30px] text-center w-full">
               Upload a photo
             </p>
@@ -272,7 +274,7 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                 {!userIDFile ? (
                   <button
                     onClick={() => setShowVerificationModal(true)}
-                    className="cursor-pointer bg-[#0038FF] hover:bg-[#1a4dff] text-white px-5 py-2 sm:px-6 sm:py-3 rounded-[15px] shadow-[0px_0px_15px_#284CCC] flex items-center gap-2"
+                    className="cursor-pointer bg-[#0038FF] hover:bg-[#1a4dff] text-white px-5 py-2 sm:px-6 sm:py-3 rounded-[15px] shadow-[0px_0px_15px_#284CCC] flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start"
                   >
                     <Icon
                       icon="mdi:check-decagram"
@@ -286,14 +288,14 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                   // If file is uploaded → show preview box
                   <div className="relative w-full h-[45px] sm:h-[50px] rounded-[12px] sm:rounded-[15px] border border-white/40 bg-[#120A2A] px-4 flex items-center justify-between">
                     <span
-                      className="text-white/70 text-[14px] sm:text-[16px] truncate max-w-[75%]"
+                      className="text-white/70 text-[14px] sm:text-[16px] truncate max-w-[60%] sm:max-w-[75%]"
                       title={userIDFileName}
                     >
                       {userIDFileName}
                     </span>
                     <div className="flex items-center gap-3">
                       {idType && (
-                        <span className="text-xs text-blue-300 bg-blue-900/50 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] sm:text-xs text-blue-300 bg-blue-900/50 px-2 py-0.5 rounded-full whitespace-nowrap">
                           {idType}
                         </span>
                       )}
@@ -315,18 +317,16 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                 {showVerificationModal && (
                   <VerificationModal
                     onClose={() => setShowVerificationModal(false)}
-
                     birthdate={birthdate}
                     nationality={nationality}
                     idType={idType}
                     onBirthdateChange={setBirthdate}
                     onNationalityChange={setNationality}
                     onIdTypeChange={setIdType}
-
                     handleIdFileChange={(file) => {
                       if (file) {
-                        setUserIDFile(file); // Ito yung file object
-                        setUserIDFileName(file.name); // Ito yung file name
+                        setUserIDFile(file);
+                        setUserIDFileName(file.name);
                         setIdPreviewUrl(URL.createObjectURL(file));
                       } else {
                         setUserIDFile(null);
@@ -335,7 +335,6 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
                       }
                     }}
                     handleSubmitVerification={() => {
-                      // Onboarding version just closes modal (no API call yet)
                       setShowVerificationModal(false);
                     }}
                     idFile={userIDFile}
@@ -366,7 +365,8 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
             </div>
 
             {/* Right side: links */}
-            <div className="flex-1 min-w-[200px] sm:min-w-[400px] text-left">
+            {/* Changed min-w logic to w-full on mobile to prevent overflow */}
+            <div className="flex-1 w-full min-w-0 sm:min-w-[400px] text-left">
               <p className="text-white font-[500] text-[18px] sm:text-[20px] mb-[12px] sm:mb-[15px] text-left">
                 Add a website or a link
               </p>
@@ -401,7 +401,7 @@ export default function Step3({ step3Data, onDataSubmit, onNext, onPrev }) {
         </div>
 
         {/* Continue Button */}
-        <div className="flex justify-center mt-[75px] mb-[25px]">
+        <div className="flex justify-center mt-[50px] sm:mt-[75px] mb-[25px]">
           <Button
             className="cursor-pointer flex w-[180px] sm:w-[240px] h-[45px] sm:h-[50px] justify-center items-center px-[20px] sm:px-[38px] py-[10px] sm:py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-normal transition rounded-[12px] sm:rounded-[15px]"
             onClick={handleContinue}
