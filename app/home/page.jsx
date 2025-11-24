@@ -579,11 +579,11 @@ export default function HomePage() {
 
   return (
     <div
-      className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
+      className={`w-full md:w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
     >
       {/* Greeting Header */}
       <h1
-        className={`text-[40px] font-bold mb-10 ${archivo.className}`}
+        className={`text-[28px] md:text-[40px] font-bold mb-10 ${archivo.className}`}
         style={{
           textShadow: "0px 3px 25px rgba(126, 89, 248, 0.8)",
         }}
@@ -592,10 +592,10 @@ export default function HomePage() {
       </h1>
 
       {/* Active Trades Header */}
-      <div className="flex justify-between items-center mb-8">
-        <h4 className="text-[22px] font-bold">Active trades</h4>
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8">
+        <h4 className="text-[18px] md:text-[22px] font-bold">Active trades</h4>
 
-        {/* <div className="flex items-center gap-4">
+        {/* <div className="flex items-center gap-4 mt-4 md:mt-0">
           <SortDropdown
             selected={selectedActiveSort}
             onChange={setSelectedActiveSort}
@@ -609,12 +609,12 @@ export default function HomePage() {
               icon={sortAsc ? "mdi:arrow-up" : "mdi:arrow-down"}
               className="text-lg"
             />
-          </button> 
-        </div>*/}
+          </button>
+        </div> */}
       </div>
 
       {/* Active Trade Cards Grid */}
-      <div className="w-full max-w-[940px] justify-between flex flex-wrap mt-6">
+      <div className="w-full max-w-[940px] flex flex-wrap mt-6 gap-4 md:gap-6">
         {homeTradesLoading ? (
           <div className="text-white/60">Loading active trades...</div>
         ) : homeActiveTrades.length === 0 ? (
@@ -626,8 +626,7 @@ export default function HomePage() {
               No active trades ready yet
             </h3>
             <p className="text-white/60 text-center max-w-md mx-auto">
-              Complete trade details with your partners to see active trades
-              here.
+              Complete trade details with your partners to see active trades here.
             </p>
           </div>
         ) : (
@@ -640,8 +639,12 @@ export default function HomePage() {
               offering={trade.exchange}
               totalXp={trade.total_xp}
               deadline={trade.deadline_formatted}
-              isVerified={trade.other_user.is_verified || trade.other_user.isVerified || false}
-              userId={trade.other_user.id} 
+              isVerified={
+                trade.other_user.is_verified ||
+                trade.other_user.isVerified ||
+                false
+              }
+              userId={trade.other_user.id}
               tradereqId={trade.tradereq_id}
               onReportOpen={handleOpenReportDialog}
             />
@@ -663,7 +666,7 @@ export default function HomePage() {
             />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
             {/* Sort Button and Dropdown */}
             <div className="relative" ref={exploreSortMenuRef}>
               <div
@@ -672,13 +675,11 @@ export default function HomePage() {
               >
                 <span>
                   Sort:{" "}
-                  {exploreSortBy.charAt(0).toUpperCase() +
-                    exploreSortBy.slice(1)}
+                  {exploreSortBy.charAt(0).toUpperCase() + exploreSortBy.slice(1)}
                 </span>
                 <Icon icon="lucide:arrow-up-down" className="text-lg" />
               </div>
 
-              {/* Sort Dropdown Menu */}
               {showExploreSortMenu && (
                 <div className="absolute top-full left-0 mt-2 w-[200px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
                   <div className="p-2">
@@ -692,6 +693,7 @@ export default function HomePage() {
                     >
                       Recommended
                     </div>
+
                     <div
                       className={`px-3 py-2 rounded-[10px] cursor-pointer ${
                         exploreSortBy === "date"
@@ -702,6 +704,7 @@ export default function HomePage() {
                     >
                       By Date
                     </div>
+
                     <div
                       className={`px-3 py-2 rounded-[10px] cursor-pointer ${
                         exploreSortBy === "level"
@@ -712,6 +715,7 @@ export default function HomePage() {
                     >
                       By Level
                     </div>
+
                     <div
                       className={`px-3 py-2 rounded-[10px] cursor-pointer ${
                         exploreSortBy === "rating"
@@ -730,44 +734,45 @@ export default function HomePage() {
             {/* Filter Button and Dropdown */}
             <div className="relative" ref={exploreFilterMenuRef}>
               <div
-                className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer"
+                className="flex items-center gap-2 p-2 md:px-4 md:py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer"
                 onClick={() => setShowExploreFilterMenu(!showExploreFilterMenu)}
               >
-                <span>Filter</span>
+                {/* Hide text on mobile, show on desktop */}
+                <span className="hidden md:block">Filter</span>
                 <Icon icon="lucide:filter" className="text-lg" />
               </div>
 
               {/* Filter Dropdown Menu */}
               {showExploreFilterMenu && (
-                <div className="absolute top-full right-0 mt-2 w-[280px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
-                  <div className="p-4">
-                    <h3 className="text-white font-medium mb-3">
-                      Filter Options
-                    </h3>
+              <div className="absolute top-full right-0 mt-2 w-[85vw] md:w-[280px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
+                <div className="p-4">
+                  <h3 className="text-white font-medium mb-3">
+                    Filter Options
+                  </h3>
 
-                    {/* Rating Filter */}
-                    <div className="mb-4">
-                      <h4 className="text-white/70 text-sm mb-2">
-                        Minimum Rating
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {[0, 2, 3, 4, 5].map((rating) => (
-                          <div
-                            key={rating}
-                            className={`px-3 py-1 rounded-full cursor-pointer text-sm ${
-                              exploreFilters.minRating === rating
-                                ? "bg-[#0038FF] text-white"
-                                : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
-                            } transition`}
-                            onClick={() =>
-                              handleExploreFilterChange("minRating", rating)
-                            }
-                          >
-                            {rating === 0 ? "Any" : `${rating}⭐+`}
-                          </div>
-                        ))}
-                      </div>
+                  {/* Rating Filter */}
+                  <div className="mb-4">
+                    <h4 className="text-white/70 text-sm mb-2">
+                      Minimum Rating
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {[0, 2, 3, 4, 5].map((rating) => (
+                        <div
+                          key={rating}
+                          className={`px-4 py-2 md:px-3 md:py-1 rounded-full cursor-pointer text-sm ${
+                            exploreFilters.minRating === rating
+                              ? "bg-[#0038FF] text-white"
+                              : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
+                          } transition`}
+                          onClick={() =>
+                            handleExploreFilterChange("minRating", rating)
+                          }
+                        >
+                          {rating === 0 ? "Any" : `${rating}⭐+`}
+                        </div>
+                      ))}
                     </div>
+                  </div>
 
                     {/* Skill Category Filter
                     <div className="mb-4">
