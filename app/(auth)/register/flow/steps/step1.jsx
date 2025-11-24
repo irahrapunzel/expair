@@ -10,7 +10,7 @@ import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export default function Step1({ step1Data, onDataSubmit, onNext, onShowOtpPage }) {
+export default function Step1({ step1Data, onDataSubmit, onNext }) { 
   const { data: session, status } = useSession();
 
   const [firstName, setFirstName] = useState(step1Data?.firstname || "");
@@ -29,7 +29,6 @@ export default function Step1({ step1Data, onDataSubmit, onNext, onShowOtpPage }
   const [emailError, setEmailError] = useState("");
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   useEffect(() => {
     if (step1Data) {
@@ -107,48 +106,7 @@ export default function Step1({ step1Data, onDataSubmit, onNext, onShowOtpPage }
     // Save data first
     onDataSubmit?.({ firstName, lastName, email, username, password });
 
-    // Send OTP
-    setIsSendingOtp(true);
-    setErrorMessage("");
-
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-      if (!baseUrl) {
-        setErrorMessage("Configuration Error: Backend URL not found.");
-        setIsSendingOtp(false);
-        return;
-      }
-
-      const response = await fetch(`${baseUrl}/api/send-verification-otp/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          username: username,        
-          first_name: firstName,     
-          last_name: lastName,     
-          password: password, 
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrorMessage(data.error || "Failed to send verification code");
-        setIsSendingOtp(false);
-        return;
-      }
-
-      // Success - show OTP page
-      onShowOtpPage?.(email);
-    } catch (error) {
-      console.error("Send OTP error:", error);
-      setErrorMessage("Network error. Please try again.");
-    } finally {
-      setIsSendingOtp(false);
-    }
+    onNext();
   };
 
   const isFormValid = () => {
@@ -188,6 +146,8 @@ export default function Step1({ step1Data, onDataSubmit, onNext, onShowOtpPage }
     }
 
     try {
+      // NOTE: This now performs a full check against ALL existing users, 
+      // as the account is not created until Step 6.
       const response = await fetch(`${baseUrl}/api/validate-field/`, {
         method: "POST",
         headers: {
@@ -429,9 +389,9 @@ export default function Step1({ step1Data, onDataSubmit, onNext, onShowOtpPage }
           <Button
             className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm sm:text-[20px] font-normal transition rounded-[15px]"
             onClick={handleContinue}
-            disabled={!isFormValid() || isSendingOtp}
+            disabled={!isFormValid()}
           >
-            {isSendingOtp ? "Verifying email..." : "Continue"}
+            Continue
           </Button>
         </div>
 
@@ -439,11 +399,11 @@ export default function Step1({ step1Data, onDataSubmit, onNext, onShowOtpPage }
           <span>1 of 6</span>
           <ChevronRight
             className={`w-5 h-5 ${
-              isFormValid() && !isSendingOtp
+              isFormValid()
                 ? "cursor-pointer text-gray-300 hover:text-white"
                 : "text-gray-500 cursor-not-allowed"
             }`}
-            onClick={isFormValid() && !isSendingOtp ? handleContinue : undefined}
+            onClick={isFormValid() ? handleContinue : undefined}
           />
         </div>
       </div>
