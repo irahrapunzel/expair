@@ -299,7 +299,7 @@ DEFAULT_FROM_EMAIL = 'expaircs@gmail.com'
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
-    'https://expair-backend.onrender.com',
+    'https://expair.onrender.com',
     'https://expair.vercel.app'
 
 ]
