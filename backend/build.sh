@@ -2,18 +2,19 @@
 # Exit immediately if a command exits with a non-zero status.
 set -o errexit
 
-# Install dependencies
+# 1. Install dependencies (PUT THIS BACK)
 pip install -r requirements.txt
 
-# Run Django migrations and collect static files
+# 2. Run Django migrations and collect static files
 python manage.py collectstatic --no-input
 python manage.py migrate
 
-# --- Automated Superuser Creation for Production ---
+# 3. Automated Superuser Creation 
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
   # Use the variables set on the Render dashboard
   python manage.py shell <<EOF
 from django.contrib.auth import get_user_model
+import os
 User = get_user_model()
 # Only create the superuser if one with that username does not already exist
 if not User.objects.filter(username=os.environ.get('DJANGO_SUPERUSER_USERNAME')).exists():
