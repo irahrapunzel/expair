@@ -4619,11 +4619,11 @@ def create_support_ticket(request):
     )
 
     # send emails (wrap in try/except so ticket creation won't fail on email error)
-    try:
-        send_support_email(ticket)
-    except Exception as e:
-        # log, but don't crash
-        print("send_support_emails error:", e)
+    #try:
+    #    send_support_email(ticket)
+    #except Exception as e:
+         # log, but don't crash
+    #    print("send_support_emails error:", e)
 
     return Response({"success": True, "ticket_id": ticket.ticket_id}, status=201)
 
