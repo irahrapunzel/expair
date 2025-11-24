@@ -3,7 +3,7 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -20,14 +20,13 @@ import {
   LogOut,
   Menu,
   X,
+  Send,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { NotificationPortal } from "./notifications/notification-portal";
 import { Inter } from "next/font/google";
 import ProfileAvatar from "@/components/avatar";
-
-// NOTE: Removed 'import { usePathname } from 'next/navigation';'
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -55,11 +54,16 @@ export default function Navbar() {
   const profileHref = `/home/profile/${profileSlug}`;
   const settingsHref = `/home/profile/${profileSlug}/settings`;
 
-  // FIX APPLIED HERE: Relying purely on session status (case-insensitive check)
   const isSuspended = 
     session?.user?.sanction_status?.toUpperCase() === "SUSPENSION" ||
     session?.user?.sanction_status?.toUpperCase() === "BAN";
-
+    
+  const userDisplayName = useMemo(() => {
+    if (session?.user?.first_name || session?.user?.last_name) {
+      return `${session.user.first_name || ''} ${session.user.last_name || ''}`.trim();
+    }
+    return session?.user?.username || 'Guest';
+  }, [session]);
 
   // Fetches notifications
   const fetchNotifications = async () => {
@@ -118,10 +122,13 @@ export default function Navbar() {
 
   const toggleNotification = () => {
     if (isSuspended) return; // Prevent opening if suspended
+    // Get bell position only when opening and the reference exists
     if (!notificationOpen && bellRef.current) {
       setBellRect(bellRef.current.getBoundingClientRect());
     }
     setNotificationOpen(!notificationOpen);
+    // Close mobile menu if notification is opened from the mobile menu
+    if (!notificationOpen) setMobileMenuOpen(false); 
   };
 
   const handleAllNotificationsRead = async () => {
@@ -192,14 +199,17 @@ export default function Navbar() {
       await signOut({ redirect: true, callbackUrl: "/" });
     }
   };
+  
+  // Helper function to close menu after clicking a link
+  const handleLinkClick = () => setMobileMenuOpen(false);
+
 
   return (
 <header
           className={`${inter.className} w-full py-4 lg:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
         >
           <div className="flex items-center justify-between max-w-[1440px] mx-auto px-4 lg:px-[250px] relative"> 
-            {/* Added 'relative' to parent just in case, though standard header behavior usually handles it */}
-
+            
             {/* Logo and Button */}
             <div className="flex items-center gap-4 lg:gap-6">
               {/* LOGO LINK */}
@@ -255,6 +265,7 @@ export default function Navbar() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
+                      align="center"
                       className={`${inter.className} bg-[#15042C] text-white border border-[#2B124C]`}
                     >
                       <Link href="/home/trades/pending">
@@ -280,10 +291,10 @@ export default function Navbar() {
             {/* Right Section (Icons & Hamburger) */}
             <div className="flex items-center gap-4 lg:gap-6">
               
-              {/* MOBILE ICONS: Messages & Notifications (Visible only on mobile lg:hidden) */}
+              {/* === START FIX: MOBILE ICONS (Visible only on mobile lg:hidden) === */}
               {!isSuspended && (
                 <div className="flex lg:hidden items-center gap-3 mr-1">
-                    <Link href="/home/messages">
+                    <Link href="/home/messages" onClick={handleLinkClick}>
                       <div className="relative cursor-pointer p-1">
                         <MessageSquareText className="text-white w-5 h-5" />
                       </div>
@@ -293,7 +304,7 @@ export default function Navbar() {
                     <div 
                       className="relative cursor-pointer p-1" 
                       onClick={toggleNotification}
-                      ref={bellRef} // Attach ref here too so portal knows where to anchor on mobile
+                      ref={bellRef} // Attach ref here too
                     >
                       <Bell className="text-white w-5 h-5" />
                       {hasUnreadNotifications && (
@@ -304,14 +315,8 @@ export default function Navbar() {
                     </div>
                 </div>
               )}
+              {/* === END FIX: MOBILE ICONS === */}
 
-              {/* Hamburger (Mobile) */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="block lg:hidden text-white focus:outline-none"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
 
               {/* Desktop Icons (Hidden on Mobile) */}
               <div className="hidden lg:flex items-center gap-4 lg:gap-6">
@@ -373,9 +378,18 @@ export default function Navbar() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+              
+              {/* Hamburger (Mobile/Tablet) */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="block lg:hidden text-white p-2 focus:outline-none rounded-full hover:bg-white/10 transition-colors"
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
             </div>
 
-            {/* Shared Notification Portal (Works for both Mobile and Desktop now) */}
+            {/* Shared Notification Portal */}
             {!isSuspended && (
                 <NotificationPortal
                   isOpen={notificationOpen}
@@ -389,63 +403,90 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Content - DITO YUNG PAGBABAGO: FLOATING STYLE */}
+          {/* Mobile Menu Content - IMPROVED FLOATING STYLE */}
           {mobileMenuOpen && (
-            <div className="absolute top-full left-0 w-full lg:hidden px-4 pb-6 space-y-3 bg-[#0A0519] border-t border-[#1a1a3a] shadow-xl z-50">
+            <div className="absolute top-full left-0 w-full lg:hidden px-4 pb-4 space-y-4 bg-[#15042C] border-t border-[#2B124C] shadow-xl z-50">
+              
               {isSuspended ? (
-                <div
-                  className="flex items-center gap-2 text-red-400 py-4 cursor-pointer"
-                  onClick={handleLogout}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <LogOut className="w-4 h-4" />
-                  Log out
+                // Menu for SUSPENDED USERS (Omitted for brevity)
+                <div className="flex flex-col gap-2 pt-4">
+                  <div className="text-gray-400 py-2 text-sm text-center">
+                    Account is suspended. Access restricted.
+                  </div>
+                  <div
+                    className="flex items-center gap-3 text-red-400 py-2 cursor-pointer border-t border-[#2B124C] mt-2 pt-3"
+                    onClick={handleLogout}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <LogOut className="w-5 h-5" />
+                    Log out
+                  </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2 pt-4">
-                  <Link href="/home">
-                    <p className="text-white py-2 font-medium">Home</p>
-                  </Link>
-                  <Link href="/home/help">
-                    <p className="text-white py-2 font-medium">Help</p>
-                  </Link>
+                // Full Menu for ACTIVE USERS
+                <div className="flex flex-col gap-1 pt-2">
 
-                  <div className="pl-2 border-l-2 border-[#1a1a3a] my-2">
-                    <p className="text-gray-400 text-xs mb-2 uppercase tracking-wider">Trades</p>
-                    <Link href="/home/trades/pending">
-                      <p className="text-white py-1 text-sm">Pending</p>
+                  {/* ACCOUNT/PROFILE LINKS (Top of Mobile Menu) */}
+                  <div className="flex items-center justify-between py-2 border-b border-[#2B124C]">
+                    <div className="flex items-center gap-3">
+                      <ProfileAvatar src={profileImage} size={35} />
+                      <div className="flex flex-col">
+                        {/* The name itself is now the primary link */}
+                        <Link href={profileHref} onClick={handleLinkClick} className="hover:text-[#6DDFFF] transition-colors">
+                            <p className="text-white font-semibold hover:text-[#6DDFFF]">{userDisplayName}</p>
+                        </Link>
+                        {/* Secondary link for "View Profile" remains for clarity */}
+                        <Link href={profileHref} onClick={handleLinkClick}>
+                          <p className="text-gray-400 text-xs hover:text-[#6DDFFF] mt-[2px]">View Profile</p>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MAIN NAVIGATION */}
+                  <div className="py-2 space-y-1 border-b border-[#2B124C]">
+                    <Link href="/home" onClick={handleLinkClick}>
+                      <p className="text-white py-2 font-medium hover:bg-white/5 rounded-lg pl-3">Home</p>
                     </Link>
-                    <Link href="/home/trades/active">
-                      <p className="text-white py-1 text-sm">Active</p>
-                    </Link>
-                    <Link href="/home/trades/completed">
-                      <p className="text-white py-1 text-sm">Completed</p>
+                    <Link href="/home/help" onClick={handleLinkClick}>
+                      <p className="text-white py-2 font-medium hover:bg-white/5 rounded-lg pl-3">Help</p>
                     </Link>
                   </div>
 
-                  {/* Messages and Notifications removed here since they are now on the header bar */}
+                  {/* TRADES SUB-MENU (FIXED) */}
+                  <div className="py-2 space-y-1">
+                    <p className="text-[#6DDFFF] text-sm mb-2 uppercase tracking-wider font-semibold pl-3">Trades</p>
+                    <Link href="/home/trades/pending" onClick={handleLinkClick}>
+                      <p className="text-white py-1 text-base hover:bg-white/5 rounded-lg pl-3">Pending</p>
+                    </Link>
+                    <Link href="/home/trades/active" onClick={handleLinkClick}>
+                      <p className="text-white py-1 text-base hover:bg-white/5 rounded-lg pl-3">Active</p>
+                    </Link>
+                    <Link href="/home/trades/completed" onClick={handleLinkClick}>
+                      <p className="text-white py-1 text-base hover:bg-white/5 rounded-lg pl-3">Completed</p>
+                    </Link>
+                  </div>
+                  
+                  <div className="h-[1px] bg-[#2B124C] my-2" />
 
-                  <Link href="/home/request" className="my-2">
-                    <Button className="w-full font-normal flex h-[40px] px-[38px] py-[13px] justify-center items-center gap-[5px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white hover:bg-[#1a4dff] transition rounded-[15px]">
+                  {/* NEW REQUEST BUTTON (Full width call to action) */}
+                  <Link href="/home/request" onClick={handleLinkClick} className="my-3 block">
+                    <Button className="w-full font-normal flex h-[45px] px-[38px] py-[13px] justify-center items-center gap-3 shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] text-white hover:bg-[#1a4dff] transition rounded-[15px] text-base">
                       ✦ New request
                     </Button>
                   </Link>
 
                   <div className="h-[1px] bg-[#2B124C] my-2" />
 
-                  <Link href={profileHref} className="flex items-center gap-3 text-white py-2">
-                    <User className="w-5 h-5" />
-                    Your profile
-                  </Link>
-                  
-                  <Link href={settingsHref} className="flex items-center gap-3 text-white py-2">
+                  {/* ACCOUNT ACTIONS */}
+                  <Link href={settingsHref} onClick={handleLinkClick} className="flex items-center gap-3 text-white py-2 hover:bg-white/5 rounded-lg pl-3">
                     <Settings className="w-5 h-5" />
                     Settings
                   </Link>
 
                   <div
-                    className="flex items-center gap-3 text-red-400 py-2 cursor-pointer"
+                    className="flex items-center gap-3 text-red-400 py-2 cursor-pointer hover:bg-white/5 rounded-lg pl-3"
                     onClick={handleLogout}
                   >
                     <LogOut className="w-5 h-5" />

@@ -235,7 +235,9 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-[44px] gap-y-[20px] justify-center">
-          <div className="w-full max-w-[400px] text-left">
+          
+          {/* FIRST NAME FIELD */}
+          <div className="w-full md:max-w-[400px] text-left mx-auto">
             <p className="text-white font-normal mb-[8px]">First name</p>
             <Input
               value={firstName}
@@ -244,7 +246,8 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
             />
           </div>
 
-          <div className="w-full max-w-[400px] text-left">
+          {/* LAST NAME FIELD */}
+          <div className="w-full md:max-w-[400px] text-left mx-auto">
             <p className="text-white font-normal mb-[8px]">Last name</p>
             <Input
               value={lastName}
@@ -253,7 +256,8 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
             />
           </div>
 
-          <div className="w-full max-w-[400px] text-left">
+          {/* USERNAME FIELD */}
+          <div className="w-full md:max-w-[400px] text-left mx-auto">
             <p className="text-white font-normal mb-[8px]">Username</p>
             <Input
               value={username}
@@ -272,7 +276,8 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
             )}
           </div>
 
-          <div className="w-full max-w-[400px] text-left">
+          {/* EMAIL FIELD */}
+          <div className="w-full md:max-w-[400px] text-left mx-auto">
             <p className="text-white font-normal mb-[8px]">Email address</p>
             <Input
               value={email}
@@ -291,7 +296,8 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
             )}
           </div>
 
-          <div className="relative max-w-[400px] text-left">
+          {/* PASSWORD FIELD */}
+          <div className="relative w-full md:max-w-[400px] text-left mx-auto">
             <p className="text-white font-normal mb-[8px]">Password</p>
             
             <div className="relative flex items-center">
@@ -334,7 +340,8 @@ export default function Step1({ step1Data, onDataSubmit, onNext }) {
             )}
           </div>
 
-          <div className="relative max-w-[400px] text-left">
+          {/* REPEAT PASSWORD FIELD */}
+          <div className="relative w-full md:max-w-[400px] text-left mx-auto">
             <p className="text-white font-normal mb-[8px]">Repeat password</p>
             <div className="relative flex items-center">
               <Input

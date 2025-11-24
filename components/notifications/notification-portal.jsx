@@ -23,13 +23,33 @@ export function NotificationPortal({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const portalRef = useRef(null); // Ref for the portal content itself
 
   useEffect(() => {
     setMounted(true);
     
     function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false); // Isara 'yung menu 'pag sa labas nag-click
+      // Check if the click happened inside the menu options dropdown
+      if (menuRef.current && menuRef.current.contains(event.target)) {
+        return;
+      }
+      
+      // Check if the click was inside the main portal itself
+      if (portalRef.current && portalRef.current.contains(event.target)) {
+        return;
+      }
+      
+      // If the portal is open, but the click was neither the bell nor inside the portal, close it.
+      // This is primarily for desktop where positioning is relative to the bell.
+      if (isOpen) {
+        // The check against the bell icon is handled in navbar.jsx via global listener.
+        // We only close if the target is outside the portal AND outside the bell.
+        const notificationPortal = document.querySelector(
+          "[data-notification-portal]"
+        );
+        if (notificationPortal && !notificationPortal.contains(event.target)) {
+            onClose();
+        }
       }
     }
     
@@ -38,7 +58,7 @@ export function NotificationPortal({
       setMounted(false);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [isOpen, onClose]);
 
   const markOneAsRead = async (notification) => {
     // Mark as read in the UI immediately
@@ -123,31 +143,51 @@ export function NotificationPortal({
 
   if (!mounted || !isOpen || !anchorRect) return null;
 
-  // Calculate position based on the bell icon's position
-  const top = anchorRect.bottom + 10;
-  const right = window.innerWidth - anchorRect.right;
+  // Calculate position based on the bell icon's position (Desktop)
+  const desktopTop = anchorRect.bottom + 10;
+  const desktopRight = window.innerWidth - anchorRect.right;
+  
+  // Mobile check (viewport width less than lg breakpoint, typically 1024px)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+  
+  // Dynamic Styles
+  const portalStyles = isMobile
+    ? {
+        top: '64px', // Adjust based on your Navbar height on mobile
+        right: '0',
+        left: '0',
+        width: '100%',
+        maxHeight: 'calc(100vh - 64px)', // Take up remaining viewport height
+        borderRadius: '0', // Full width/no rounded corners for full panel effect
+        padding: '20px 16px',
+        boxShadow: "0px 4px 15px rgba(0,0,0,0.5)",
+      }
+    : {
+        top: `${desktopTop}px`,
+        right: `${desktopRight}px`,
+        width: '388px',
+        maxHeight: '571px',
+        borderRadius: '15px',
+        padding: '32px',
+        boxShadow: "0px 4px 15px #D78DE5",
+      };
+
 
   return createPortal(
     <div
       data-notification-portal
-      className="fixed w-[388px] max-h-[571px] overflow-hidden rounded-[15px] z-[9999]"
+      className="fixed z-[9999] flex flex-col items-start gap-[20px] sm:gap-[25px]"
+      ref={portalRef} // Attach ref here
       style={{
         background: "rgba(10, 1, 24, 0.95)",
-        boxShadow: "0px 4px 15px #D78DE5",
         backdropFilter: "blur(30px)",
-        top: `${top}px`,
-        right: `${right}px`,
         isolation: "isolate",
-        padding: "32px",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        gap: "25px",
+        ...portalStyles, // Apply dynamic styles
       }}
     >
       
       <div className="flex items-center justify-between w-full">
-        <h2 className="text-white text-[25px] font-semibold leading-[120%]">
+        <h2 className="text-white text-[20px] sm:text-[25px] font-semibold leading-[120%]">
           Notifications
         </h2>
         
@@ -159,7 +199,7 @@ export function NotificationPortal({
               title="Notification options"
               className="text-white/60 hover:text-white"
             >
-              <MoreVertical size={18} />
+              <MoreVertical size={isMobile ? 20 : 18} />
             </button>
 
             {menuOpen && (
@@ -197,14 +237,14 @@ export function NotificationPortal({
           </div>
 
           <button onClick={onClose} className="text-white/60 hover:text-white">
-            <X size={18} />
+            <X size={isMobile ? 22 : 18} />
           </button>
         </div>
       </div>
 
       <div
         className="w-full flex flex-col gap-[15px] overflow-y-auto custom-scrollbar pr-2 pl-1"
-        style={{ maxHeight: "452px" }}
+        style={{ maxHeight: isMobile ? 'calc(100vh - 120px)' : '452px' }} // Adjusted max-height for mobile
       >
         {notifications.length === 0 ? (
           <div className="text-white/60 text-sm text-center py-10">

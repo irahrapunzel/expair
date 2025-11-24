@@ -17,6 +17,10 @@ import {
 import { StarIcon } from "../../../../../components/icons/star-icon";
 import { Icon } from "@iconify/react";
 import Image from "next/image";
+import ReportDialog from "../../../../../components/trade-cards/report-dialog";
+// Import Link for navigation
+import Link from "next/link"; 
+
 
 const inter = Inter({ subsets: ["latin"] });
 const BACKEND_URL =
@@ -29,6 +33,11 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState(null);
+  
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportedUserId, setReportedUserId] = useState(null);
+  const [reportedTradeId, setReportedTradeId] = useState(null);
+  
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
@@ -63,24 +72,24 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
           const token = session?.access || session?.accessToken;
           if (token) headers["Authorization"] = `Bearer ${token}`;
 
-          const resp = await fetch(`${BACKEND_URL}/api/ai/onboarding-picks/`, { 
+          const resp = await fetch(`${BACKEND_URL}/api/ai/onboarding-picks/`, {
             method: "GET",
             headers,
           });
-          
+
           if (!resp.ok) {
             setExploreErr(`Failed to load picks (HTTP ${resp.status})`);
             setLoading(false);
             return;
           }
-          
+
           const data = await resp.json();
 
           // ✅ Handle empty results gracefully
           if (!data.best_picks || data.best_picks.length === 0) {
             setExploreItems([]);
             setExploreErr(
-              data.message || 
+              data.message ||
               "No matches found yet! Don't worry - you can explore more trades on your homepage."
             );
             setLoading(false);
@@ -101,7 +110,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
             level: item.level || 1,
             match_score: item.match_score || 0,
           }));
-          
+
           setExploreItems(mappedPicks);
         } catch (e) {
           console.error("❌ Error fetching generic picks:", e);
@@ -123,19 +132,19 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
 
         const resp = await fetch(
           `${BACKEND_URL}/api/ai/onboarding-picks-for-request/?tradereq_id=${tradereq_id}`,
-          { 
+          {
             method: "GET",
             headers,
           }
         );
-        
+
         if (!resp.ok) {
           console.error(`❌ Failed to load personalized picks (HTTP ${resp.status})`);
           setExploreErr(`Failed to load personalized picks (HTTP ${resp.status})`);
           setLoading(false);
           return;
         }
-        
+
         const data = await resp.json();
         console.log("✅ Personalized picks loaded:", data);
 
@@ -144,7 +153,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
           setExploreItems([]);
           setRequestText(data.request_text || "");
           setExploreErr(
-            data.message || 
+            data.message ||
             "No matches found yet! Don't worry - you can explore more trades on your homepage."
           );
           setLoading(false);
@@ -165,15 +174,15 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
           level: item.level || 1,
           match_score: item.match_score || 0,
         }));
-        
+
         setExploreItems(mappedPicks);
-        
+
         // Store the request text for display
         if (data.request_text) {
           setRequestText(data.request_text);
           console.log(`📝 Your request: "${data.request_text}"`);
         }
-        
+
       } catch (e) {
         console.error("❌ Error fetching personalized picks:", e);
         setExploreErr(e?.message || "Network error loading personalized picks");
@@ -269,12 +278,12 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
     onNext();
   };
 
-  // Navigate to user profile
-  const handleProfileClick = (username) => {
-    if (username) {
-      router.push(`/profile/${username}`);
-    }
-  };
+  // REMOVING handleProfileClick since we are using Link components now
+  // const handleProfileClick = (username) => {
+  //   if (username) {
+  //     router.push(`/profile/${username}`); 
+  //   }
+  // };
 
   const handleSortChange = (option) => {
     setSortBy(option);
@@ -300,11 +309,52 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
     });
   };
 
-  const handleReport = (partnerId) => {
-    setOpenMenuIndex(null);
-    console.log(`Reported partner ${partnerId}`);
-    // TODO: Implement report functionality
+  const handleReportClick = (item) => {
+    setReportedUserId(item.userId);
+    setReportedTradeId(item.tradereq_id);
+    setOpenMenuIndex(null); // Close the MoreHorizontal menu
+    setShowReportDialog(true);
   };
+
+  const handleReportSubmit = async (reportData) => {
+    try {
+      const token =
+        session?.access ||
+        session?.user?.access ||
+        session?.user?.accessToken ||
+        localStorage.getItem("access"); // Use access token
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            // Use the state variables captured by handleReportClick
+            reported_user: reportedUserId, 
+            tradereq: reportedTradeId, 
+            category: reportData.category,
+            issue_detail: reportData.issue,
+            description: reportData.details,
+          }),
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed to submit report");
+      alert("✅ Report submitted successfully!");
+    } catch (err) {
+      console.error("❌ Error submitting report:", err);
+      alert("Failed to submit report. Please try again.");
+    } finally {
+      setShowReportDialog(false);
+      setReportedUserId(null);
+      setReportedTradeId(null);
+    }
+  };
+
 
   // Skill categories for filter
   const skillCategories = [
@@ -366,17 +416,17 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
 
   return (
     <div
-      className={`flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
+      className={`flex min-h-screen items-start sm:items-center justify-center bg-cover bg-center pt-[50px] pb-[50px] px-4 ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register2.png')" }}
     >
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal (Omitted for brevity) */}
       {showConfirmModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={handleCancel}
           ></div>
-          <div className="relative flex flex-col items-center justify-center w-[500px] h-[220px] bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 overflow-hidden">
+          <div className="relative flex flex-col items-center justify-center w-[90%] max-w-[500px] h-[220px] bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 overflow-hidden">
             <div className="absolute top-[-100px] left-[-100px] w-[200px] h-[200px] rounded-full bg-[#0038FF]/20 blur-[60px]"></div>
             <div className="absolute bottom-[-80px] right-[-80px] w-[180px] h-[180px] rounded-full bg-[#D78DE5]/20 blur-[60px]"></div>
 
@@ -388,7 +438,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
             </button>
 
             <div className="flex flex-col items-center gap-5 w-full px-8">
-              <h2 className="font-bold text-[22px] text-center text-white leading-tight">
+              <h2 className="font-bold text-[18px] sm:text-[22px] text-center text-white leading-tight">
                 Are you sure you want to add this to your pending trades?
               </h2>
 
@@ -411,11 +461,11 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
         </div>
       )}
 
-      {/* Success Modal */}
+      {/* Success Modal (Omitted for brevity) */}
       {showSuccessModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 bg-black/50"></div>
-          <div className="relative flex flex-col items-center justify-center w-[500px] h-[220px] bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 overflow-hidden">
+          <div className="relative flex flex-col items-center justify-center w-[90%] max-w-[500px] h-[220px] bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50 overflow-hidden">
             <div className="absolute top-[-100px] left-[-100px] w-[200px] h-[200px] rounded-full bg-[#0038FF]/20 blur-[60px]"></div>
             <div className="absolute bottom-[-80px] right-[-80px] w-[180px] h-[180px] rounded-full bg-[#D78DE5]/20 blur-[60px]"></div>
 
@@ -427,7 +477,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
             </button>
 
             <div className="flex flex-col items-center gap-5 w-full px-8">
-              <h2 className="font-bold text-[22px] text-center text-white leading-tight">
+              <h2 className="font-bold text-[18px] sm:text-[22px] text-center text-white leading-tight">
                 Success! You can start checking out Expair now.
               </h2>
 
@@ -444,33 +494,34 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
         </div>
       )}
 
-      <div className="relative z-10 w-full max-w-[983px] flex flex-col items-center pt-[111px]">
-        {/* Header Section */}
-        <div className="flex flex-col items-start gap-[44px] w-full">
+      <div className="relative z-10 w-full max-w-[983px] flex flex-col items-center pt-[30px] sm:pt-[111px] mx-auto">
+        {/* Header Section (Omitted for brevity) */}
+        <div className="flex flex-col items-start gap-[30px] sm:gap-[44px] w-full">
           <div className="w-full">
-            <div className="text-left flex flex-col items-start gap-[19px] w-full">
-              <div className="flex flex-col items-start gap-[15px] w-full">
+            <div className="text-left flex flex-col items-start gap-[15px] sm:gap-[19px] w-full">
+              <div className="flex flex-col items-start gap-[10px] sm:gap-[15px] w-full">
                 <div className="flex justify-between items-center w-full">
-                  <div className="flex items-center gap-[15px]">
+                  <div className="flex items-center gap-[10px] sm:gap-[15px]">
                     <Image
                       src="/assets/logos/Colored=Logo XS.png"
                       alt="Colored Logo"
-                      width={38}
-                      height={38}
+                      width={30}
+                      height={30}
+                      className="sm:w-[38px] sm:h-[38px]"
                     />
-                    <h2 className="text-[25px] font-[600] text-white">
+                    <h2 className="text-[20px] sm:text-[25px] font-[600] text-white">
                       Here's what we found
                     </h2>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <p className="text-[16px] text-left text-white/40">
+              <div className="flex flex-col gap-1">
+                <p className="text-[14px] sm:text-[16px] text-left text-white/40">
                   Browse your potential trade partners
                 </p>
                 {requestText && (
-                  <p className="text-[14px] text-left text-white/60 italic">
+                  <p className="text-[12px] sm:text-[14px] text-left text-white/60 italic">
                     Based on your request: "{requestText}"
                   </p>
                 )}
@@ -481,36 +532,38 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
           {/* Best Picks Section */}
           <div className="flex flex-col items-start gap-[15px] w-full">
             <div className="flex items-center gap-[10px]">
-              <h3 className="text-[21px] font-bold text-white">Best Picks</h3>
-              <StarIcon className="w-6 h-6" />
+              <h3 className="text-[18px] sm:text-[21px] font-bold text-white">Best Picks</h3>
+              <StarIcon className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
 
             {/* Trade Partner Cards */}
-            <div className="flex flex-wrap gap-[25px] w-full">
+            <div className="flex flex-wrap gap-[20px] sm:gap-[25px] w-full justify-center">
               {exploreErr ? (
-                <div className="w-full py-10 flex flex-col items-center justify-center">
+                // Error/No Match Card (Omitted for brevity)
+                <div className="w-full py-10 flex flex-col items-center justify-center px-4">
                   <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4">
                     <Search className="w-8 h-8 text-white/50" />
                   </div>
                   <h3 className="text-xl font-medium text-white mb-2">
                     No matches found yet
                   </h3>
-                  <p className="text-white/60 text-center max-w-md">
+                  <p className="text-white/60 text-center max-w-md text-sm">
                     {exploreErr}
                   </p>
                 </div>
               ) : loading ? (
+                // Loading Card (Omitted for brevity)
                 <div className="w-full py-10 flex flex-col items-center justify-center">
                   <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
                   </div>
-                  <p className="text-white/60">Hang tight! We’re finding your best matches...</p>
+                  <p className="text-white/60 text-sm">Hang tight! We’re finding your best matches...</p>
                 </div>
               ) : filteredAndSortedItems.length > 0 ? (
                 filteredAndSortedItems.map((item, index) => (
                   <div
                     key={`explore-${item.tradereq_id || index}`}
-                    className="w-full max-w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#284CCC]/80"
+                    className="w-full sm:max-w-[440px] h-auto min-h-[240px] p-[20px] sm:p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#284CCC]/80"
                     style={{
                       background:
                         "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -522,25 +575,35 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                       {/* Partner Header */}
                       <div className="flex justify-between items-start w-full">
                         <div className="flex items-start gap-[10px]">
-                          <Image
-                            src={item.profilePicUrl || "/assets/defaultavatar.png"}
-                            alt={item.name}
-                            width={25}
-                            height={25}
-                            className="rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => handleProfileClick(item.username)}
-                          />
-                          <div className="flex flex-col items-start gap-[5px]">
-                            <span
-                              className="text-[16px] text-white cursor-pointer hover:underline"
-                              onClick={() => handleProfileClick(item.username)}
+                            {/* START FIX: Wrap Image and Name in Link component */}
+                            <Link 
+                                href={`/profile/${item.username}`} 
+                                className="flex-shrink-0"
                             >
-                              {item.name}
-                            </span>
+                                <Image
+                                    src={item.profilePicUrl || "/assets/defaultavatar.png"}
+                                    alt={item.name}
+                                    width={25}
+                                    height={25}
+                                    className="rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                />
+                            </Link>
+
+                            <div className="flex flex-col items-start gap-[5px]">
+                                <Link 
+                                    href={`/profile/${item.username}`} 
+                                    className="hover:text-gray-300 transition-colors"
+                                >
+                                    <span className="text-[15px] sm:text-[16px] text-white cursor-pointer hover:underline">
+                                        {item.name}
+                                    </span>
+                                </Link>
+                                {/* END FIX */}
+                            
                             <div className="flex items-center gap-[15px]">
                               <div className="flex items-center gap-[5px]">
-                                <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
-                                <span className="text-[13px]">
+                                <Star className="w-3 h-3 sm:w-4 sm:h-4 text-[#906EFF] fill-[#906EFF]" />
+                                <span className="text-[12px] sm:text-[13px]">
                                   <span className="font-bold">
                                     {item.rating.toFixed(1)}
                                   </span>{" "}
@@ -558,7 +621,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                                   fill="none"
                                 >
                                   <path
-                                    d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.2447 1.4517 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
+                                    d="M6 1.41516C6.09178 1.41516 6.17096 1.42794 6.22461 1.44446C6.23598 1.44797 6.24470 1.45170 6.25098 1.45422L11.0693 6.66516L6.25098 11.8751C6.24467 11.8777 6.23618 11.8823 6.22461 11.8859C6.17096 11.9024 6.09178 11.9152 6 11.9152C5.90822 11.9152 5.82904 11.9024 5.77539 11.8859C5.76329 11.8821 5.75441 11.8777 5.74805 11.8751L0.929688 6.66516L5.74805 1.45422C5.75439 1.45164 5.76351 1.44812 5.77539 1.44446C5.82904 1.42794 5.90822 1.41516 6 1.41516Z"
                                     fill="url(#paint0_radial_1202_2090)"
                                     stroke="url(#paint1_linear_1202_2090)"
                                     strokeWidth="1.5"
@@ -589,7 +652,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                                     </linearGradient>
                                   </defs>
                                 </svg>
-                                <span className="text-[13px] text-white">
+                                <span className="text-[12px] sm:text-[13px] text-white">
                                   LVL {item.level}
                                 </span>
                               </div>
@@ -607,14 +670,12 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                               )
                             }
                           >
-                            <MoreHorizontal className="w-6 h-6 text-white cursor-pointer hover:text-gray-300 transition-colors" />
+                            <MoreHorizontal className="w-5 h-5 sm:w-6 sm:h-6 text-white cursor-pointer hover:text-gray-300 transition-colors" />
                           </button>
                           {openMenuIndex === index && (
                             <div className="absolute right-0 mt-2 w-[160px] bg-[#1A0F3E] rounded-[10px] border border-[#2B124C] z-10 shadow-lg">
                               <button
-                                onClick={() =>
-                                  handleReport(item.tradereq_id || item.name)
-                                }
+                                onClick={() => handleReportClick(item)}
                                 className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-[#2C1C52] w-full text-left rounded-[10px]"
                               >
                                 <Icon
@@ -623,18 +684,19 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                                 />
                                 Report
                               </button>
+                          
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Needs + Offer Section */}
-                      <div className="flex justify-between items-start gap-4 flex-wrap w-full">
+                      {/* Needs + Offer Section (Omitted for brevity) */}
+                      <div className="flex justify-between items-start gap-3 sm:gap-4 flex-wrap w-full">
                         {/* Needs */}
-                        <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
-                          <span className="text-[13px] text-white/80 font-medium">Needs</span>
+                        <div className="flex flex-col gap-1 sm:gap-2 flex-1 min-w-[45%] items-start">
+                          <span className="text-[12px] sm:text-[13px] text-white/80 font-medium">Needs</span>
                           <div
-                            className="inline-block px-[15px] py-[7px] rounded-[15px] border-[1.5px] border-[#0038FF] bg-[rgba(40,76,204,0.2)] text-[12px] text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                            className="inline-block px-[10px] py-[5px] sm:px-[15px] sm:py-[7px] rounded-[10px] sm:rounded-[15px] border-[1.5px] border-[#0038FF] bg-[rgba(40,76,204,0.2)] text-[11px] sm:text-[12px] text-white/90 max-w-[150px] sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
                             title={item.need}
                           >
                             {item.need}
@@ -642,10 +704,10 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                         </div>
 
                         {/* Can offer */}
-                        <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
-                          <span className="text-[13px] text-white/80 font-medium">Can offer</span>
+                        <div className="flex flex-col gap-1 sm:gap-2 flex-1 min-w-[45%] items-end">
+                          <span className="text-[12px] sm:text-[13px] text-white/80 font-medium">Can offer</span>
                           <div
-                            className="inline-block px-[15px] py-[7px] rounded-[15px] border-[1.5px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] text-[12px] text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                            className="inline-block px-[10px] py-[5px] sm:px-[15px] sm:py-[7px] rounded-[10px] sm:rounded-[15px] border-[1.5px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] text-[11px] sm:text-[12px] text-white/90 max-w-[150px] sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
                             title={item.offer || "Skills & Services"}
                           >
                             {item.offer || "Skills & Services"}
@@ -654,8 +716,8 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                       </div>
 
                       {/* Date */}
-                      <div className="flex justify-end items-center w-full">
-                        <span className="text-[13px] text-white/60">
+                      <div className="flex justify-end items-center w-full mt-1">
+                        <span className="text-[11px] sm:text-[13px] text-white/60">
                           {item.deadline
                             ? `until ${fmtUntil(item.deadline)}`
                             : ""}
@@ -665,7 +727,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
 
                     {/* Bottom Button */}
                     <button
-                      className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium cursor-pointer transition-colors"
+                      className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium cursor-pointer transition-colors mt-3"
                       onClick={() => handleInterested(item)}
                     >
                       I'm interested
@@ -673,14 +735,15 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                   </div>
                 ))
               ) : (
-                <div className="w-full py-10 flex flex-col items-center justify-center">
+                // No matches / Error (Omitted for brevity)
+                <div className="w-full py-10 flex flex-col items-center justify-center px-4">
                   <div className="w-16 h-16 rounded-full bg-[#1A0F3E] flex items-center justify-center mb-4">
                     <Search className="w-8 h-8 text-white/50" />
                   </div>
                   <h3 className="text-xl font-medium text-white mb-2">
                     No matches found
                   </h3>
-                  <p className="text-white/60 text-center max-w-md">
+                  <p className="text-white/60 text-center max-w-md text-sm">
                     Try adjusting your search or come back later for new trade opportunities
                   </p>
                 </div>
@@ -690,15 +753,24 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
         </div>
 
         {/* Skip Button */}
-        <div className="mt-[50px] mb-[100px]">
+        <div className="mt-[40px] sm:mt-[50px] mb-[50px] sm:mb-[100px]">
           <button
-            className="text-[20px] font-medium text-[#0038FF] underline cursor-pointer hover:text-[#1a4dff] transition-colors"
+            className="text-[18px] sm:text-[20px] font-medium text-[#0038FF] underline cursor-pointer hover:text-[#1a4dff] transition-colors"
             onClick={onNext}
           >
             Skip for now
           </button>
         </div>
       </div>
+      
+      {/* Report Dialog Component */}
+      <ReportDialog
+        isOpen={showReportDialog}
+        onClose={() => setShowReportDialog(false)}
+        reportedUser={reportedUserId}
+        tradeId={reportedTradeId}
+        onSubmit={handleReportSubmit}
+      />
     </div>
   );
 }
