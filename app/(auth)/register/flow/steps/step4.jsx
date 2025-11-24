@@ -375,9 +375,6 @@ export default function Step4({ step4Data, onDataSubmit, onNext, onPrev }) {
 
   return (
     <div
-      // FIX 1: Changed 'min-h-screen' to 'h-auto sm:min-h-screen' (allows scrolling on mobile)
-      // FIX 2: Changed 'items-center' to 'items-start sm:items-center' (prevents header cutoff on scroll)
-      // FIX 3: Increased bottom padding on mobile 'pb-[120px]' so content isn't hidden behind fixed pagination
       className={`pt-[50px] pb-[120px] sm:pb-[50px] flex h-auto sm:min-h-screen items-start sm:items-center justify-center bg-cover bg-center ${inter.className}`}
       style={{ backgroundImage: "url('/assets/bg_register.png')" }}
     >
@@ -389,7 +386,6 @@ export default function Step4({ step4Data, onDataSubmit, onNext, onPrev }) {
             alt="Logo"
             width={249.3}
             height={76}
-            // FIX 4: Resized logo on mobile (w-[180px]) vs desktop (sm:w-auto)
             className="mb-[30px] w-[180px] sm:w-auto h-auto"
           />
           <h1 className="font-[600] text-[20px] sm:text-[25px] text-center mb-[40px] sm:mb-[100px]">
@@ -434,7 +430,6 @@ export default function Step4({ step4Data, onDataSubmit, onNext, onPrev }) {
                   </span>
 
                   {/* Text content */}
-                  {/* FIX: Removed 'overflow-hidden' from parent and 'truncate' from span so text wraps */}
                   <div className="flex-1 flex items-center justify-between">
                     <span
                       className={`text-[15px] sm:text-[16px] text-left leading-tight pr-2 ${

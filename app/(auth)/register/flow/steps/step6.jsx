@@ -522,9 +522,9 @@ export default function Step6({
 
         {/* Continue Button - Fixed at bottom */}
         {categories.length > 0 && (
-          <div className="flex justify-center mt-[60px] mb-[47.5px] flex-shrink-0">
+          <div className="flex justify-center mt-[60px] sm:mt-[50px] mb-[47.5px] sm:mb-[47.5px]">
             <Button
-              className="cursor-pointer flex w-[240px] h-[50px] justify-center items-center px-[38px] py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-sm sm:text-[20px] font-[500] transition rounded-[15px]"
+              className="cursor-pointer flex w-[200px] sm:w-[240px] h-[45px] sm:h-[50px] justify-center items-center px-[20px] sm:px-[38px] py-[10px] sm:py-[13px] shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-[18px] sm:text-[20px] font-[500] transition rounded-[15px]"
               onClick={() => {
                 const hasSelections = Object.values(checkedOptions).some(
                   (arr) => arr && arr.length > 0
