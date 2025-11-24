@@ -194,10 +194,12 @@ export default function Navbar() {
   };
 
   return (
-    <header
+<header
           className={`${inter.className} w-full py-4 lg:py-10 text-[16px] leading-[120%] sticky top-0 z-50 bg-[#050015]/80 backdrop-blur-xl transition-all duration-300`}
         >
-          <div className="flex items-center justify-between max-w-[1440px] mx-auto px-4 lg:px-[250px]">
+          <div className="flex items-center justify-between max-w-[1440px] mx-auto px-4 lg:px-[250px] relative"> 
+            {/* Added 'relative' to parent just in case, though standard header behavior usually handles it */}
+
             {/* Logo and Button */}
             <div className="flex items-center gap-4 lg:gap-6">
               {/* LOGO LINK */}
@@ -387,9 +389,9 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Content */}
+          {/* Mobile Menu Content - DITO YUNG PAGBABAGO: FLOATING STYLE */}
           {mobileMenuOpen && (
-            <div className="lg:hidden mt-4 px-4 pb-6 space-y-3 bg-[#0A0519] border-t border-[#1a1a3a] h-auto w-full">
+            <div className="absolute top-full left-0 w-full lg:hidden px-4 pb-6 space-y-3 bg-[#0A0519] border-t border-[#1a1a3a] shadow-xl z-50">
               {isSuspended ? (
                 <div
                   className="flex items-center gap-2 text-red-400 py-4 cursor-pointer"

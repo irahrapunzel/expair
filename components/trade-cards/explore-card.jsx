@@ -103,8 +103,8 @@ export default function ExploreCard({
 
   return (
     <>
-      <div
-        className="w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
+    <div
+        className="w-full md:w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[20px] md:p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
         style={{
           background:
             "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
@@ -227,7 +227,7 @@ export default function ExploreCard({
           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
             <span className="text-sm text-white/80 font-medium">Needs</span>
             <div
-              className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+              className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 max-w-full md:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
               title={need}
             >
               {need}
@@ -238,7 +238,7 @@ export default function ExploreCard({
           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
             <span className="text-sm text-white/80 font-medium">Can offer</span>
             <div
-              className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
+              className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 max-w-full md:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
               title={offer}
             >
               {offer}
@@ -256,7 +256,7 @@ export default function ExploreCard({
           <Button
             variant="default"
             size="default"
-            className="px-[15px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
+            className="w-full md:w-auto px-[15px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
             onClick={onInterestedClick}
           >
             I'm interested
