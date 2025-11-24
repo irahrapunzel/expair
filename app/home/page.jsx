@@ -579,7 +579,7 @@ export default function HomePage() {
 
   return (
     <div
-      className={`w-full md:w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
+      className={`w-full md:w-[950px] mx-auto px-4 pt-10 pb-20 text-white ${inter.className}`}
     >
       {/* Greeting Header */}
       <h1
