@@ -235,14 +235,24 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
 
                 {/* Trade details */}
                 <div className="flex items-center gap-4 text-white text-center max-w-[500px]">
-                  <div className="flex-1 px-3 py-2 bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
-                    <span className="text-[14px]">
+                  {/* Left Box: Service Request */}
+                  <div className="flex-1 min-w-0 px-3 py-2">
+                    <span 
+                      className="text-[14px] truncate block" 
+                      title={trade?.requested || trade?.reqname || "Service Request"}
+                    >
                       {trade?.requested || trade?.reqname || "Service Request"}
                     </span>
                   </div>
+
                   <Icon icon="lucide:x" className="w-5 h-5 flex-shrink-0" />
-                  <div className="flex-1 px-3 py-2 bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
-                    <span className="text-[14px]">
+
+                  {/* Right Box: Skill Exchange */}
+                  <div className="flex-1 min-w-0 px-3 py-2">
+                    <span 
+                      className="text-[14px] truncate block"
+                      title={trade?.offering || trade?.exchange || "Skill Exchange"}
+                    >
                       {trade?.offering || trade?.exchange || "Skill Exchange"}
                     </span>
                   </div>
@@ -266,7 +276,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                       onChange={(e) => setFeedback(e.target.value)}
                       placeholder="How did the trade go? Our AI will analyze your feedback to generate an objective rating."
                       maxLength={maxChars}
-                      className="w-full h-[120px] bg-[#120A2A] border-none rounded-[15px] text-white p-4 focus:outline-none focus:ring-2 focus:ring-[#0038FF] resize-none"
+                      className="w-full h-[120px] bg-[#120A2A] border border-[rgba(255,255,255,0.60)] rounded-[15px] text-white p-4 focus:outline-none focus:ring-2 focus:ring-[#0038FF] resize-none"
                       disabled={isSubmitting}
                     />
                     <span className="absolute bottom-2 right-3 text-xs text-gray-400">
@@ -335,14 +345,24 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
 
                 {/* Trade details */}
                 <div className="flex items-center gap-4 text-white text-center max-w-[500px]">
-                  <div className="flex-1 px-3 py-2 bg-[rgba(40,76,204,0.2)] border-[1.5px] border-[#0038FF] rounded-[15px]">
-                    <span className="truncate block text-[14px]">
+                  {/* Left Box: Service Request */}
+                  <div className="flex-1 min-w-0 px-3 py-2">
+                    <span 
+                      className="text-[14px] truncate block" 
+                      title={trade?.requested || trade?.reqname || "Service Request"}
+                    >
                       {trade?.requested || trade?.reqname || "Service Request"}
                     </span>
                   </div>
+
                   <Icon icon="lucide:x" className="w-5 h-5 flex-shrink-0" />
-                  <div className="flex-1 px-3 py-2 bg-[rgba(144,110,255,0.2)] border-[1.5px] border-[#906EFF] rounded-[15px]">
-                    <span className="truncate block text-[14px]">
+
+                  {/* Right Box: Skill Exchange */}
+                  <div className="flex-1 min-w-0 px-3 py-2">
+                    <span 
+                      className="text-[14px] truncate block"
+                      title={trade?.offering || trade?.exchange || "Skill Exchange"}
+                    >
                       {trade?.offering || trade?.exchange || "Skill Exchange"}
                     </span>
                   </div>
