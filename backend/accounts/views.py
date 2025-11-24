@@ -1,3 +1,4 @@
+import binascii
 import csv
 import json
 import os
@@ -352,9 +353,17 @@ def validate_field(request):
                 return JsonResponse({'error': 'Field and value are required.'}, status=400)
 
             if field_name == 'username':
-                exists = User.objects.filter(username__iexact=value).exists()
+                # Only check against fully email-verified accounts
+                exists = User.objects.filter(
+                    username__iexact=value,
+                    verification__email_verified=True # <- ADD THIS FILTER
+                ).exists()
             elif field_name == 'email':
-                exists = User.objects.filter(email__iexact=value).exists()
+                # Only check against fully email-verified accounts
+                exists = User.objects.filter(
+                    email__iexact=value,
+                    verification__email_verified=True # <- ADD THIS FILTER
+                ).exists()
             else:
                 return JsonResponse({'error': 'Invalid field for validation.'}, status=400)
 
@@ -4759,38 +4768,50 @@ def send_verification_otp(request):
         return Response({"error": "Email and username are required"}, status=400)
     
     try:
-        # Check if user already exists
-        existing_user = User.objects.filter(Q(username=username) | Q(email=email)).first()
+        # 1. Check if the email or username is already taken by a FULLY REGISTERED user
+        fully_registered_user = User.objects.filter(
+            Q(username__iexact=username) | Q(email__iexact=email), 
+            verification__email_verified=True
+        ).first()
         
-        if existing_user:
-            # Check if already verified
-            if existing_user.verification.email_verified:
+        if fully_registered_user:
+            if fully_registered_user.username.lower() == username.lower():
+                return Response({"error": "Username already taken by a verified user"}, status=400)
+            if fully_registered_user.email.lower() == email.lower():
                 return Response({"error": "Email already registered and verified"}, status=400)
-            
-            # User exists but not verified - update their info and resend OTP
-            user = existing_user
-            user.username = username
-            user.first_name = first_name
-            user.last_name = last_name
-            user.email = email
-            if password:
-                user.set_password(password)
-            user.save()
-            print(f"[INFO] Updated existing unverified user: {user.id}")
-        else:
-            # Create new user with correct username
+
+        # 2. Find or Create a TEMPORARY/UNVERIFIED user record
+        try:
+            # Find user by email (for previous unverified attempts)
+            user = User.objects.get(email__iexact=email) 
+            created = False
+        except User.DoesNotExist:
+            # If new user, create it with a temporary unique username to satisfy the DB constraint
+            # The real username is saved later in complete_registration.
+            temp_username = f"temp_{binascii.hexlify(os.urandom(8)).decode()}" # Use hex for uniqueness
             user = User.objects.create(
                 email=email,
-                username=username,
+                username=temp_username, # <- TEMPORARY UNIQUE USERNAME
                 first_name=first_name,
                 last_name=last_name,
             )
-            if password:
-                user.set_password(password)
-                user.save()
-            print(f"[INFO] Created new user for OTP: {user.id}")
-        
-        # Generate and store OTP
+            created = True
+            print(f"[INFO] Created NEW TEMPORARY user for OTP: {user.id} ({temp_username})")
+
+        # 3. Update all fields from Step 1 on the existing/temporary user
+        if not created:
+            # For existing unverified users, update to the new desired username, 
+            # while keeping the email unique as the anchor
+            user.username = username 
+            user.first_name = first_name
+            user.last_name = last_name
+
+        if password:
+            user.set_password(password)
+        user.save()
+        print(f"[INFO] Updated {'NEW' if created else 'EXISTING'} unverified user: {user.id}")
+
+        # 4. Generate and store OTP (unchanged)
         otp_code = generate_otp()
         verification, _ = UserVerification.objects.get_or_create(user=user)
         verification.email_verification_otp = otp_code
@@ -4798,7 +4819,7 @@ def send_verification_otp(request):
         verification.email_verified = False
         verification.save()
         
-        # Send email
+        # Send email (unchanged)
         send_otp_email(user, otp_code)
         
         return Response({
@@ -4806,7 +4827,7 @@ def send_verification_otp(request):
             "email": email,
             "username": username
         }, status=200)
-        
+                
     except Exception as e:
         print(f"[ERROR] Send OTP error: {str(e)}")
         import traceback
