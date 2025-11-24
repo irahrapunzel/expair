@@ -4578,27 +4578,27 @@ def create_report(request):
         print(f"Report creation error: {str(e)}")
         return Response({"error": str(e)}, status=400)
 
-def send_support_email(ticket):
-    context = {
-        "name": ticket.ticket_name,
-        "ticket_ref": f"SUP-{ticket.ticket_id:05d}",
-        "title": ticket.ticket_title,
-        "desc": ticket.ticket_desc,
-    }
+# def send_support_email(ticket):
+#     context = {
+#         "name": ticket.ticket_name,
+#         "ticket_ref": f"SUP-{ticket.ticket_id:05d}",
+#         "title": ticket.ticket_title,
+#         "desc": ticket.ticket_desc,
+#     }
 
-    subject = f"[Expair Support] Ticket #{ticket.ticket_id}: {ticket.ticket_title}"
-    from_email = "expaircs@gmail.com"
-    to = [ticket.ticket_email]  # main recipient (user)
-    cc = ["expaircs@gmail.com"]  # add your CS inbox here
+#     subject = f"[Expair Support] Ticket #{ticket.ticket_id}: {ticket.ticket_title}"
+#     from_email = "expaircs@gmail.com"
+#     to = [ticket.ticket_email]  # main recipient (user)
+#     cc = ["expaircs@gmail.com"]  # add your CS inbox here
 
-    text_content = render_to_string("emails/support_confirmation.txt", context)
-    html_content = render_to_string("emails/support_confirmation.html", context)
+#     text_content = render_to_string("emails/support_confirmation.txt", context)
+#     html_content = render_to_string("emails/support_confirmation.html", context)
 
-    email = EmailMultiAlternatives(
-        subject, text_content, from_email, to, cc=cc
-    )
-    email.attach_alternative(html_content, "text/html")
-    email.send(fail_silently=False)
+#     email = EmailMultiAlternatives(
+#         subject, text_content, from_email, to, cc=cc
+#     )
+#     email.attach_alternative(html_content, "text/html")
+#     email.send(fail_silently=False)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
