@@ -4663,8 +4663,6 @@ def api_explore_feed(request):
     # Return response with categorized trades
     return Response({"trades": []}, status=200)
 
-    # ...existing code...
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_interested_trades(request):
@@ -4692,19 +4690,41 @@ def get_user_interested_trades(request):
         tr = interest.trade_request
         requester = tr.requester
 
-        # Determine offer from requester's skills
+        # Get YOUR (viewer's) interests
+        viewer_gen_interests = list(
+            UserInterest.objects.filter(user=user)
+            .values_list("genSkills_id_id", flat=True)
+        )
+        
+        # Get requester's skills (what they can offer)
+        requester_skills_query = (
+            UserSkill.objects.filter(user_id=tr.requester.id)
+            .select_related("specSkills__genSkills_id")
+            .values_list("specSkills__genSkills_id_id", "specSkills__genSkills_id__genCateg")
+        )
+        requester_gen_skills = dict(requester_skills_query)
+        
         offer = ""
-        try:
-            first_us = UserSkill.objects.filter(user=requester).select_related("specSkills__genSkills_id").first()
-            if first_us and getattr(first_us, "specSkills", None):
-                spec = first_us.specSkills
-                spec_name = getattr(spec, "specName", "") or ""
-                gen = getattr(spec, "genSkills_id", None)
-                gen_categ = getattr(gen, "genCateg", "") if gen else ""
-                offer = spec_name or gen_categ or ""
-        except Exception:
-            offer = ""
-
+        has_match = False
+        
+        # Priority 1: Find skills that the requester has AND YOU are interested in
+        if viewer_gen_interests and requester_gen_skills:
+            matching_skills = set(viewer_gen_interests) & set(requester_gen_skills.keys())
+            
+            if matching_skills:
+                matching_skill_id = list(matching_skills)[0]
+                offer = requester_gen_skills[matching_skill_id]
+                has_match = True
+        
+        # Priority 2: If no match with your interests, show any skill the requester has
+        if not offer and requester_gen_skills:
+            offer = list(requester_gen_skills.values())[0]
+        
+        # Priority 3: Fallback to classified_category if no skills found
+        if not offer:
+            offer = tr.classified_category or ""
+        
+        # Priority 4: Final fallback to any specific skill name
         if not offer:
             offer = fallback_spec_name
 
