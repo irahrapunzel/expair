@@ -654,7 +654,9 @@ export default function HomePage() {
 
       {/* Explore Section */}
       <div className="mt-20">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col items-start gap-4 mb-8 md:flex-row md:items-center md:justify-between">
+          
+          {/* Title Section */}
           <div className="flex items-center gap-[15px]">
             <h4 className="text-[25px] font-[600]">Explore</h4>
             <Image
@@ -666,7 +668,8 @@ export default function HomePage() {
             />
           </div>
 
-          <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
+          <div className="w-full flex justify-between items-center md:w-auto md:justify-start md:gap-4">
+            
             {/* Sort Button and Dropdown */}
             <div className="relative" ref={exploreSortMenuRef}>
               <div
@@ -744,59 +747,35 @@ export default function HomePage() {
 
               {/* Filter Dropdown Menu */}
               {showExploreFilterMenu && (
-              <div className="absolute top-full right-0 mt-2 w-[85vw] md:w-[280px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
-                <div className="p-4">
-                  <h3 className="text-white font-medium mb-3">
-                    Filter Options
-                  </h3>
+                <div className="absolute top-full right-0 mt-2 w-[85vw] md:w-[280px] bg-[#120A2A] border border-[#284CCC]/30 rounded-[15px] shadow-lg z-50 overflow-hidden">
+                  <div className="p-4">
+                    <h3 className="text-white font-medium mb-3">
+                      Filter Options
+                    </h3>
 
-                  {/* Rating Filter */}
-                  <div className="mb-4">
-                    <h4 className="text-white/70 text-sm mb-2">
-                      Minimum Rating
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {[0, 2, 3, 4, 5].map((rating) => (
-                        <div
-                          key={rating}
-                          className={`px-4 py-2 md:px-3 md:py-1 rounded-full cursor-pointer text-sm ${
-                            exploreFilters.minRating === rating
-                              ? "bg-[#0038FF] text-white"
-                              : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
-                          } transition`}
-                          onClick={() =>
-                            handleExploreFilterChange("minRating", rating)
-                          }
-                        >
-                          {rating === 0 ? "Any" : `${rating}⭐+`}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                    {/* Skill Category Filter
+                    {/* Rating Filter */}
                     <div className="mb-4">
                       <h4 className="text-white/70 text-sm mb-2">
-                        Skill Category
+                        Minimum Rating
                       </h4>
-                      <select
-                        className="w-full px-3 py-2 bg-[#1A0F3E] border border-[#284CCC]/30 rounded-[10px] text-white"
-                        value={exploreFilters.skillCategory}
-                        onChange={(e) =>
-                          handleExploreFilterChange(
-                            "skillCategory",
-                            e.target.value
-                          )
-                        }
-                      >
-                        <option value="all">All Categories</option>
-                        {skillCategories.slice(1).map((category, index) => (
-                          <option key={index} value={category}>
-                            {category}
-                          </option>
+                      <div className="flex flex-wrap gap-2">
+                        {[0, 2, 3, 4, 5].map((rating) => (
+                          <div
+                            key={rating}
+                            className={`px-4 py-2 md:px-3 md:py-1 rounded-full cursor-pointer text-sm ${
+                              exploreFilters.minRating === rating
+                                ? "bg-[#0038FF] text-white"
+                                : "bg-[#1A0F3E] text-white/70 hover:bg-[#1A0F3E]/80"
+                            } transition`}
+                            onClick={() =>
+                              handleExploreFilterChange("minRating", rating)
+                            }
+                          >
+                            {rating === 0 ? "Any" : `${rating}⭐+`}
+                          </div>
                         ))}
-                      </select>
-                    </div> */}
+                      </div>
+                    </div>
 
                     {/* Level Filter */}
                     <div className="mb-4">
