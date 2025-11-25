@@ -845,10 +845,10 @@ export default function ActiveTradesPage() {
 
   return (
     <div
-      className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
+      className={`w-full md:w-[950px] mx-auto px-4 pt-10 pb-20 text-white ${inter.className}`}
     >
       {/* Page Title with Sort/Filter */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 mb-8">
         <h1 className="text-[25px] font-semibold">Active trades</h1>
 
         <div className="flex items-center gap-4">
@@ -857,14 +857,12 @@ export default function ActiveTradesPage() {
             <span>Sort</span>
             <Icon icon="lucide:arrow-up-down" className="text-lg" /> 
           </div>*/}
-
-
         </div>
       </div>
 
       {/* Active Trades Section */}
       {activeTrades.length === 0 ? (
-        <div className="text-white/60 text-center py-8">
+        <div className="text-white/60 text-center py-4 md:py-8 text-sm md:text-base">
           No active trades yet.
         </div>
       ) : (
@@ -877,7 +875,7 @@ export default function ActiveTradesPage() {
             return (
               <div
                 key={trade.id}
-                className={`w-[945px] rounded-[20px] border-[3px] border-[#284CCC]/80 transition-all duration-300 hover:scale-[1.01] overflow-hidden`}
+                className={`w-full md:w-[945px] rounded-[20px] border-[3px] border-[#284CCC]/80 transition-all duration-300 hover:scale-[1.01] overflow-hidden`}
                 style={{
                   background:
                     "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -885,10 +883,9 @@ export default function ActiveTradesPage() {
                 }}
               >
                 {expandedCardId === trade.id ? (
-                  // Expanded View
                   <div>
                     {/* Header */}
-                    <div className="p-[25px] pb-[15px] flex justify-between items-start">
+                    <div className="p-4 md:p-[25px] pb-[15px] flex justify-between items-start">
                       <div className="flex items-start gap-[10px]">
                         {/* Clickable Profile Picture */}
                         {trade.username ? (
@@ -958,10 +955,10 @@ export default function ActiveTradesPage() {
                       </button>
                     </div>
 
-                    {/* Context Image - Only show if contextPic exists */}
+                    {/* Image */}
                     {trade.contextPic && (
-                      <div className="px-[25px] pb-[20px]">
-                        <div className="w-full h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
+                      <div className="px-4 md:px-[25px] pb-[20px]">
+                        <div className="w-full h-[200px] md:h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
                           <Image
                             src={trade.contextPic}
                             alt="Trade Context"
@@ -974,11 +971,11 @@ export default function ActiveTradesPage() {
                     )}
 
                     {/* Trade Details */}
-                    <div className="px-[25px] pb-[20px]">
+                    <div className="px-4 md:px-[25px] pb-[20px]">
                       <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-3">
                           <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block">
-                            <span className="text-[16px] text-white">
+                            <span className="text-[14px] md:text-[16px] text-white">
                               Requested {trade.requested}
                             </span>
                           </div>
@@ -990,8 +987,8 @@ export default function ActiveTradesPage() {
 
                       <div className="flex flex-col gap-4">
                         {/* Tags and Deadline Row - aligned */}
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-wrap gap-[15px]">
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between w-full gap-3 md:gap-0">
+                          <div className="flex flex-wrap gap-2 md:gap-[15px]">
                             {getTradeDetailTags(trade).map((tag, index) => (
                               <div
                                 key={index}
@@ -1003,27 +1000,27 @@ export default function ActiveTradesPage() {
                               </div>
                             ))}
                           </div>
-                          <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap ml-4">
+                          <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap ml-0 md:ml-4">
                             Due on {trade.deadline}
                           </span>
                         </div>
 
                         <div>
                           <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
-                            <span className="text-[16px] text-white">
+                            <span className="text-[14px] md:text-[16px] text-white">
                               In exchange for {trade.offering}
                             </span>
                           </div>
                         </div>
 
-                        <p className="text-[15px] text-[rgba(255,255,255,0.60)]">
+                        <p className="text-[14px] md:text-[15px] text-[rgba(255,255,255,0.60)]">
                           {trade.requestBio}
                         </p>
                       </div>
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="px-[25px] pb-[25px] flex flex-wrap justify-between">
+                    <div className="px-4 md:px-[25px] pb-[25px] flex flex-wrap justify-between items-center gap-4 md:gap-0">
                       <button
                         className="flex items-center justify-center"
                         onClick={() => toggleCardExpand(trade.id)}
@@ -1050,7 +1047,7 @@ export default function ActiveTradesPage() {
                           >
                             <div className="flex items-center gap-[10px]">
                               <StarIconSmall />
-                              <span className="text-[16px] text-white">
+                              <span className="text-[14px] md:text-[16px] text-white whitespace-nowrap">
                                 Rate your trade
                               </span>
                             </div>
@@ -1060,12 +1057,12 @@ export default function ActiveTradesPage() {
                             className="min-w-[170px] h-[40px] flex justify-center items-center rounded-[15px] border-2 border-[#7E59F8] bg-[#120A2A] shadow-[0_0_15px_#D78DE5] cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleReviewDetails(trade); 
+                              handleReviewDetails(trade);
                             }}
                           >
                             <div className="flex items-center gap-[10px]">
                               <StarIconSmall />
-                              <span className="text-[16px] font-normal text-white">
+                              <span className="text-[14px] md:text-[16px] font-normal text-white whitespace-nowrap">
                                 Review Details
                               </span>
                             </div>
@@ -1077,7 +1074,7 @@ export default function ActiveTradesPage() {
                 ) : (
                   // Collapsed View
                   <div
-                    className="p-[25px] flex flex-col justify-center items-start gap-[15px] cursor-pointer"
+                    className="p-4 md:p-[25px] flex flex-col justify-center items-start gap-[15px] cursor-pointer"
                     onClick={() => toggleCardExpand(trade.id)}
                   >
                     {/* Top Row - Name and Menu */}
@@ -1150,47 +1147,54 @@ export default function ActiveTradesPage() {
                     </div>
 
                     {/* Middle Row - Requested, In Exchange For, XP */}
-                    <div className="flex justify-between items-start w-full">
-                      <div className="flex items-center gap-[15px]">
-                        <div className="flex flex-col gap-[15px]">
+                    <div className="flex flex-col md:flex-row justify-between items-start w-full gap-4 md:gap-0">
+                      
+                      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-[15px] w-full md:w-auto">
+                        
+                        {/* Requested Group */}
+                        <div className="flex flex-col gap-[5px] md:gap-[15px] w-full md:w-auto">
                           <div className="flex items-center gap-[10px]">
-                            <span className="text-[16px] text-white">Requested</span>
+                            <span className="text-[14px] md:text-[16px] text-white">Requested</span>
                           </div>
-                          <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                            <span className="text-[16px] text-white">
+                          <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] w-fit">
+                            <span className="text-[14px] md:text-[16px] text-white">
                               {trade.requested}
                             </span>
                           </div>
                         </div>
 
-                        <div className="flex flex-col gap-[15px]">
-                          <span className="text-[16px] text-white">
+                        {/* Offering Group */}
+                        <div className="flex flex-col gap-[5px] md:gap-[15px] w-full md:w-auto">
+                          <span className="text-[14px] md:text-[16px] text-white">
                             In exchange for
                           </span>
-                          <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                            <span className="text-[16px] text-white">
+                          <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] w-fit">
+                            <span className="text-[14px] md:text-[16px] text-white">
                               {trade.offering}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      <span className="text-[16px] font-semibold text-[#906EFF]">
-                        {trade.xp}
-                      </span>
+                      {/* XP Display */}
+                      <div className="w-full md:w-auto flex justify-end md:block">
+                         <span className="text-[16px] font-semibold text-[#906EFF]">
+                            {trade.xp}
+                         </span>
+                      </div>
                     </div>
 
                     {/* Bottom Row - Due Date */}
-                    <div className="flex justify-end items-center w-full">
+                    <div className="flex justify-start md:justify-end items-center w-full">
                       <span className="text-[13px] font-normal text-white/60">
                         Due on {trade.deadline}
                       </span>
                     </div>
 
-
-                    <div className="flex justify-between items-center w-full">
-
-                      {/* Chevron Down*/}
+                    {/* Action Bar */}
+                    <div className="flex justify-between items-center w-full gap-4">
+                      
+                      {/* Chevron Down */}
                       <div>
                         <Icon
                           icon="lucide:chevron-down"
@@ -1198,25 +1202,26 @@ export default function ActiveTradesPage() {
                         />
                       </div>
 
-                      {/* Action Buttons with Status*/}
-                      <div className="flex flex-wrap items-center gap-[15px]">
+                      {/* Action Buttons with Status */}
+                      <div className="flex flex-wrap justify-end items-center gap-2 md:gap-[15px]">
                         {/* Status Badge */}
                         <div
-                          className={`flex justify-center items-center h-[38px] px-[25px] py-[13px] rounded-[15px] ${trade.bothProofsApproved
-                            ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                            : trade.proofWorkflowStatus === "waiting_for_approval"
+                          className={`flex justify-center items-center h-[38px] px-3 md:px-[25px] py-[13px] rounded-[15px] ${
+                            trade.bothProofsApproved
+                              ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                              : trade.proofWorkflowStatus === "waiting_for_approval"
                               ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
                               : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                            }`}
+                          }`}
                         >
-                          <span className="text-[16px] font-medium">
+                          <span className="text-xs md:text-[16px] font-medium whitespace-nowrap">
                             {getTradeStatusText(trade)}
                           </span>
                         </div>
 
                         {showRateButton ? (
                           <button
-                            className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
+                            className="h-[38px] px-3 md:px-[25px] py-[13px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedTrade(trade);
@@ -1229,7 +1234,7 @@ export default function ActiveTradesPage() {
                           >
                             <div className="flex items-center gap-[10px]">
                               <StarIconSmall />
-                              <span className="text-[16px] text-white">
+                              <span className="text-[14px] md:text-[16px] text-white whitespace-nowrap">
                                 Rate your trade
                               </span>
                             </div>
@@ -1238,7 +1243,7 @@ export default function ActiveTradesPage() {
                           <>
                             {/* Your Proof Button */}
                             <button
-                              className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
+                              className="h-[38px] px-3 md:px-[25px] py-[13px] flex justify-center items-center rounded-[15px] cursor-pointer transition-all"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 proofButtonState.onClick &&
@@ -1259,8 +1264,18 @@ export default function ActiveTradesPage() {
                               }}
                             >
                               <div className="flex items-center gap-[8px]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="#fff" d="M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20zm5-12.15L9.125 9.725q-.3.3-.712.288T7.7 9.7q-.275-.3-.288-.7t.288-.7l3.6-3.6q.15-.15.325-.212T12 4.425t.375.063t.325.212l3.6 3.6q.3.3.288.7t-.288.7q-.3.3-.712.313t-.713-.288L13 7.85V15q0 .425-.288.713T12 16t-.712-.288T11 15z" /></svg>
-                                <span className="text-[16px] text-white">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="20"
+                                  height="20"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    fill="#fff"
+                                    d="M6 20q-.825 0-1.412-.587T4 18v-2q0-.425.288-.712T5 15t.713.288T6 16v2h12v-2q0-.425.288-.712T19 15t.713.288T20 16v2q0 .825-.587 1.413T18 20zm5-12.15L9.125 9.725q-.3.3-.712.288T7.7 9.7q-.275-.3-.288-.7t.288-.7l3.6-3.6q.15-.15.325-.212T12 4.425t.375.063t.325.212l3.6 3.6q.3.3.288.7t-.288.7q-.3.3-.712.313t-.713-.288L13 7.85V15q0 .425-.288.713T12 16t-.712-.288T11 15z"
+                                  />
+                                </svg>
+                                <span className="text-[14px] md:text-[16px] text-white truncate max-w-[100px] md:max-w-none">
                                   {proofButtonState.text}
                                 </span>
                               </div>
@@ -1268,7 +1283,7 @@ export default function ActiveTradesPage() {
 
                             {/* Partner Proof Button */}
                             <button
-                              className="h-[38px] px-[25px] py-[13px] flex justify-center items-center rounded-[15px] transition-all"
+                              className="h-[38px] px-3 md:px-[25px] py-[13px] flex justify-center items-center rounded-[15px] transition-all"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 partnerProofButtonState.onClick &&
@@ -1303,7 +1318,7 @@ export default function ActiveTradesPage() {
                                     fill="white"
                                   />
                                 </svg>
-                                <span className="text-[16px] text-white truncate">
+                                <span className="text-[14px] md:text-[16px] text-white truncate max-w-[100px] md:max-w-none">
                                   {partnerProofButtonState.text}
                                 </span>
                               </div>
@@ -1375,9 +1390,9 @@ export default function ActiveTradesPage() {
 
       {/* --- SUCCESS MODAL: Proof Rejected Notification --- */}
       {showSuccessModal && selectedTrade && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] px-4">
           <div
-            className="w-[618px] flex flex-col items-center justify-center p-[50px] relative"
+            className="w-full max-w-[618px] flex flex-col items-center justify-center p-6 md:p-[50px] relative"
             style={{
               background: "rgba(0, 0, 0, 0.4)",
               border: "2px solid #FF3838",
@@ -1389,18 +1404,18 @@ export default function ActiveTradesPage() {
             {/* Close Button */}
             <button
               onClick={() => setShowSuccessModal(false)}
-              className="absolute top-[26px] right-[26px] text-white hover:text-gray-300"
+              className="absolute top-4 right-4 md:top-[26px] md:right-[26px] text-white hover:text-gray-300"
             >
               <Icon icon="lucide:x" className="w-[15px] h-[15px]" />
             </button>
 
             {/* Content Wrapper */}
-            <div className="flex flex-col items-center gap-[30px] w-[470px]">
-              <h2 className="text-[25px] font-bold text-white text-center">
+            <div className="flex flex-col items-center gap-5 md:gap-[30px] w-full md:w-[470px]">
+              <h2 className="text-xl md:text-[25px] font-bold text-white text-center">
                 Proof Rejected Successfully
               </h2>
 
-              <p className="text-[16px] text-white/80 text-center">
+              <p className="text-sm md:text-[16px] text-white/80 text-center">
                 {selectedTrade.firstname} has been notified to resubmit their
                 proof for the trade.
               </p>
