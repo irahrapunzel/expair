@@ -2125,12 +2125,13 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-8">
           {formData.map((cred, index) => (
             <div
-              key={cred.usercred_id || `new-${index}`} // Use a key that handles new and existing items
-              className="flex flex-col gap-5 p-6 border border-white/20 rounded-[15px] relative" // Add relative
+              key={cred.usercred_id || `new-${index}`}
+              className="flex flex-col gap-5 p-6 border border-white/20 rounded-[15px] relative"
             >
+              {/* Delete Button */}
               {formData.length > 0 && (
                 <button
-                  onClick={() => deleteCredential(index, cred)} // Pass index and credential object
+                  onClick={() => deleteCredential(index, cred)}
                   className="absolute top-4 right-4 text-red-500 hover:text-red-700 transition-colors p-1 rounded-full bg-white/10 hover:bg-white/20"
                   aria-label="Delete credential"
                 >
@@ -2138,6 +2139,7 @@ export default function ProfilePage() {
                 </button>
               )}
 
+              {/* Credential Number/Title */}
               {formData.length > 1 && (
                 <h5 className="text-lg font-semibold text-white/70">
                   Credential {index + 1}
@@ -2327,16 +2329,17 @@ export default function ProfilePage() {
           + Add credential
         </button>
 
-        <div className="flex justify-end gap-4 mt-6">
+        {/* Button Group (Save/Cancel) */}
+        <div className="flex justify-end gap-4 mt-6 flex-wrap-reverse sm:flex-nowrap"> 
           <Button
             onClick={onCancel}
-            className="bg-white/10 text-white hover:bg-white/20"
+            className="bg-white/10 text-white hover:bg-white/20 w-full sm:w-auto"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSave}
-            className="bg-[#0038FF] hover:bg-[#1a4dff] text-white shadow-[0px_0px_15px_#284CCC]"
+            className="bg-[#0038FF] hover:bg-[#1a4dff] text-white shadow-[0px_0px_15px_#284CCC] w-full sm:w-auto"
           >
             Save Changes
           </Button>
@@ -2596,10 +2599,12 @@ export default function ProfilePage() {
     return (
       <div
         className={clsx(
-          "inline-flex items-center px-[15px] py-[10px] text-[13px] rounded-full border-2 text-white overflow-hidden"
+          "inline-flex items-center px-[15px] py-[10px] text-[13px] rounded-full border-2 text-white overflow-hidden",
+          "max-w-full",
+          className
         )}
       >
-        <span className="whitespace-nowrap">{content}</span>
+        <span className="whitespace-nowrap truncate">{content}</span>
       </div>
     );
   };
@@ -2661,12 +2666,12 @@ export default function ProfilePage() {
         className="flex flex-col gap-[20px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] relative transition-all duration-300 hover:scale-[1.01]"
         style={{
           background:
-            "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
+          "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
         }}
-      >
+        >
         <div className="flex justify-between items-start">
           {/* User and Partner Avatars with 'X' separator, names, and date */}
-          <div className="flex items-start gap-[15px]">
+          <div className="flex items-start gap-[15px] sm:flex-col sm:gap-[10px] md:flex-row md:gap-[15px]">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 {/* Trade Partner Avatar - Clickable */}
@@ -2684,8 +2689,8 @@ export default function ProfilePage() {
                     />
                   </div>
                 </Link>
-                <Icon icon="ic:baseline-close" className="w-4 h-4 text-white" />
-                {/* Requester Avatar - Clickable */}
+                <Icon icon="ic:baseline-close" className="w-4 h-4 text-white hidden md:block" />
+                  {/* Requester Avatar - Clickable */}
                 <Link
                   href={`/home/profile/${requesterUsername}`}
                   className="flex-shrink-0"
@@ -2700,7 +2705,8 @@ export default function ProfilePage() {
                     />
                   </div>
                 </Link>
-                <div className="flex flex-col justify-start">
+                {/* Names and Date */}
+                <div className="md:flex flex-col justify-start hidden">
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/home/profile/${tradePartnerUsername}`}
@@ -2725,6 +2731,32 @@ export default function ProfilePage() {
                   </span>
                 </div>
               </div>
+
+              <div className="flex flex-col justify-start mt-2 md:hidden">
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/home/profile/${tradePartnerUsername}`}
+                    className="hover:text-[#906EFF] transition-colors"
+                  >
+                    <span className="font-semibold text-white text-base cursor-pointer">
+                      {tradePartner}
+                    </span>
+                  </Link>
+                  <span className="text-white text-base">&</span>
+                  <Link
+                    href={`/home/profile/${requesterUsername}`}
+                    className="hover:text-[#906EFF] transition-colors"
+                  >
+                    <span className="font-semibold text-white text-base cursor-pointer">
+                      {requester}
+                    </span>
+                  </Link>
+                </div>
+                <span className="text-white/50 text-base">
+                  {tradeCompletionDate}
+                </span>
+              </div>
+                
             </div>
           </div>
 
@@ -2741,7 +2773,8 @@ export default function ProfilePage() {
         <div className="flex flex-col md:flex-row gap-[25px] w-full">
           {/* Trade Details Section */}
           <div className="flex-1 flex flex-col gap-[25px]">
-            <div className="flex items-center gap-[15px] w-full">
+            {/* Requested Item/Service */}
+            <div className="flex items-center gap-[15px] w-full flex-wrap sm:flex-nowrap">
               <Link
                 href={`/home/profile/${requesterUsername}`}
                 className="hover:text-[#906EFF] transition-colors"
@@ -2753,22 +2786,25 @@ export default function ProfilePage() {
               <h6 className="text-white text-base text-white/50 whitespace-nowrap">
                 requested
               </h6>
-              <div className="inline-flex items-center px-[15px] py-[8px] text-[13px] rounded-full border-2 text-white bg-[#284CCC]/20 border-[#284CCC]/80 text-[#C1C9E1]">
-                <span className="whitespace-nowrap">{requestTitle}</span>
+              {/* Tag: Flex-wrap para sa mobile para hindi lumagpas sa screen */}
+              <div className="inline-flex items-center px-[15px] py-[8px] text-[13px] rounded-full border-2 text-white bg-[#284CCC]/20 border-[#284CCC]/80 text-[#C1C9E1] max-w-full">
+                <span className="truncate">{requestTitle}</span>
               </div>
             </div>
-            <div className="flex items-center gap-[15px] w-full">
+            {/* Offered Item/Service */}
+            <div className="flex items-center gap-[15px] w-full flex-wrap sm:flex-nowrap">
               <h6 className="text-white text-base text-white/50 whitespace-nowrap">
                 In exchange for
               </h6>
-              <div className="inline-flex items-center px-[15px] py-[8px] text-[13px] rounded-full border-2 text-white bg-[#3D2490]/20 border-[#3D2490]/80 text-[#C1C9E1]">
-                <span className="whitespace-nowrap">{offerTitle}</span>
+              {/* Tag: Flex-wrap para sa mobile para hindi lumagpas sa screen */}
+              <div className="inline-flex items-center px-[15px] py-[8px] text-[13px] rounded-full border-2 text-white bg-[#3D2490]/20 border-[#3D2490]/80 text-[#C1C9E1] max-w-full">
+                <span className="truncate">{offerTitle}</span>
               </div>
             </div>
           </div>
 
           {/* Review Text Section */}
-          <div className="flex-1 flex flex-col gap-2 md:text-right">
+          <div className="flex-1 flex flex-col gap-2 md:text-right text-left">
             <p className="text-white text-base">{reviewDescription}</p>
           </div>
         </div>
@@ -2944,49 +2980,70 @@ export default function ProfilePage() {
   // Original Profile Page content
   return (
     <div
-      className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
+      className={clsx(
+        "max-w-6xl mx-auto px-5 pt-10 pb-20 text-white", // Added px-5 for padding on mobile
+        inter.className
+      )}
     >
       {/* SECTION 0 - PAGE TITLE */}
       <h4 className="text-[22px] font-semibold mb-10">My Profile</h4>
 
       {/* SECTION 1 - BASIC INFORMATION */}
-      <div className="flex gap-[50px] relative">
-        {/* Profile Picture */}
-        <div className="w-[200px] h-[200px] relative flex-shrink-0">
+      <div className="flex flex-col md:flex-row gap-[30px] md:gap-[50px] relative">
+        {/* Profile Picture (Always visible, adjusted margin) */}
+        <div className="w-[150px] h-[150px] md:w-[200px] md:h-[200px] relative flex-shrink-0 mx-auto md:mx-0">
           <ProfileAvatar
             src={user?.profilePic}
             alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
-            size={200}
+            size={200} 
             className="rounded-full shadow-[0_0_50px_#906EFF99] object-cover"
           />
         </div>
 
-        {/* Right Section */}
-        <div className="flex-1 flex flex-col">
+        {/* Right Section (Basic Info + Level) */}
+        <div className="flex-1 flex flex-col pt-0 md:pt-5 relative">
+          
+          {/* Settings Button (MOVED for better mobile positioning) */}
+          {isOwnProfile && (
+            <div className="absolute top-0 right-0 z-10 hidden md:flex gap-4"> 
+              <button
+                className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition"
+                onClick={() =>
+                  router.push(`/home/profile/${user.username}/settings`)
+                }
+              >
+                <Icon icon="mdi:cog" className="w-5 h-5" />
+                Settings
+              </button>
+            </div>
+          )}
+
           {/* Top Row: Name + Verified Badge */}
-          <div className="flex items-center gap-6 mb-[5px]">
+          <div className="flex items-center gap-6 mb-[5px] flex-wrap justify-center md:justify-start">
             {basicInfoEditing ? (
-              <div className="flex gap-3">
+              <div className="flex gap-3 w-full justify-center md:justify-start">
                 <input
                   type="text"
                   placeholder="First name"
                   value={editableFirstName}
                   onChange={(e) => setEditableFirstName(e.target.value)}
-                  className="bg-[#120A2A] border border-white/30 rounded-[15px] p-2 text-white text-[20px] font-semibold w-full max-w-[150px]"
+                  className="bg-[#120A2A] border border-white/30 rounded-[15px] p-2 text-white text-[20px] font-semibold w-1/2 md:w-full md:max-w-[150px]"
                 />
                 <input
                   type="text"
                   placeholder="Last name"
                   value={editableLastName}
                   onChange={(e) => setEditableLastName(e.target.value)}
-                  className="bg-[#120A2A] border border-white/30 rounded-[15px] p-2 text-white text-[20px] font-semibold w-full max-w-[150px]"
+                  className="bg-[#120A2A] border border-white/30 rounded-[15px] p-2 text-white text-[20px] font-semibold w-1/2 md:w-full md:max-w-[150px]"
                 />
               </div>
             ) : (
-              <h3 className="text-[26px] font-semibold">
+              <h3 className="text-[24px] md:text-[26px] font-semibold text-center md:text-left"> 
                 {`${user.firstname} ${user.lastname}`.trim() || "—"}
               </h3>
             )}
+            
+            {/* Verified Badge */}
             {(user.is_verified ||
               verificationStatus?.toLowerCase() === "verified") && (
                 <div className="relative group">
@@ -2998,37 +3055,38 @@ export default function ProfilePage() {
                       mask: "url('https://api.iconify.design/mdi/check-decagram.svg') no-repeat center / contain",
                     }}
                   />
-
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
                     This user has uploaded their ID and been verified by Expair.
                     You can get verified too on your profile.
                   </div>
                 </div>
               )}
+
+            {/* Settings Button (VISIBLE on mobile, hidden on desktop) */}
+            {isOwnProfile && (
+                <div className="flex md:hidden">
+                    <button
+                      className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition"
+                      onClick={() =>
+                        router.push(`/home/profile/${user.username}/settings`)
+                      }
+                    >
+                      <Icon icon="mdi:cog" className="w-5 h-5" />
+                      Settings
+                    </button>
+                </div>
+            )}
           </div>
+          
           {/* Username + Joined Date */}
-          <div className="flex text-white/50 text-[16px] mb-[20px] gap-[25px]">
+          <div className="flex flex-col items-center md:items-start md:flex-row text-white/50 text-[16px] mb-[20px] gap-[10px] md:gap-[25px]">
             <span>@{user.username || "—"}</span>
             <span>Joined {user.joined || "—"}</span>
           </div>
-          {/* Buttons: Edit (only if own profile) */}
-          {isOwnProfile ? (
-            <div className="absolute top-0 right-0 flex gap-4">
-              <button
-                className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition"
-                onClick={() =>
-                  router.push(`/home/profile/${user.username}/settings`)
-                }
-              >
-                <Icon icon="mdi:cog" className="w-5 h-5" />
-                Settings
-              </button>
-            </div>
-          ) : (
-            <div className="absolute top-0 right-0"></div>
-          )}
+
           {/* Rating + Level */}
-          <div className="flex items-center gap-6 mb-[20px]">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 mb-[20px]">
+            {/* Rating */}
             <div className="flex items-center gap-2">
               <Icon
                 icon="lucide:star"
@@ -3042,18 +3100,17 @@ export default function ProfilePage() {
 
             {/* Level Bar Section */}
             <div className="flex items-center gap-3">
-              {/* LVL label (moved to the left, purple) */}
+              {/* LVL label */}
               <span className="text-[16px] font-semibold text-[#906EFF]">
                 LVL {user.level}
               </span>
 
               {/* Track */}
-              <div className="relative w-[220px] h-[20px] rounded-[32px] border-2 border-white overflow-hidden">
+              <div className="relative w-[150px] h-[20px] sm:w-[220px] rounded-[32px] border-2 border-white overflow-hidden">
                 {/* Fill */}
                 <div
                   className="h-full rounded-[32px] transition-all duration-500"
                   style={{
-                    // percent = in-level XP / width of this level band
                     width: `${(() => {
                       const width = getLevelWidth(user.level || 1);
                       const gained = Number(user.xpPoints) || 0;
@@ -3067,13 +3124,14 @@ export default function ProfilePage() {
               </div>
 
               {/* XP progress (current / needed) */}
-              <span className="text-[16px] text-white/80">
+              <span className="text-[16px] text-white/80 whitespace-nowrap">
                 {user.xpPoints}/{getLevelWidth(user.level || 1)}
               </span>
             </div>
           </div>
+          
           {/* Bio */}
-          <div className="w-full mb-4">
+          <div className="w-full mb-4 text-center md:text-left">
             {basicInfoEditing ? (
               <textarea
                 value={editableBio}
@@ -3104,17 +3162,23 @@ export default function ProfilePage() {
               }
 
               return parsedLinks.length > 0 ? (
-                <div className="mt-3 space-y-2">
+              <div className="mt-3 space-y-2 overflow-hidden">
                   {parsedLinks
                     .filter((url) => url && url.trim() !== "")
                     .map((url, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <LinkIcon className="w-4 h-4 text-gray-500" />
+                      <div 
+                        key={index} 
+                        className="flex items-start space-x-2 break-words" // ADDED: break-words
+                      >
+                        {/* Link Icon */}
+                        <LinkIcon className="w-4 h-4 text-gray-500 flex-shrink-0 mt-1" /> {/* ADJUSTED: mt-1 for alignment */}
+                        
+                        {/* Link Text */}
                         <a
                           href={url.startsWith("http") ? url : `https://${url}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[#4A9EFF] underline hover:opacity-80 break-all"
+                          className="text-[#4A9EFF] underline hover:opacity-80 break-words"
                         >
                           {url}
                         </a>
