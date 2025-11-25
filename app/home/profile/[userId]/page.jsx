@@ -2990,8 +2990,7 @@ export default function ProfilePage() {
 
       {/* SECTION 1 - BASIC INFORMATION */}
       <div className="flex flex-col md:flex-row gap-[30px] md:gap-[50px] relative">
-        {/* Profile Picture (Always visible, adjusted margin) */}
-        <div className="w-[150px] h-[150px] md:w-[200px] md:h-[200px] relative flex-shrink-0 mx-auto md:mx-0">
+        <div className="w-[150px] h-[150px] md:w-[200px] md:h-[200px] relative flex-shrink-0 mx-auto md:mx-0 mb-6 md:mb-0">
           <ProfileAvatar
             src={user?.profilePic}
             alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
@@ -3003,7 +3002,7 @@ export default function ProfilePage() {
         {/* Right Section (Basic Info + Level) */}
         <div className="flex-1 flex flex-col pt-0 md:pt-5 relative">
           
-          {/* Settings Button (MOVED for better mobile positioning) */}
+          {/* Settings Button (Desktop Only */}
           {isOwnProfile && (
             <div className="absolute top-0 right-0 z-10 hidden md:flex gap-4"> 
               <button
@@ -3062,11 +3061,11 @@ export default function ProfilePage() {
                 </div>
               )}
 
-            {/* Settings Button (VISIBLE on mobile, hidden on desktop) */}
+            {/* Settings Button (VISIBLE on mobile - Added mt-2 for spacing) */}
             {isOwnProfile && (
-                <div className="flex md:hidden">
+                <div className="flex md:hidden mt-2 md:mt-0">
                     <button
-                      className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition"
+                      className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition border border-white/20"
                       onClick={() =>
                         router.push(`/home/profile/${user.username}/settings`)
                       }
@@ -3168,10 +3167,10 @@ export default function ProfilePage() {
                     .map((url, index) => (
                       <div 
                         key={index} 
-                        className="flex items-start space-x-2 break-words" // ADDED: break-words
+                        className="flex items-start space-x-2 break-words"
                       >
                         {/* Link Icon */}
-                        <LinkIcon className="w-4 h-4 text-gray-500 flex-shrink-0 mt-1" /> {/* ADJUSTED: mt-1 for alignment */}
+                        <LinkIcon className="w-4 h-4 text-gray-500 flex-shrink-0 mt-1" />
                         
                         {/* Link Text */}
                         <a
