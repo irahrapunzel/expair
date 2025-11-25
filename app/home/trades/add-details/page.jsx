@@ -150,7 +150,6 @@ export default function AddTradeDetailsPage() {
       {/* Main content */}
       <div className="relative z-10 max-w-[940px] w-full mx-auto pt-[23px] md:pt-[50px] pb-[100px] px-4 md:px-6 flex flex-col items-center">
         <h1 className="text-[25px] font-semibold mb-[10px] w-full">Adding trade details</h1>
-        {/* Instruction text */}
         <p className="text-[16px] text-white/70 mb-[30px] w-full">
           Specify your {tradeData.requested || 'service'} needs. This helps the other person understand exactly what you're looking for.
         </p>
@@ -170,6 +169,7 @@ export default function AddTradeDetailsPage() {
           />
         )}
 
+        {/* Responsive Columns */}
         <div className="w-full flex flex-col md:flex-row justify-between gap-6 md:gap-[25px]">
           {/* Left column */}
           <div className="w-full md:w-[400px] flex flex-col gap-[15px]">
@@ -338,11 +338,11 @@ export default function AddTradeDetailsPage() {
             </div>
 
             {/* Confirm button */}
-            <div className="flex justify-end mt-auto">
+            <div className="flex justify-center md:justify-end mt-auto">
               <button
                 onClick={handleSubmit}
                 disabled={isLoading}
-                className={`w-[240px] h-[50px] bg-[#0038FF] rounded-[15px] text-[20px] font-medium text-white shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                className={`w-full md:w-[240px] h-[50px] bg-[#0038FF] rounded-[15px] text-[20px] font-medium text-white shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {isLoading ? 'Submitting...' : 'Confirm'}
               </button>
@@ -369,7 +369,8 @@ export default function AddTradeDetailsPage() {
             </h2>
 
             <div className="flex flex-col items-center gap-[15px] w-full max-w-[500px]">
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-[25px]">
+              {/* Buttons: Stack on mobile, side-by-side on small screens and up */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-[25px] w-full sm:w-auto">
                 <button
                   className="w-full sm:w-[160px] h-[40px] flex justify-center items-center border-2 border-[#0038FF] text-[#0038FF] rounded-[15px] hover:bg-[#0038FF]/10 transition-colors cursor-pointer shadow-[0px_0px_15px_#284CCC]"
                   onClick={() => setShowConfirmModal(false)}
@@ -392,14 +393,13 @@ export default function AddTradeDetailsPage() {
         </div>
       )}
 
-      {/* Warning Modal */}
       <WarningDialog
         isOpen={showWarningModal}
         onClose={() => setShowWarningModal(false)}
         onConfirm={handleWarningConfirm}
       />
 
-      {/* Success Modal */}
+      {/* Success Modal - Adjustments for mobile: w-[90%] */}
       {showSuccessModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 bg-black/50"></div>
@@ -420,7 +420,7 @@ export default function AddTradeDetailsPage() {
               Trade details successfully added.
             </h2>
 
-            {/* XP Display - Styled like "Cancel" button */}
+            {/* XP Display */}
             {xpBreakdown && (
               <div className="w-full max-w-[500px] mb-[25px] p-[20px] flex flex-col items-center justify-center 
                 border-2 border-[#0038FF] rounded-[15px] bg-[#0038FF]/10 
@@ -435,6 +435,7 @@ export default function AddTradeDetailsPage() {
             )}
 
             <Link href="/home/trades/pending">
+              {/* Button */}
               <button
                 className="w-full sm:w-[313px] h-[40px] flex justify-center items-center bg-[#0038FF] 
                   text-white rounded-[15px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] 
