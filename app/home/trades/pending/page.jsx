@@ -1311,10 +1311,10 @@ export default function PendingTradesPage() {
                             <div className="flex items-center gap-3">
                               <div
                                 className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap"
-                                title={`Requested ${trade.needs}`}
+                                title={`Requested ${trade.offers}`}
                               >
                                 <span className="text-[16px] text-white/90">
-                                  Requested {trade.needs}
+                                  Requested {trade.offers}
                                 </span>
                               </div>
                             </div>
@@ -1346,14 +1346,14 @@ export default function PendingTradesPage() {
                           <div className="mb-3">
                             <div className="px-[15px] py-[7px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
                               <span className="text-[16px] text-white">
-                                In exchange for {trade.offers}
+                                In exchange for {trade.needs}
                               </span>
                             </div>
                           </div>
 
                           <p className="text-[15px] text-[rgba(255,255,255,0.60)]">
                             {trade.tradeDetails?.reqbio ||
-                              `Trade request: ${trade.needs}`}
+                              `Trade request: ${trade.offers} in exchange for ${trade.needs}`}
                           </p>
                         </div>
 
@@ -1676,9 +1676,9 @@ export default function PendingTradesPage() {
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] 
                                         text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
-                              title={trade.needs}
+                              title={trade.offers}
                             >
-                              {trade.needs}
+                              {trade.offers}
                             </div>
                           </div>
 
@@ -1688,9 +1688,9 @@ export default function PendingTradesPage() {
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] 
                                         text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
-                              title={trade.offers}
+                              title={trade.needs}
                             >
-                              {trade.offers}
+                              {trade.needs}
                             </div>
                           </div>
                         </div>
