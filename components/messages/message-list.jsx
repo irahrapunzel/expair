@@ -17,7 +17,7 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
 
 
   return (
-    <div className="w-[400px] bg-[#0C071B] rounded-[25px] h-full flex flex-col overflow-hidden">
+    <div className="w-full md:w-[400px] bg-[#0C071B] rounded-[25px] md:rounded-[25px] h-full flex flex-col overflow-hidden">
       <div className="p-6">
         <h2 className="text-2xl font-bold mb-5">Your messages</h2>
         
@@ -43,7 +43,10 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
           {/* Sort button */}
           <div className="relative">
             <button 
-              onClick={() => setSortOpen(!sortOpen)}
+              onClick={() => {
+                setSortOpen(!sortOpen); 
+                setFilterOpen(false);  
+              }}
               className="w-[40px] h-[40px] bg-[#120A2A] rounded-[15px] flex items-center justify-center text-white hover:bg-[#1A0F3E] transition"
             >
               <Icon icon="lucide:arrow-up-down" className="w-5 h-5" />
@@ -78,7 +81,10 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
           {/* Filter button */}
           <div className="relative">
             <button 
-              onClick={() => setFilterOpen(!filterOpen)}
+              onClick={() => {
+                setFilterOpen(!filterOpen); 
+                setSortOpen(false);         
+              }}
               className="w-[40px] h-[40px] bg-[#120A2A] rounded-[15px] flex items-center justify-center text-white hover:bg-[#1A0F3E] transition"
             >
               <Icon icon="lucide:filter" className="w-5 h-5" />

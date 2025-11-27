@@ -315,6 +315,7 @@ export default function MessagesPage() {
     }
   };
 
+  
   // Function to mark a conversation as read when viewed
   const markConversationAsRead = (conversationId) => {
     setConversations(prevConversations => {
@@ -337,24 +338,34 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className={`w-full px-[67px] mx-auto text-white ${inter.className} overflow-hidden`} style={{ height: 'calc(100vh - 140px)', paddingBottom: '20px' }}>
-      <div className="flex gap-6 h-full overflow-hidden">
-        {/* Left side - Message list */}
+  <div 
+    className={`w-full px-0 md:px-4 mx-auto text-white ${inter.className} overflow-hidden h-[calc(100vh-60px)] md:h-[calc(100vh-140px)] pb-0 md:pb-5`} 
+  >
+    <div className="flex md:gap-6 h-full overflow-hidden relative">
+      
+      {/* Left side - Message list */}
+
+      <div className={`w-full md:w-[350px] lg:w-[400px] h-full ${selectedConversation ? 'hidden md:block' : 'block'}`}>
         <MessageList
           conversations={conversations}
           selectedId={selectedConversation}
           onSelect={(id) => setSelectedConversation(id)}
           onDeleteConversation={handleDeleteConversation}
         />
+      </div>
 
-        {/* Right side - Current conversation */}
+      {/* Right side - Current conversation */}
+      <div className={`w-full md:flex-1 h-full ${!selectedConversation ? 'hidden md:block' : 'block'}`}>
         <MessageConversation
           conversation={conversations.find(c => c.id === selectedConversation)}
+          onBack={() => setSelectedConversation(null)} 
           onSendMessage={(message) => updateConversation(selectedConversation, message)}
           onConversationViewed={() => markConversationAsRead(selectedConversation)}
           onDeleteConversation={handleDeleteConversation}
         />
       </div>
+
     </div>
+  </div>
   );
 }
