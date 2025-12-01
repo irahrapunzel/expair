@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import ReCAPTCHA from "react-google-recaptcha";
 import { useLoginStore } from "@/stores/loginStore";
 import Image from "next/image";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react"; // Imported Loader2
 import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -20,6 +20,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  
+  // New state for loading
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const { username, password, setUsername, setPassword } = useLoginStore();
 
@@ -36,6 +39,9 @@ export default function LoginPage() {
       return;
     }
 
+    // Start loading
+    setIsSigningIn(true);
+
     // Execute NextAuth login
     const result = await signIn("credentials", {
       redirect: false,
@@ -45,16 +51,14 @@ export default function LoginPage() {
 
     console.log("NextAuth Sign-in Result:", result);
 
-    // ✅ DON'T redirect to suspension here - let the useEffect handle it
-    // The session will be updated after successful signIn
-    
     if (result?.error) {
-      // Only handle non-suspension errors here
+      // Stop loading only on error
+      setIsSigningIn(false);
+      
       let errorMsg = "Invalid login credentials.";
       
       try {
         const errorData = JSON.parse(result.error);
-        // If it's a sanction error, the useEffect will handle the redirect
         if (!errorData.sanction) {
           setErrorMessage(errorMsg);
         }
@@ -64,42 +68,25 @@ export default function LoginPage() {
     }
   };
 
-  // ✅ THIS is where suspension redirect should happen
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
       const user = session.user;
       
-      console.log("Session user data:", user);
-      console.log("Sanction status:", user.sanction_status);
-      console.log("Sanction details:", user.sanction_details);
-
-      // 1. CHECK FOR SUSPENSION/BAN FIRST
       if (user.sanction_status === 'SUSPENSION' || user.sanction_status === 'BAN') {
         const sanctionDetails = user.sanction_details || {};
         const reason = sanctionDetails.reason || "Violation of platform policies";
         const until = sanctionDetails.until || null;
         
-        // ✅ Handle multiple possible key names for report ID
         const originalReportId = sanctionDetails.source_report_id || 
                                  sanctionDetails.report_id || 
                                  null;
 
-        console.log("🔍 Suspension redirect debug:", {
-          reason,
-          until,
-          originalReportId,
-          fullSanctionDetails: sanctionDetails
-        });
-
-        // Build the suspension URL
         const params = new URLSearchParams({
           reason: reason,
         });
 
-        // ✅ Handle 'until' timestamp properly
         if (until && until !== 'PERMANENT') {
           try {
-            // Try to parse and format the date
             const dateObj = new Date(until);
             if (!isNaN(dateObj.getTime())) {
               params.append('until', dateObj.toLocaleDateString("en-US", {
@@ -117,35 +104,24 @@ export default function LoginPage() {
           params.append('until', 'PERMANENT');
         }
 
-        // ✅ Only add originalReportId if it's a valid number
         if (originalReportId && !isNaN(parseInt(originalReportId))) {
           params.append('originalReportId', originalReportId);
-          console.log(`✅ Valid report ID found: ${originalReportId}`);
-        } else {
-          console.warn("⚠️ No valid report ID found in sanction_details");
-          console.warn("   Full sanction_details:", JSON.stringify(sanctionDetails, null, 2));
         }
 
         const suspensionUrl = `/suspension?${params.toString()}`;
-        console.log("📍 Redirecting to:", suspensionUrl);
-
         router.push(suspensionUrl);
         return;
       }
 
-      // 2. CHECK FOR ADMIN
       if (user.is_admin === true) {
-        console.log("Admin detected. Redirecting to Admin Dashboard.");
         router.push("/admin/dashboard");
         return;
       }
 
-      // 3. REGULAR USER - go to home
       router.push("/home");
     }
   }, [status, session, router]);
 
-  // Show loading while checking auth status
   if (status === "loading") {
     return (
       <div
@@ -164,7 +140,6 @@ export default function LoginPage() {
         style={{ backgroundImage: "url('/assets/bg_signin.png')" }}
       >
         <div className="w-full max-w-md px-4 sm:px-6 text-white">
-          {/* Header */}
           <div className="flex flex-col items-center space-y-2 mb-[20px]">
             <Image
               src="/assets/logos/Colored=Logo S.png"
@@ -178,7 +153,6 @@ export default function LoginPage() {
             </h1>
           </div>
 
-          {/* Username */}
           <p className="text-white font-normal mb-[15px]">
             Username or email address
           </p>
@@ -188,7 +162,6 @@ export default function LoginPage() {
             className="mb-[20px] w-full"
           />
 
-          {/* Password */}
           <p className="text-white font-normal mb-[15px]">Password</p>
           <div className="relative mb-[20px]">
             <Input
@@ -206,7 +179,6 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* reCAPTCHA */}
           <div className="flex justify-center mb-[20px]">
             <ReCAPTCHA
               sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
@@ -214,12 +186,10 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Error message */}
           {errorMessage && (
             <p className="text-red-500 text-sm mb-3">{errorMessage}</p>
           )}
 
-          {/* Remember Me + Forgot Password */}
           <div className="flex justify-between items-center text-[14px] sm:text-[16px] mb-[20px]">
             <label className="flex items-center gap-2">
               <input
@@ -238,15 +208,24 @@ export default function LoginPage() {
             </a>
           </div>
 
-          {/* Sign In Button */}
+          {/* UPDATED SIGN IN BUTTON */}
           <Button
-            className="cursor-pointer flex w-full sm:w-[400px] h-[50px] justify-center items-center px-4 py-3 shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-base sm:text-[20px] font-normal transition rounded-[15px] mb-[20px] mx-auto"
+            disabled={isSigningIn}
+            className={`cursor-pointer flex w-full sm:w-[400px] h-[50px] justify-center items-center px-4 py-3 shadow-[0px_0px_15px_0px_#284CCC] bg-[#0038FF] hover:bg-[#1a4dff] text-white text-base sm:text-[20px] font-normal transition rounded-[15px] mb-[20px] mx-auto ${
+              isSigningIn ? "opacity-70 cursor-not-allowed" : ""
+            }`}
             onClick={handleLogin}
           >
-            Sign in
+            {isSigningIn ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="animate-spin h-5 w-5" />
+                <span>Signing in...</span>
+              </div>
+            ) : (
+              "Sign in"
+            )}
           </Button>
 
-          {/* Google Login */}
           <Button
             variant="outline"
             className="cursor-pointer flex w-full sm:w-[400px] h-[50px] justify-center items-center gap-2 mt-3 text-black text-base sm:text-[20px] font-medium rounded-[15px] border border-gray-300 hover:bg-gray-100 mb-[35px] mx-auto"
@@ -260,7 +239,6 @@ export default function LoginPage() {
             Sign in with Google
           </Button>
 
-          {/* Register Link */}
           <p className="text-center text-sm sm:text-[16px] mt-4">
             Don't have an account yet?{" "}
             <a href="/register" className="text-[#6DDFFF] hover:underline">
@@ -272,7 +250,6 @@ export default function LoginPage() {
     );
   }
 
-  // If authenticated but still rendering (before redirect), show loading
   return (
     <div
       className="min-h-screen flex items-center justify-center bg-cover bg-center"

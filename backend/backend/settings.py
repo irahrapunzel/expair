@@ -17,9 +17,15 @@ from pathlib import Path
 
 import dj_database_url
 import os
+
+import platform
+
+# WORKAROUND: Fix for Windows 11 24H2 + Python 3.12 crash
+def fixed_platform():
+    return "Windows"
+platform.platform = fixed_platform
+
 import cloudinary
-import cloudinary.uploader
-import cloudinary.api
 
 from dotenv import load_dotenv
 
