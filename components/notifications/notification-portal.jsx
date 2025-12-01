@@ -5,7 +5,10 @@ import { createPortal } from "react-dom";
 import { AlertCircle, X, User, Check, GitMerge, MessageSquare, MoreVertical, CheckCheck, Trash2} from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useRouter } from "next/navigation";
+import { Inter } from "next/font/google";
 import { useSession } from "next-auth/react";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export function NotificationPortal({
   isOpen,
@@ -176,7 +179,7 @@ export function NotificationPortal({
   return createPortal(
     <div
       data-notification-portal
-      className="fixed z-[9999] flex flex-col items-start gap-[20px] sm:gap-[25px]"
+      className={`fixed z-[9999] flex flex-col items-start gap-[20px] sm:gap-[25px] ${inter.className}`}
       ref={portalRef} // Attach ref here
       style={{
         background: "rgba(10, 1, 24, 0.95)",
@@ -329,7 +332,6 @@ function NotificationItem({ notification, isRead, onClick, onDelete }) {
           />
         )}
       </div>
-      <div className="flex-shrink-0 mt-1">{getIconComponent(notification_type)}</div>
       <div className="flex-1 min-w-0">
         <p className="text-white text-sm leading-relaxed mb-1">{message}</p>
         <p className="text-white/40 text-xs">{formatTimeAgo(created_at)}</p>
