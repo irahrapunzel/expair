@@ -647,23 +647,24 @@ export default function PendingTradesPage() {
     <div
       className={`w-full max-w-[950px] mx-auto pt-10 pb-20 px-4 text-white ${inter.className}`}
     >
+      
       {/* Page Title with Sort/Filter */}
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4 sm:gap-0">
         <h1 className="text-[25px] font-bold">Pending trades</h1>
-
+        {/*
         <div className="flex items-center gap-4">
-          {/* Sort Button */}
+          {/* Sort Button 
           <div className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer">
             <span>Sort</span>
             <Icon icon="lucide:arrow-up-down" className="text-lg" />
           </div>
 
-          {/* Filter Button */}
+          {/* Filter Button 
           <div className="flex items-center gap-2 px-4 py-2 bg-[#120A2A] rounded-[15px] hover:bg-[#1A0F3E] transition text-sm cursor-pointer">
             <span>Filter</span>
             <Icon icon="lucide:filter" className="text-lg" />
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Trades You Posted Section */}
