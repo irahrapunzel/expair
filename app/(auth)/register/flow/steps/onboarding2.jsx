@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Button } from "../../../../../components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Inter } from "next/font/google";
 import {
   Search,
@@ -696,7 +696,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                         <div className="flex flex-col gap-1 sm:gap-2 flex-1 min-w-[45%] items-start">
                           <span className="text-[12px] sm:text-[13px] text-white/80 font-medium">Needs</span>
                           <div
-                            className="inline-block px-[10px] py-[5px] sm:px-[15px] sm:py-[7px] rounded-[10px] sm:rounded-[15px] border-[1.5px] border-[#0038FF] bg-[rgba(40,76,204,0.2)] text-[11px] sm:text-[12px] text-white/90 max-w-[150px] sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                            className="inline-block px-[10px] py-[5px] sm:px-[15px] sm:py-[7px] rounded-[10px] sm:rounded-[15px] border-[2px] border-[#0038FF] bg-[rgba(40,76,204,0.2)] text-[11px] sm:text-[12px] text-white/90 max-w-[150px] sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
                             title={item.need}
                           >
                             {item.need}
@@ -707,7 +707,7 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                         <div className="flex flex-col gap-1 sm:gap-2 flex-1 min-w-[45%] items-end">
                           <span className="text-[12px] sm:text-[13px] text-white/80 font-medium">Can offer</span>
                           <div
-                            className="inline-block px-[10px] py-[5px] sm:px-[15px] sm:py-[7px] rounded-[10px] sm:rounded-[15px] border-[1.5px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] text-[11px] sm:text-[12px] text-white/90 max-w-[150px] sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
+                            className="inline-block px-[10px] py-[5px] sm:px-[15px] sm:py-[7px] rounded-[10px] sm:rounded-[15px] border-[2px] border-[#906EFF] bg-[rgba(144,110,255,0.2)] text-[11px] sm:text-[12px] text-white/90 max-w-[150px] sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
                             title={item.offer || "Skills & Services"}
                           >
                             {item.offer || "Skills & Services"}
@@ -726,12 +726,17 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                     </div>
 
                     {/* Bottom Button */}
-                    <button
-                      className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium cursor-pointer transition-colors mt-3"
-                      onClick={() => handleInterested(item)}
-                    >
-                      I'm interested
-                    </button>
+                    {/* Container na may spacing sa taas at naka-center ang content */}
+                    <div className="mt-[0px] flex justify-center">
+                      <Button
+                        variant="default"
+                        size="default"
+                        className="w-full md:w-auto px-[15px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
+                        onClick={() => handleInterested(item)}
+                      >
+                        I'm interested
+                      </Button>
+                    </div>
                   </div>
                 ))
               ) : (

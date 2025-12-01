@@ -377,9 +377,9 @@ export default function CompletedTradesPage() {
     if (loading) {
         return (
             // FIX: Removed fixed width from container
-            <div className={`w-full max-w-[1440px] mx-auto pt-10 pb-20 px-4 text-white ${inter.className}`}>
-                <div className="flex justify-center items-center h-64">
-                    <div className="text-lg">Loading completed trades...</div>
+            <div className={`w-full max-w-[1440px] mx-auto pt-6 pb-10 px-4 md:pt-10 md:pb-20 text-white ${inter.className}`}>
+                <div className="flex justify-center items-center h-40 md:h-64">
+                    <div className="text-base md:text-lg">Loading completed trades...</div>
                 </div>
             </div>
         );
@@ -388,23 +388,21 @@ export default function CompletedTradesPage() {
     if (error) {
         return (
             // FIX: Removed fixed width from container
-            <div className={`w-full max-w-[1440px] mx-auto pt-10 pb-20 px-4 text-white ${inter.className}`}>
-                <div className="flex justify-center items-center h-64">
-                    <div className="text-lg text-red-400">{error}</div>
+            <div className={`w-full max-w-[1440px] mx-auto pt-6 pb-10 px-4 md:pt-10 md:pb-20 text-white ${inter.className}`}>
+                <div className="flex justify-center items-center h-40 md:h-64">
+                    <div className="text-base md:text-lg text-red-400">{error}</div>
                 </div>
             </div>
         );
     }
 
     return (
-        // FIX: Removed fixed width from container and added padding
-        <div className={`w-full max-w-[1440px] mx-auto pt-10 pb-20 px-4 md:px-8 lg:px-10 text-white ${inter.className}`}>
+        <div className={`w-full max-w-[1440px] mx-auto pt-6 pb-10 px-4 md:pt-10 md:pb-20 md:px-8 lg:px-10 text-white ${inter.className}`}>
 
             {/* Page Title with Report Button */}
-            {/* FIX: Changed to flex-col on mobile and wrapped header items */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-8 gap-3 sm:gap-4">
                 {/* LEFT */}
-                <h1 className="text-[22px] sm:text-[25px] font-semibold">Completed Trades</h1>
+                <h1 className="text-[20px] sm:text-[25px] font-semibold">Completed Trades</h1>
 
                 {/* RIGHT */}
                 <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -412,7 +410,7 @@ export default function CompletedTradesPage() {
                         <div className="relative w-full sm:w-auto">
                             <button
                                 onClick={() => setShowReportDropdown(!showReportDropdown)}
-                                className="flex items-center justify-center sm:justify-start w-full text-white text-[16px] border border-white/20 rounded-[15px] h-[40px] px-4 bg-[#120A2A] hover:bg-white/10 transition-colors"
+                                className="flex items-center justify-center sm:justify-start w-full text-white text-[15px] sm:text-[16px] border border-white/20 rounded-[15px] h-[35px] sm:h-[40px] px-4 bg-[#120A2A] hover:bg-white/10 transition-colors"
                             >
                                 <Download className="mr-2 h-4 w-4" />
                                 Generate Report
@@ -420,13 +418,14 @@ export default function CompletedTradesPage() {
                             </button>
 
                             {showReportDropdown && (
-                                <div className="absolute top-full right-0 mt-2 w-full bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">                                    <button
-                                    onClick={() => handleGenerateReport('pdf')}
-                                    className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
-                                >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    PDF Report
-                                </button>
+                                <div className="absolute top-full right-0 mt-2 w-full sm:w-[200px] bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10"> 
+                                    <button
+                                        onClick={() => handleGenerateReport('pdf')}
+                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                                    >
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        PDF Report
+                                    </button>
 
                                     <button
                                         onClick={() => handleGenerateReport('csv')}
@@ -444,15 +443,14 @@ export default function CompletedTradesPage() {
 
             {/* Completed Trades Section */}
             {completedTrades.length === 0 ? (
-                <div className="text-white/60 text-center py-8">
+                <div className="text-white/60 text-center py-6 sm:py-8">
                     No completed trades yet.
                 </div>
             ) : (
-                <div className="flex flex-col gap-[25px]">
+                <div className="flex flex-col gap-[15px] sm:gap-[25px]">
                     {completedTrades.map((trade) => (
                         <div
                             key={trade.id}
-                            // FIX: Changed fixed width to w-full
                             className={`w-full rounded-[20px] border-[3px] border-[#28CC84]/80 transition-all duration-300 hover:scale-[1.01] overflow-hidden`}
                             style={{
                                 background: "radial-gradient(100% 275% at 100% 0%, #249062 0%, #120A2A 69.23%)",
@@ -462,8 +460,7 @@ export default function CompletedTradesPage() {
                             {expandedCardId === trade.id ? (
                                 // Expanded View
                                 <div>
-                                    {/* Header */}
-                                    <div className="p-[15px] sm:p-[25px] pb-[15px] flex justify-between items-start">
+                                    <div className="p-[15px] sm:p-[25px] pb-[10px] sm:pb-[15px] flex justify-between items-start">
                                         <div className="flex items-start gap-[10px]">
                                             {/* Clickable Profile Picture */}
                                             {trade.username ? (
@@ -493,13 +490,13 @@ export default function CompletedTradesPage() {
                                             )}
 
                                             <div>
-                                                {/* Clickable Name */}
+                                                {/* Clickable Name - Adjusted text size */}
                                                 {trade.username ? (
                                                     <Link href={`/home/profile/${trade.username}`} className="hover:text-[#28CC84] transition-colors">
-                                                        <span>{trade.firstname} {trade.lastname}</span>
+                                                        <span className="text-[14px] sm:text-[16px]">{trade.firstname} {trade.lastname}</span>
                                                     </Link>
                                                 ) : (
-                                                    <span className="text-[16px] font-normal text-white">
+                                                    <span className="text-[14px] sm:text-[16px] font-normal text-white">
                                                         {trade.firstname} {trade.lastname}
                                                     </span>
                                                 )}
@@ -507,14 +504,13 @@ export default function CompletedTradesPage() {
                                         </div>
                                     </div>
 
-                                    {/* Context Image - Only show if contextPic exists */}
+                                    {/* Context Image - Reduced vertical padding */}
                                     {trade.contextPic && (
-                                        <div className="px-[15px] sm:px-[25px] pb-[20px]">
-                                            <div className="w-full h-[150px] sm:h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
+                                        <div className="px-[15px] sm:px-[25px] pb-[15px] sm:pb-[20px]">
+                                            <div className="w-full h-[120px] sm:h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
                                                 <Image
                                                     src={trade.contextPic}
                                                     alt="Trade Context"
-                                                    // Set aspect ratio to be flexible on mobile
                                                     width={900}
                                                     height={300}
                                                     className="w-full h-full object-cover"
@@ -523,9 +519,9 @@ export default function CompletedTradesPage() {
                                         </div>
                                     )}
 
-                                    {/* Trade Details */}
-                                    <div className="px-[15px] sm:px-[25px] pb-[20px]">
-                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                                    {/* Trade Details - Reduced padding and gap */}
+                                    <div className="px-[15px] sm:px-[25px] pb-[15px] sm:pb-[20px]">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4 gap-2">
                                             <div className="flex items-center gap-3">
                                                 <div className="px-[10px] py-[5px] bg-[rgba(40,204,132,0.2)] border-[2px] border-[#28CC84] rounded-[15px] inline-block">
                                                     <span className="text-[14px] sm:text-[16px] text-white">
@@ -538,43 +534,45 @@ export default function CompletedTradesPage() {
                                             </span>
                                         </div>
 
-                                        <div className="flex flex-col gap-4">
-                                            {/* Tags and Completed Date Row */}
+                                        <div className="flex flex-col gap-3 sm:gap-4">
+                                            {/* Tags and Completed Date Row (Stacked on mobile) */}
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2 sm:gap-4">
-                                                <div className="flex flex-wrap gap-[10px]">
+                                                <div className="flex flex-wrap gap-[8px] sm:gap-[10px]">
                                                     {getTradeDetailTags(trade).map((tag, index) => (
                                                         <div
                                                             key={index}
-                                                            className="px-[12px] py-[4px] border-[2px] border-white rounded-[15px]"
+                                                            className="px-[10px] py-[3px] border-[2px] border-white rounded-[15px]"
                                                         >
-                                                            <span className="text-[12px] sm:text-[13px] font-normal text-white">{tag}</span>
+                                                            {/* Reduced text size for tags */}
+                                                            <span className="text-[11px] sm:text-[13px] font-normal text-white">{tag}</span>
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap ml-0 sm:ml-4">
+                                                <span className="text-[12px] sm:text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap ml-0 sm:ml-4">
                                                     Completed {trade.deadline}
                                                 </span>
                                             </div>
 
+                                            {/* In Exchange For */}
                                             <div>
                                                 <div className="px-[10px] py-[5px] bg-[rgba(40,204,132,0.2)] border-[2px] border-[#28CC84] rounded-[15px] inline-block">
                                                     <span className="text-[14px] sm:text-[16px] text-white">In exchange for {trade.offering}</span>
                                                 </div>
                                             </div>
 
-                                            <p className="text-[14px] sm:text-[15px] text-[rgba(255,255,255,0.60)]">{trade.requestBio}</p>
+                                            <p className="text-[13px] sm:text-[15px] text-[rgba(255,255,255,0.60)]">{trade.requestBio}</p>
 
-                                            {/* Partner's Rating for You */}
+                                            {/* Partner's Rating for You - Reduced padding/margin */}
                                             {trade.partnerRating && (
-                                                <div className="mt-4 p-4 bg-white/5 rounded-[15px] border border-white/10">
+                                                <div className="mt-3 p-3 sm:mt-4 sm:p-4 bg-white/5 rounded-[15px] border border-white/10">
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-[14px] text-white/80">Rating from {trade.firstname}</span>
+                                                        <span className="text-[13px] sm:text-[14px] text-white/80">Rating from {trade.firstname}</span>
                                                         <div className="flex items-center gap-1">
                                                             {renderStars(trade.partnerRating)}
                                                         </div>
                                                     </div>
                                                     {trade.partnerReview && (
-                                                        <p className="text-[13px] text-white/70 italic mt-2">
+                                                        <p className="text-[12px] sm:text-[13px] text-white/70 italic mt-2">
                                                             "{trade.partnerReview}"
                                                         </p>
                                                     )}
@@ -583,8 +581,9 @@ export default function CompletedTradesPage() {
                                         </div>
                                     </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="px-[15px] sm:px-[25px] pb-[25px] flex flex-col sm:flex-row justify-between gap-3 sm:gap-0">
+                                    {/* Action Buttons - Stacked/full width on mobile, adjusted padding and gap */}
+                                    <div className="px-[15px] sm:px-[25px] pb-[15px] sm:pb-[25px] flex flex-col sm:flex-row justify-between gap-3 sm:gap-0">
+                                        {/* Collapse Button (Chevron Up) */}
                                         <button
                                             className="flex items-center justify-start sm:justify-center w-full sm:w-auto"
                                             onClick={() => toggleCardExpand(trade.id)}
@@ -594,6 +593,7 @@ export default function CompletedTradesPage() {
 
                                         <div className="flex items-center justify-end w-full sm:w-auto">
                                             <button
+                                                // Ensured full width on mobile (min-w-full)
                                                 className="min-w-full sm:min-w-[170px] h-[40px] flex justify-center items-center rounded-[15px] border-2 border-[#28CC84] bg-[#120A2A] shadow-[0_0_15px_#28CC84] cursor-pointer"
                                                 onClick={async (e) => {
                                                     e.stopPropagation();
@@ -613,13 +613,12 @@ export default function CompletedTradesPage() {
                             ) : (
                                 // Collapsed View
                                 <div
-                                    className="p-[15px] sm:p-[25px] flex flex-col justify-center items-start gap-[20px] cursor-pointer"
+                                    className="p-[15px] sm:p-[25px] flex flex-col justify-center items-start gap-[15px] sm:gap-[20px] cursor-pointer"
                                     onClick={() => toggleCardExpand(trade.id)}
                                 >
                                     {/* Top Row - Name */}
                                     <div className="flex justify-between items-start w-full">
                                         <div className="flex items-center gap-[10px]">
-                                            {/* Clickable Profile Picture */}
                                             {trade.username ? (
                                                 <Link href={`/home/profile/${trade.username}`} className="flex-shrink-0">
                                                     <div className="w-[25px] h-[25px] rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#28CC84] transition-all">
@@ -646,7 +645,6 @@ export default function CompletedTradesPage() {
                                                 </div>
                                             )}
 
-                                            {/* Clickable Name */}
                                             {trade.username ? (
                                                 <Link href={`/home/profile/${trade.username}`} className="hover:text-[#28CC84] transition-colors">
                                                     <span className="text-[15px] sm:text-[16px]">
@@ -661,20 +659,20 @@ export default function CompletedTradesPage() {
                                         </div>
                                     </div>
 
-                                    {/* Middle Row - Requested, In Exchange For, XP (STACKED ON MOBILE) */}
-                                    <div className="flex flex-col sm:flex-row justify-between items-start w-full gap-4 sm:gap-[20px]">
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-[20px] w-full">
-                                            {/* Needed */}
-                                            <div className="flex flex-col gap-[8px] sm:gap-[15px]">
-                                                <span className="text-[14px] sm:text-[16px] text-white/80">Needed</span>
+                                    {/* Middle Row - Requested, In Exchange For, XP (STACKED ON MOBILE) - Adjusted gap for mobile */}
+                                    <div className="flex flex-col sm:flex-row justify-between items-start w-full gap-3 sm:gap-[20px]">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-[20px] w-full">
+                                            {/* Needed - Reduced gap */}
+                                            <div className="flex flex-col gap-[5px] sm:gap-[15px]">
+                                                <span className="text-[13px] sm:text-[16px] text-white/80">Needed</span>
                                                 <div className="px-[10px] py-[5px] bg-[rgba(40,204,132,0.2)] border-[2px] border-[#28CC84] rounded-[15px]">
                                                     <span className="text-[14px] sm:text-[15px] text-white">{trade.requested}</span>
                                                 </div>
                                             </div>
 
-                                            {/* In exchange for */}
-                                            <div className="flex flex-col gap-[8px] sm:gap-[15px]">
-                                                <span className="text-[14px] sm:text-[16px] text-white/80">In exchange for</span>
+                                            {/* In exchange for - Reduced gap */}
+                                            <div className="flex flex-col gap-[5px] sm:gap-[15px]">
+                                                <span className="text-[13px] sm:text-[16px] text-white/80">In exchange for</span>
                                                 <div className="px-[10px] py-[5px] bg-[rgba(40,204,132,0.2)] border-[2px] border-[#28CC84] rounded-[15px]">
                                                     <span className="text-[14px] sm:text-[15px] text-white">{trade.offering}</span>
                                                 </div>
@@ -682,50 +680,43 @@ export default function CompletedTradesPage() {
                                         </div>
 
                                         {/* XP on the right side */}
-                                        <span className="text-[16px] font-semibold text-[#28CC84] flex-shrink-0">
+                                        <span className="text-[16px] font-semibold text-[#28CC84] flex-shrink-0 mt-2 sm:mt-0">
                                             {trade.xp}
                                         </span>
                                     </div>
 
-                                    {/* Bottom Row - Completed Date */}
-                                    <div className="flex justify-end items-center w-full">
+                                    {/* Bottom Row - Completed Date, Chevron, and Action Buttons (Mobile: Chevron and Action Buttons are separate) */}
+                                    <div className="flex justify-between items-end w-full">
                                         <span className="text-[13px] sm:text-[15px] font-normal text-white/60">Completed {trade.deadline}</span>
-                                    </div>
-
-                                    {/* Chevron Down + Action Buttons */}
-                                    <div className="relative w-full mt-2">
-                                        <div className="absolute bottom-0 left-0">
-                                            <Icon
-                                                icon="lucide:chevron-down"
-                                                className="w-[30px] h-[30px] text-white cursor-pointer"
-                                            />
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="flex flex-wrap items-center gap-[15px] justify-end">
-
-
+                                        
+                                        <div className="flex items-center gap-[15px]">
                                             {/* Partner Rating Badge */}
                                             {trade.partnerRating && (
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded-full">
-                                                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                                                    <span className="text-sm text-yellow-400">{trade.partnerRating}/5</span>
+                                                <div className="flex items-center gap-1 px-2.5 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-full">
+                                                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                                    <span className="text-xs text-yellow-400">{trade.partnerRating}/5</span>
                                                 </div>
                                             )}
-
-                                            {/* View Evaluation Button */}
-                                            <div className="h-[55px] flex items-center">
-                                                <button
-                                                    className="flex justify-center items-center cursor-pointer"
-                                                    onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedTrade(trade);
-                                                        await fetchEvaluationData(trade.tradereq_id);
-                                                        setShowEvaluationDialog(true);
-                                                    }}
-                                                >
-                                                    <StarEvaluateIcon size="55" />
-                                                </button>
+                                            
+                                            {/* View Evaluation Button - Smaller size for mobile */}
+                                            <button
+                                                className="flex justify-center items-center cursor-pointer h-[40px]"
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedTrade(trade);
+                                                    await fetchEvaluationData(trade.tradereq_id);
+                                                    setShowEvaluationDialog(true);
+                                                }}
+                                            >
+                                                <StarEvaluateIcon size="40" />
+                                            </button>
+                                            
+                                            {/* Chevron Down to expand */}
+                                            <div className="ml-2">
+                                                <Icon
+                                                    icon="lucide:chevron-down"
+                                                    className="w-[20px] h-[20px] sm:w-[30px] sm:h-[30px] text-white cursor-pointer"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -736,6 +727,7 @@ export default function CompletedTradesPage() {
                 </div>
             )}
 
+            {/* ... (ActiveEvaluationDialog component - No change needed) ... */}
             {showEvaluationDialog && selectedTrade && (
                 <ActiveEvaluationDialog
                     isOpen={showEvaluationDialog}

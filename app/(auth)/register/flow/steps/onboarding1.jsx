@@ -144,7 +144,7 @@ export default function Onboarding1({ onNext, onPrev }) {
   return (
     <div
       className={`flex min-h-screen items-center justify-center bg-cover bg-center ${inter.className}`}
-      style={{ backgroundImage: "url('/assets/bg_register1.png')" }}
+      style={{ backgroundImage: "url('/assets/bg_register0.png')" }}
     >
       <div className="relative z-10 w-full max-w-5xl text-center px-4 flex flex-col items-center">
         <div className="mb-[530px]" />

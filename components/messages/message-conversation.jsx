@@ -7,7 +7,7 @@ import Link from "next/link";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
-export default function MessageConversation({ conversation, onSendMessage, onConversationViewed, onDeleteConversation }) {
+export default function MessageConversation({ conversation, onBack, onSendMessage, onConversationViewed, onDeleteConversation }) {
   const { data: session } = useSession();
 
   const [newMessage, setNewMessage] = useState("");
@@ -236,6 +236,10 @@ const perspectiveLabels = useMemo(() => {
     setReplyingTo(null);
   };
 
+  const handleBack = () => {
+  onBack();
+  };
+
   const handleDeleteConversation = async () => {
     setShowDeleteConfirmation(true);
   };
@@ -270,21 +274,22 @@ const perspectiveLabels = useMemo(() => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
-        <div className="absolute inset-0 flex justify-center items-center z-50 rounded-[25px]">
-          <div className="w-[420px] p-8 flex flex-col gap-6 rounded-[15px]" style={{
+        <div className="absolute inset-0 flex justify-center items-center z-50 rounded-[25px] px-4">
+          {/* Added max-w and mx-4 for mobile, kept w-[420px] for desktop */}
+          <div className="w-full max-w-[420px] p-5 md:p-8 flex flex-col gap-4 md:gap-6 rounded-[15px]" style={{
             background: "rgba(0, 0, 0, 0.9)",
             border: "2px solid #0038FF",
             boxShadow: "0px 4px 15px #D78DE5",
             backdropFilter: "blur(40px)",
           }}>
-            <h3 className="text-center text-[18px] font-semibold text-white">
+            <h3 className="text-center text-[15px] md:text-[18px] font-semibold text-white">
               Are you sure you want to delete this conversation? You can no longer see the messages but the other person still can.
             </h3>
-            <div className="flex justify-center gap-4 mt-2">
-              <button onClick={() => setShowDeleteConfirmation(false)} className="w-[150px] h-[38px] py-2 rounded-[10px] text-white border-2 border-[#0038FF] bg-transparent">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 md:gap-4 mt-2">
+              <button onClick={() => setShowDeleteConfirmation(false)} className="w-full sm:w-[150px] h-[38px] py-2 rounded-[10px] text-white border-2 border-[#0038FF] bg-transparent">
                 Cancel
               </button>
-              <button onClick={confirmDelete} className="w-[150px] h-[38px] py-2 rounded-[10px] text-white bg-[#0038FF] shadow-[0px_0px_10px_#284CCC]">
+              <button onClick={confirmDelete} className="w-full sm:w-[150px] h-[38px] py-2 rounded-[10px] text-white bg-[#0038FF] shadow-[0px_0px_10px_#284CCC]">
                 Confirm
               </button>
             </div>
@@ -293,12 +298,19 @@ const perspectiveLabels = useMemo(() => {
       )}
       
       {/* Header */}
-      <div className="p-5 border-b border-[#1A0F3E] flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="p-3 md:p-5 border-b border-[#1A0F3E] flex items-center justify-between">
+        <div className="flex items-center gap-2 md:gap-3">
+
+          <button 
+            onClick={onBack}
+            className="md:hidden mr-2 p-2 text-white hover:bg-white/10 rounded-full transition-colors flex items-center justify-center"
+          >
+            <Icon icon="lucide:arrow-left" className="w-5 h-5" />
+          </button>         
           {/* Profile Picture Link */}
           {conversation.otherUsername ? (
             <Link href={`/home/profile/${conversation.otherUsername}`} className="flex-shrink-0">
-              <div className="w-[45px] h-[45px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
+              <div className="w-[35px] h-[35px] md:w-[45px] md:h-[45px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#906EFF] transition-all">
                 <Image
                   src={conversation.avatar || "/assets/defaultavatar.png"}
                   alt={conversation.name}
@@ -313,7 +325,7 @@ const perspectiveLabels = useMemo(() => {
               </div>
             </Link>
           ) : (
-            <div className="w-[45px] h-[45px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
+            <div className="w-[35px] h-[35px] md:w-[45px] md:h-[45px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
               <Image
                 src={conversation.avatar || "/assets/defaultavatar.png"}
                 alt={conversation.name}
@@ -328,43 +340,43 @@ const perspectiveLabels = useMemo(() => {
             </div>
           )}
 
-          <div>
+          <div className="min-w-0">
             {/* Name Link */}
             {conversation.otherUsername ? (
               <Link href={`/home/profile/${conversation.otherUsername}`}>
-                <h3 className="text-[16px] text-white hover:text-[#906EFF] transition-colors cursor-pointer">
+                <h3 className="text-[14px] md:text-[16px] text-white hover:text-[#906EFF] transition-colors cursor-pointer truncate">
                   {conversation.name}
                 </h3>
               </Link>
             ) : (
-              <h3 className="text-[16px] text-white">
+              <h3 className="text-[14px] md:text-[16px] text-white truncate">
                 {conversation.name}
               </h3>
             )}
 
-            <div className="flex items-center gap-5 mt-1">
-              <span className="text-[13px] text-[rgba(255,255,255,0.60)]">
+            <div className="flex items-center gap-3 md:gap-5 mt-0.5 md:mt-1">
+              <span className="text-[11px] md:text-[13px] text-[rgba(255,255,255,0.60)]">
                 LVL {conversation.level}
               </span>
-              <div className="flex items-center gap-2">
-                <Star className="w-4 h-4 text-[#906EFF] fill-[#906EFF]" />
-                <span className="text-[13px] text-[rgba(255,255,255,0.60)]">{conversation.rating}</span>
+              <div className="flex items-center gap-1 md:gap-2">
+                <Star className="w-3 h-3 md:w-4 md:h-4 text-[#906EFF] fill-[#906EFF]" />
+                <span className="text-[11px] md:text-[13px] text-[rgba(255,255,255,0.60)]">{conversation.rating}</span>
               </div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleDeleteConversation} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-            <Icon icon="lucide:trash-2" className="text-base" />
-            Delete
+        
+        {/* Buttons */}
+        <div className="flex items-center gap-1 md:gap-2">
+          <button onClick={handleDeleteConversation} className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete conversation">
+            <Icon icon="lucide:trash-2" className="w-5 h-5 text-sm md:text-base" /> 
           </button>
           <Link href="/home/help">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors">
+            <button className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs text-white hover:bg-white/10 rounded-lg transition-colors" title="Report user">
               <Icon
                 icon="mdi:alert-circle-outline"
-                className="text-white text-base"
+                className="w-5 h-5 text-white text-sm md:text-base"
               />
-              Report
             </button>
           </Link>
         </div>
@@ -373,14 +385,14 @@ const perspectiveLabels = useMemo(() => {
       {/* Request/Exchange Section */}
       {perspectiveLabels.requested && perspectiveLabels.exchange && (
         <div className="px-[15px] py-[10px] bg-[#0A0519]">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             {/* Requested / Exchange */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-[20px]">
+            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-[20px]">
               {/* Requested */}
               <div className="flex flex-col">
-                <span className="text-[16px] text-white">Needs</span>
-                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                  <span className="text-[13px] text-white break-words">
+                <span className="text-[14px] md:text-[16px] text-white">Needs</span>
+                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] w-fit">
+                  <span className="text-[12px] md:text-[13px] text-white break-words">
                     {perspectiveLabels.requested}
                   </span>
                 </div>
@@ -388,9 +400,9 @@ const perspectiveLabels = useMemo(() => {
 
               {/* Exchange */}
               <div className="flex flex-col">
-                <span className="text-[15px] sm:text-[16px] text-white">In exchange for</span>
-                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                  <span className="text-[13px] text-white break-words">
+                <span className="text-[14px] md:text-[16px] text-white">In exchange for</span>
+                <div className="px-[10px] py-[5px] mt-1 bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] w-fit">
+                  <span className="text-[12px] md:text-[13px] text-white break-words">
                     {perspectiveLabels.exchange}
                   </span>
                 </div>
@@ -398,23 +410,24 @@ const perspectiveLabels = useMemo(() => {
             </div>
 
             {/* Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full md:w-auto">
               {checkingDetailsStatus ? (
                 <button
                   disabled
-                  className="w-full sm:w-[120px] h-[35px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
+                  className="w-full md:w-[120px] h-[35px] bg-[#413663] rounded-[10px] opacity-50 cursor-not-allowed"
                 >
                   <span className="text-[13px] text-white">Loading...</span>
                 </button>
               ) : detailsSubmitted ? (
                 <button
                   disabled
-                  className="w-full sm:w-[140px] h-[35px] bg-[#6DDFFF] rounded-[10px] cursor-default"
+                  className="w-full md:w-[140px] h-[35px] bg-[#6DDFFF] rounded-[10px] cursor-default"
                 >
                   <span className="text-[13px] text-black font-bold">Details Submitted</span>
                 </button>
               ) : (
                 <Link
+                  className="w-full md:w-auto"
                   href={`/home/trades/add-details?tradereq_id=${
                     tradeRequest?.tradereq_id || ''
                   }&requested=${encodeURIComponent(tradeRequest?.reqname || '')}&exchange=${encodeURIComponent(
@@ -424,7 +437,7 @@ const perspectiveLabels = useMemo(() => {
                     sessionStorage.setItem('trade_details_updated', Date.now().toString());
                   }}
                 >
-                  <button className="w-full sm:w-[120px] h-[35px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
+                  <button className="w-full md:w-[120px] h-[35px] bg-[#0038FF] rounded-[10px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
                     <span className="text-[13px] text-white">Add details</span>
                   </button>
                 </Link>
@@ -435,12 +448,12 @@ const perspectiveLabels = useMemo(() => {
       )}
 
       {/* Messages */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-3 md:p-5 custom-scrollbar">
         <div className="space-y-4">
           {messages.map((message, index) => (
             <div key={index} className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[70%] ${message.isUser ? 'bg-[#0038FF]' : 'bg-[#120A2A]'} px-4 py-2.5 rounded-[20px]`}>
-                <p className="text-sm text-white">{message.content}</p>
+              <div className={`max-w-[85%] md:max-w-[70%] ${message.isUser ? 'bg-[#0038FF]' : 'bg-[#120A2A]'} px-4 py-2.5 rounded-[20px]`}>
+                <p className="text-[13px] md:text-sm text-white break-words">{message.content}</p>
               </div>
             </div>
           ))}
@@ -449,17 +462,17 @@ const perspectiveLabels = useMemo(() => {
       </div>
 
       {/* Message input */}
-      <form onSubmit={handleSendMessage} className="p-5 border-t border-[#1A0F3E]">
+      <form onSubmit={handleSendMessage} className="p-3 md:p-5 border-t border-[#1A0F3E]">
         <div className="relative flex items-center gap-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Message..."
-            className="flex-1 h-[50px] bg-[#120A2A] rounded-[15px] px-4 text-white placeholder:text-[#413663] focus:outline-none"
+            className="flex-1 h-[45px] md:h-[50px] bg-[#120A2A] rounded-[15px] px-4 text-[14px] md:text-base text-white placeholder:text-[#413663] focus:outline-none"
           />
-          <button type="submit" disabled={!newMessage.trim()} className="w-[50px] h-[50px] bg-[#0038FF] rounded-[15px] flex items-center justify-center disabled:opacity-50 hover:bg-[#1a4dff] transition-colors">
-            <Icon icon="lucide:send" className="w-5 h-5 text-white" />
+          <button type="submit" disabled={!newMessage.trim()} className="w-[45px] h-[45px] md:w-[50px] md:h-[50px] bg-[#0038FF] rounded-[15px] flex items-center justify-center disabled:opacity-50 hover:bg-[#1a4dff] transition-colors">
+            <Icon icon="lucide:send" className="w-4 h-4 md:w-5 md:h-5 text-white" />
           </button>
         </div>
       </form>
