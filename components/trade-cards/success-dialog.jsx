@@ -1,4 +1,3 @@
-// --- success-dialog.jsx ---
 "use client";
 
 import { useState, useEffect } from "react";
@@ -42,10 +41,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
         
         // If user already rated, skip directly to XP display
         if (data.current_user_rated) {
-          // Note: Since we don't have the final XP data from /status, 
-          // we rely on the XpGainedDialog to fetch the real data.
           setSubmissionResult({
-            // Minimal data to pass to XpGainedDialog
             xp_awarded: 0, 
             new_total_xp: 0,
             new_level: 0,
@@ -74,11 +70,10 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
     setError("");
 
     try {
-      // ✅ STEP 1: AI Sentiment Analysis + Rating Submission (The backend /reports/ endpoint should handle XP award)
       console.log("🤖 Calling AI sentiment analysis and rating submission...");
       
       const sentimentResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/submit-rating/`, // This endpoint performs rating and returns XP/Level
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/submit-rating/`,
         {
           method: 'POST',
           headers: {
@@ -100,26 +95,19 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
       const sentimentData = await sentimentResponse.json();
       console.log("✅ Submission Result (includes XP/Level from backend):", sentimentData);
 
-      // ✅ STEP 2: Set Results using the single, comprehensive response
       setSubmissionResult({
-        // Rating data from AI
         user_rating_submitted: sentimentData.stars,
         both_users_rated: sentimentData.both_users_rated, 
         sentiment: sentimentData.sentiment,
         confidence: sentimentData.confidence,
-        
-        // Partner data
         partner_name: sentimentData.partner_updated.username,
         partner_new_rating: sentimentData.partner_updated.new_avg_stars,
         partner_total_ratings: sentimentData.partner_updated.new_rating_count,
-        
-        // XP data returned by the rating submission endpoint
         xp_awarded: sentimentData.xp_awarded, 
         new_total_xp: sentimentData.new_total_xp, 
         new_level: sentimentData.new_level, 
       });
 
-      // Move to rating display phase
       setShowRating(true);
 
     } catch (error) {
@@ -143,10 +131,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
     onClose();
   };
 
-  // Create array of 5 stars for rating display
   const stars = Array(5).fill(0);
-
-  // Get AI-generated rating from submission result
   const aiRating = submissionResult?.user_rating_submitted || 0;
 
   if (!isOpen) return null;
@@ -157,7 +142,6 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
         <XpGainedDialog
           isOpen={showXpGained}
           onClose={handleXpGainedClose}
-          // Note: XpGainedDialog will fetch the real, up-to-date XP/Level data based on the partner's detail
           xpGained={submissionResult?.xp_awarded || 0}  
           level={submissionResult?.new_level}           
           currentXp={submissionResult?.new_total_xp}   
@@ -170,7 +154,8 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
           {!showRating ? (
             // First phase - Feedback Input
             <div
-              className="w-[650px] flex flex-col items-center justify-center p-[40px] relative"
+              // ✅ Responsive Width & Padding
+              className="w-[95%] max-w-[650px] flex flex-col items-center justify-center p-6 md:p-[40px] relative"
               style={{
                 background: "rgba(0, 0, 0, 0.05)",
                 border: "2px solid #0038FF",
@@ -179,33 +164,33 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                 borderRadius: "15px",
               }}
             >
-              {/* Background gradients */}
-              <div className="absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
-              <div className="absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
+              {/* Background gradients - Hidden on mobile */}
+              <div className="hidden md:block absolute top-[-50px] left-[-50px] w-[150px] h-[150px] rounded-full bg-[#0038FF]/15 blur-[40px]"></div>
+              <div className="hidden md:block absolute bottom-[-40px] right-[-40px] w-[120px] h-[120px] rounded-full bg-[#906EFF]/15 blur-[40px]"></div>
 
               {/* Close button */}
               <button
                 onClick={onClose}
-                className="absolute top-[30px] right-[30px] text-white hover:text-gray-300"
+                className="absolute top-4 right-4 md:top-[30px] md:right-[30px] text-white hover:text-gray-300 z-20"
               >
                 <Icon icon="lucide:x" className="w-[15px] h-[15px]" />
               </button>
 
-              <div className="flex flex-col items-center gap-[30px] w-full relative z-10">
+              <div className="flex flex-col items-center gap-[20px] md:gap-[30px] w-full relative z-10">
                 {/* Success Icon */}
-                <div className="w-[70px] h-[70px] rounded-full bg-[#0038FF] flex items-center justify-center">
-                  <Icon icon="lucide:check" className="w-[40px] h-[40px] text-white" />
+                <div className="w-[60px] h-[60px] md:w-[70px] md:h-[70px] rounded-full bg-[#0038FF] flex items-center justify-center">
+                  <Icon icon="lucide:check" className="w-[30px] h-[30px] md:w-[40px] md:h-[40px] text-white" />
                 </div>
 
                 {/* Title */}
-                <h2 className="text-[25px] font-bold text-white text-center">
+                <h2 className="text-[22px] md:text-[25px] font-bold text-white text-center">
                   Successful trade!
                 </h2>
 
-                {/* Trade details */}
-                <div className="flex items-center gap-4 text-white text-center max-w-[500px]">
+                {/* Trade details - Stack on mobile */}
+                <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-white text-center w-full max-w-[500px]">
                   {/* Left Box: Service Request */}
-                  <div className="flex-1 min-w-0 px-3 py-2">
+                  <div className="w-full sm:flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg sm:border-none">
                     <span 
                       className="text-[14px] truncate block" 
                       title={trade?.requested || trade?.reqname || "Service Request"}
@@ -214,10 +199,10 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                     </span>
                   </div>
 
-                  <Icon icon="lucide:x" className="w-5 h-5 flex-shrink-0" />
+                  <Icon icon="lucide:x" className="w-5 h-5 flex-shrink-0 rotate-90 sm:rotate-0" />
 
                   {/* Right Box: Skill Exchange */}
-                  <div className="flex-1 min-w-0 px-3 py-2">
+                  <div className="w-full sm:flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg sm:border-none">
                     <span 
                       className="text-[14px] truncate block"
                       title={trade?.offering || trade?.exchange || "Skill Exchange"}
@@ -236,7 +221,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
 
                 {/* Feedback Section */}
                 <div className="w-full">
-                  <p className="text-white text-center mb-4">
+                  <p className="text-white text-center mb-4 text-sm md:text-base">
                     Tell us more about your experience
                   </p>
                   <div className="relative">
@@ -245,7 +230,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                       onChange={(e) => setFeedback(e.target.value)}
                       placeholder="How did the trade go? Our AI will analyze your feedback to generate an objective rating."
                       maxLength={maxChars}
-                      className="w-full h-[120px] bg-[#120A2A] border border-[rgba(255,255,255,0.60)] rounded-[15px] text-white p-4 focus:outline-none focus:ring-2 focus:ring-[#0038FF] resize-none"
+                      className="w-full h-[120px] bg-[#120A2A] border border-[rgba(255,255,255,0.60)] rounded-[15px] text-white p-4 focus:outline-none focus:ring-2 focus:ring-[#0038FF] resize-none text-sm md:text-base"
                       disabled={isSubmitting}
                     />
                     <span className="absolute bottom-2 right-3 text-xs text-gray-400">
@@ -257,11 +242,11 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                   </p>
                 </div>
 
-                {/* Submit Button */}
+                {/* Submit Button - Full width on mobile */}
                 <button
                   onClick={handleSubmit}
                   disabled={!feedback.trim() || isSubmitting}
-                  className="w-[172px] h-[40px] rounded-[15px] text-[16px] self-end 
+                  className="w-full sm:w-[172px] h-[40px] rounded-[15px] text-[16px] sm:self-end 
                             shadow-[0px_0px_15px_#284CCC] bg-[#0038FF] text-white 
                             disabled:opacity-50 disabled:cursor-not-allowed
                             flex items-center justify-center"
@@ -280,7 +265,8 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
           ) : (
             // Second phase - AI-Generated Rating Display
             <div
-              className="w-[650px] flex flex-col items-center justify-center p-[40px] relative"
+              // ✅ Responsive Width & Padding
+              className="w-[95%] max-w-[650px] flex flex-col items-center justify-center p-6 md:p-[40px] relative"
               style={{
                 background: "rgba(0, 0, 0, 0.05)",
                 border: "2px solid #0038FF",
@@ -292,30 +278,30 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
               {/* Close button */}
               <button
                 onClick={onClose}
-                className="absolute top-[30px] right-[30px] text-white hover:text-gray-300 transition"
+                className="absolute top-4 right-4 md:top-[30px] md:right-[30px] text-white hover:text-gray-300 transition z-20"
               >
                 <Icon icon="lucide:x" className="w-[15px] h-[15px]" />
               </button>
 
-              {/* Subtle background glow */}
-              <div className="absolute top-[-40px] left-[-40px] w-[120px] h-[120px] rounded-full bg-[#0038FF]/15 blur-[35px]"></div>
-              <div className="absolute bottom-[-40px] right-[-40px] w-[100px] h-[100px] rounded-full bg-[#906EFF]/15 blur-[35px]"></div>
+              {/* Subtle background glow - Hidden on mobile */}
+              <div className="hidden md:block absolute top-[-40px] left-[-40px] w-[120px] h-[120px] rounded-full bg-[#0038FF]/15 blur-[35px]"></div>
+              <div className="hidden md:block absolute bottom-[-40px] right-[-40px] w-[100px] h-[100px] rounded-full bg-[#906EFF]/15 blur-[35px]"></div>
 
-              <div className="flex flex-col items-center gap-[30px] w-full relative z-10">
+              <div className="flex flex-col items-center gap-[20px] md:gap-[30px] w-full relative z-10">
                 {/* success icon */}
-                <div className="w-[70px] h-[70px] rounded-full bg-[#0038FF] flex items-center justify-center">
-                  <Icon icon="lucide:check" className="w-[40px] h-[40px] text-white" />
+                <div className="w-[60px] h-[60px] md:w-[70px] md:h-[70px] rounded-full bg-[#0038FF] flex items-center justify-center">
+                  <Icon icon="lucide:check" className="w-[30px] h-[30px] md:w-[40px] md:h-[40px] text-white" />
                 </div>
 
                 {/* Title */}
-                <h2 className="text-[25px] font-bold text-white text-center">
+                <h2 className="text-[22px] md:text-[25px] font-bold text-white text-center">
                   Rating Generated!
                 </h2>
 
-                {/* Trade details */}
-                <div className="flex items-center gap-4 text-white text-center max-w-[500px]">
-                  {/* Left Box: Service Request */}
-                  <div className="flex-1 min-w-0 px-3 py-2">
+                {/* Trade details - Stack on mobile */}
+                <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-white text-center w-full max-w-[500px]">
+                  {/* Left Box */}
+                  <div className="w-full sm:flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg sm:border-none">
                     <span 
                       className="text-[14px] truncate block" 
                       title={trade?.requested || trade?.reqname || "Service Request"}
@@ -324,10 +310,10 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                     </span>
                   </div>
 
-                  <Icon icon="lucide:x" className="w-5 h-5 flex-shrink-0" />
+                  <Icon icon="lucide:x" className="w-5 h-5 flex-shrink-0 rotate-90 sm:rotate-0" />
 
-                  {/* Right Box: Skill Exchange */}
-                  <div className="flex-1 min-w-0 px-3 py-2">
+                  {/* Right Box */}
+                  <div className="w-full sm:flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg sm:border-none">
                     <span 
                       className="text-[14px] truncate block"
                       title={trade?.offering || trade?.exchange || "Skill Exchange"}
@@ -412,10 +398,10 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                   </div>
                 </div>
 
-                {/* Continue Button */}
+                {/* Continue Button - Full width on mobile */}
                 <button
                   onClick={handleContinue}
-                  className="w-[172px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] 
+                  className="w-full sm:w-[172px] h-[40px] bg-[#0038FF] rounded-[15px] text-white text-[16px] 
                             shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors 
                             flex items-center justify-center gap-2"
                 >

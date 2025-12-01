@@ -157,11 +157,6 @@ export default function UploadProofDialog({
     }
     setUploadedFiles(prev => prev.filter(item => item.name !== name));
   };
-  
-  const viewFile = (file) => {
-      const urlToOpen = file.isExisting ? file.url : URL.createObjectURL(file.file);
-      window.open(urlToOpen, "_blank");
-  };
 
   const handleSubmit = () => {
     const newFiles = uploadedFiles.filter(item => !item.isExisting && item.type === 'file');
@@ -184,7 +179,8 @@ export default function UploadProofDialog({
 
       {/* Main Upload Dialog */}
       <div 
-        className="w-[650px] max-h-[90vh] flex flex-col p-[40px] relative overflow-y-auto" 
+        // ✅ Responsive Width & Padding
+        className="w-[95%] max-w-[650px] max-h-[90vh] flex flex-col p-6 md:p-[40px] relative overflow-y-auto" 
         style={{
           background: "rgba(0, 0, 0, 0.05)",
           border: "2px solid #0038FF",
@@ -193,33 +189,36 @@ export default function UploadProofDialog({
           borderRadius: "15px",
         }}
       >
-        <button onClick={onClose} className="absolute top-[25px] right-[25px] text-white hover:text-gray-300">
+        <button 
+          onClick={onClose} 
+          className="absolute top-4 right-4 md:top-[25px] md:right-[25px] text-white hover:text-gray-300 z-10"
+        >
           <Icon icon="lucide:x" className="w-[20px] h-[20px]" />
         </button>
 
-        <div className="flex flex-col items-center gap-[30px] w-full mt-[20px]">
-          <h2 className="text-[28px] font-bold text-white text-center">{title}</h2>
+        <div className="flex flex-col items-center gap-[20px] md:gap-[30px] w-full mt-2 md:mt-[20px]">
+          <h2 className="text-2xl md:text-[28px] font-bold text-white text-center">{title}</h2>
 
           {/* UPLOAD UI (only in upload mode) */}
           {mode === "upload" && (
             <>
-              {/* Drag & Drop Area */}
+              {/* Drag & Drop Area - Height adjusted for mobile */}
               <div
-                className={`w-full h-[200px] border-2 border-dashed rounded-[25px] flex flex-col items-center justify-center ${dragActive ? "border-white" : "border-white/60"}`}
+                className={`w-full h-[150px] md:h-[200px] border-2 border-dashed rounded-[25px] flex flex-col items-center justify-center ${dragActive ? "border-white" : "border-white/60"}`}
                 onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
               >
-                <Icon icon="lucide:cloud-upload" className="w-[80px] h-[60px] text-white/40" />
-                <p className="text-[16px] text-white/60 text-center">Drag & drop files or</p>
-                <button onClick={() => fileInputRef.current.click()} className="mt-2 text-[#6DDFFF] hover:underline">
+                <Icon icon="lucide:cloud-upload" className="w-[60px] h-[40px] md:w-[80px] md:h-[60px] text-white/40" />
+                <p className="text-[14px] md:text-[16px] text-white/60 text-center">Drag & drop files or</p>
+                <button onClick={() => fileInputRef.current.click()} className="mt-2 text-[#6DDFFF] hover:underline text-sm md:text-base">
                   Browse files
                 </button>
                 <input ref={fileInputRef} type="file" multiple onChange={handleChange} className="hidden" />
               </div>
 
-              {/* Link Input Area */}
+              {/* Link Input Area - Stacked on mobile */}
               <div className="flex flex-col w-full gap-2">
                 <label className="text-[16px] text-white/80 font-medium">Or submit a link as proof</label>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="url"
                     placeholder="https://your-proof-link.com"
@@ -227,7 +226,10 @@ export default function UploadProofDialog({
                     onChange={(e) => setLinkProof(e.target.value)}
                     className="flex-1 bg-[#120A2A] border border-white/40 rounded-[12px] p-3 text-white text-sm placeholder:text-white/40 outline-none"
                   />
-                  <button onClick={handleAddLink} className="px-5 bg-[#0038FF] text-white rounded-[12px] text-sm font-medium hover:bg-[#1a4dff] transition-colors">
+                  <button 
+                    onClick={handleAddLink} 
+                    className="px-5 py-3 sm:py-0 bg-[#0038FF] text-white rounded-[12px] text-sm font-medium hover:bg-[#1a4dff] transition-colors whitespace-nowrap"
+                  >
                     Add Link
                   </button>
                 </div>
@@ -237,7 +239,7 @@ export default function UploadProofDialog({
 
           {/* PROOF LIST (for both upload and view modes) */}
           <div className="flex flex-col gap-[15px] w-full">
-            <p className="text-[18px] text-white font-medium">
+            <p className="text-[16px] md:text-[18px] text-white font-medium">
               {mode === "view" ? `Your submitted proof (${uploadedFiles.length})` : `Uploaded items (${uploadedFiles.length})`}
             </p>
             <div className="flex flex-col gap-[12px] w-full min-h-[70px]">
@@ -247,32 +249,32 @@ export default function UploadProofDialog({
                 </div>
               ) : uploadedFiles.length > 0 ? (
                 uploadedFiles.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-[20px] bg-[#120A2A] rounded-[12px] shadow-lg">
-                    <div className="flex items-center gap-[15px] min-w-0 flex-1">
+                  <div key={index} className="flex justify-between items-center p-3 md:p-[20px] bg-[#120A2A] rounded-[12px] shadow-lg">
+                    <div className="flex items-center gap-3 md:gap-[15px] min-w-0 flex-1">
                       {/* Thumbnail or Icon */}
                       {item.isImage && item.preview ? (
-                        <div className="w-[50px] h-[50px] rounded-[8px] overflow-hidden shrink-0 border border-white/20">
+                        <div className="w-[40px] h-[40px] md:w-[50px] md:h-[50px] rounded-[8px] overflow-hidden shrink-0 border border-white/20">
                             <img src={item.preview} alt={item.name} className="w-full h-full object-cover" />
                         </div>
                       ) : (
-                        <div className="w-[50px] h-[50px] rounded-[8px] bg-[#1A0F3E] flex items-center justify-center shrink-0 border border-white/20">
-                          <Icon icon={item.isLink ? "lucide:link" : "lucide:file"} className="w-6 h-6 text-white/80" />
+                        <div className="w-[40px] h-[40px] md:w-[50px] md:h-[50px] rounded-[8px] bg-[#1A0F3E] flex items-center justify-center shrink-0 border border-white/20">
+                          <Icon icon={item.isLink ? "lucide:link" : "lucide:file"} className="w-5 h-5 md:w-6 md:h-6 text-white/80" />
                         </div>
                       )}
                       
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <span className="text-[16px] text-white truncate" title={item.name}>{item.name}</span>
-                        <span className="text-[12px] text-white/50">{item.isLink ? "External Link" : "File"}</span>
+                      <div className="flex flex-col gap-0.5 md:gap-1 min-w-0">
+                        <span className="text-[14px] md:text-[16px] text-white truncate" title={item.name}>{item.name}</span>
+                        <span className="text-[10px] md:text-[12px] text-white/50">{item.isLink ? "External Link" : "File"}</span>
                       </div>
                     </div>
                     {/* Actions */}
-                    <div className="flex items-center gap-[12px] text-white">
+                    <div className="flex items-center gap-3 md:gap-[12px] text-white pl-2">
                       <button onClick={() => window.open(item.url || URL.createObjectURL(item.file), "_blank")} title={item.isLink ? "Open Link" : "View File"} className="hover:text-gray-300">
-                        <Icon icon={item.isLink ? 'lucide:external-link' : 'lucide:eye'} className="w-5 h-5" />
+                        <Icon icon={item.isLink ? 'lucide:external-link' : 'lucide:eye'} className="w-4 h-4 md:w-5 md:h-5" />
                       </button>
                       {(mode === "upload" && !item.isExisting) && (
                         <button onClick={() => removeFile(item.name)} title="Remove" className="hover:text-red-400">
-                            <Icon icon="lucide:x" className="w-5 h-5" />
+                            <Icon icon="lucide:x" className="w-4 h-4 md:w-5 md:h-5" />
                         </button>
                       )}
                     </div>
@@ -280,19 +282,19 @@ export default function UploadProofDialog({
                 ))
               ) : (
                 <div className="flex justify-center items-center h-[70px]">
-                  <p className="text-white/40">{mode === 'view' ? "No proof submitted yet." : "No files or links added yet."}</p>
+                  <p className="text-white/40 text-sm md:text-base">{mode === 'view' ? "No proof submitted yet." : "No files or links added yet."}</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-center w-full mt-[25px]">
+          {/* Action Buttons - Full width on mobile */}
+          <div className="flex justify-center w-full mt-[10px] md:mt-[25px]">
             {mode === "upload" && (
               <button
                 onClick={handleSubmit}
                 disabled={uploadedFiles.filter(f => !f.isExisting).length === 0 || submitting}
-                className="w-[180px] h-[45px] bg-[#0038FF] rounded-[15px] text-white text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full sm:w-[180px] h-[45px] bg-[#0038FF] rounded-[15px] text-white text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {submitting ? (
                     <>
@@ -303,7 +305,7 @@ export default function UploadProofDialog({
               </button>
             )}
             {mode === "view" && (
-               <button onClick={onClose} className="w-[180px] h-[45px] bg-[#0038FF] rounded-[15px] text-white text-base font-medium">
+               <button onClick={onClose} className="w-full sm:w-[180px] h-[45px] bg-[#0038FF] rounded-[15px] text-white text-base font-medium">
                 Close
               </button>
             )}
