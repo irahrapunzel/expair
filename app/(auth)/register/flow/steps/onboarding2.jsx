@@ -726,14 +726,17 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                     </div>
 
                     {/* Bottom Button */}
-                    <Button
-                      variant="default"
-                      size="default"
-                      className="w-full md:w-auto px-[15px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium mt-3"
-                      onClick={() => handleInterested(item)}
-                    >
-                      I'm interested
-                    </Button>
+                    {/* Container na may spacing sa taas at naka-center ang content */}
+                    <div className="mt-[0px] flex justify-center">
+                      <Button
+                        variant="default"
+                        size="default"
+                        className="w-full md:w-auto px-[15px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium"
+                        onClick={() => handleInterested(item)}
+                      >
+                        I'm interested
+                      </Button>
+                    </div>
                   </div>
                 ))
               ) : (
