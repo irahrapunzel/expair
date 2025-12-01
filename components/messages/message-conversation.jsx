@@ -355,9 +355,9 @@ const perspectiveLabels = useMemo(() => {
             )}
 
             <div className="flex items-center gap-3 md:gap-5 mt-0.5 md:mt-1">
-              {/*  <span className="text-[11px] md:text-[13px] text-[rgba(255,255,255,0.60)]">
+              <span className="text-[11px] md:text-[13px] text-[rgba(255,255,255,0.60)]">
                 LVL {conversation.level}
-              </span> */}
+              </span>
               <div className="flex items-center gap-1 md:gap-2">
                 <Star className="w-3 h-3 md:w-4 md:h-4 text-[#906EFF] fill-[#906EFF]" />
                 <span className="text-[11px] md:text-[13px] text-[rgba(255,255,255,0.60)]">{conversation.rating}</span>
