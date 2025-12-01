@@ -20,14 +20,14 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
     <div className="w-full md:w-[400px] bg-[#0C071B] rounded-[25px] md:rounded-[25px] h-full flex flex-col overflow-hidden">
       <div className="p-6">
         <h2 className="text-2xl font-bold mb-5">Your messages</h2>
-        
+
         {/* Search and filters */}
         <div className="flex items-center gap-2 mb-5">
           {/* Search input */}
           <div className="flex-1 relative">
             <div className="relative">
-              <Icon 
-                icon="lucide:search" 
+              <Icon
+                icon="lucide:search"
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#413663] w-5 h-5"
               />
               <input
@@ -39,35 +39,35 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
               />
             </div>
           </div>
-          
+
           {/* Sort button */}
           <div className="relative">
-            <button 
+            <button
               onClick={() => {
-                setSortOpen(!sortOpen); 
-                setFilterOpen(false);  
+                setSortOpen(!sortOpen);
+                setFilterOpen(false);
               }}
               className="w-[40px] h-[40px] bg-[#120A2A] rounded-[15px] flex items-center justify-center text-white hover:bg-[#1A0F3E] transition"
             >
               <Icon icon="lucide:arrow-up-down" className="w-5 h-5" />
             </button>
-            
+
             {sortOpen && (
               <div className="absolute z-10 mt-2 w-[150px] right-0 bg-[#15042C] rounded-[10px] border border-[#2B124C] shadow-md">
                 <div className="py-1">
-                  <button 
+                  <button
                     className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-[#1A0F3E]"
                     onClick={() => setSortOpen(false)}
                   >
                     Recent
                   </button>
-                  <button 
+                  <button
                     className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-[#1A0F3E]"
                     onClick={() => setSortOpen(false)}
                   >
                     Unread first
                   </button>
-                  <button 
+                  <button
                     className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-[#1A0F3E]"
                     onClick={() => setSortOpen(false)}
                   >
@@ -77,35 +77,35 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
               </div>
             )}
           </div>
-          
+
           {/* Filter button */}
           <div className="relative">
-            <button 
+            <button
               onClick={() => {
-                setFilterOpen(!filterOpen); 
-                setSortOpen(false);         
+                setFilterOpen(!filterOpen);
+                setSortOpen(false);
               }}
               className="w-[40px] h-[40px] bg-[#120A2A] rounded-[15px] flex items-center justify-center text-white hover:bg-[#1A0F3E] transition"
             >
               <Icon icon="lucide:filter" className="w-5 h-5" />
             </button>
-            
+
             {filterOpen && (
               <div className="absolute z-10 mt-2 w-[150px] right-0 bg-[#15042C] rounded-[10px] border border-[#2B124C] shadow-md">
                 <div className="py-1">
-                  <button 
+                  <button
                     className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-[#1A0F3E]"
                     onClick={() => setFilterOpen(false)}
                   >
                     All messages
                   </button>
-                  <button 
+                  <button
                     className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-[#1A0F3E]"
                     onClick={() => setFilterOpen(false)}
                   >
                     Unread
                   </button>
-                  <button 
+                  <button
                     className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-[#1A0F3E]"
                     onClick={() => setFilterOpen(false)}
                   >
@@ -117,7 +117,7 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
           </div>
         </div>
       </div>
-      
+
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {filteredConversations.length > 0 ? (
@@ -132,7 +132,12 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
               <button
                 onClick={() => onSelect(conversation.id)}
                 className={cn(
-                  "w-full p-5 flex items-start gap-3 border-b border-[#1A0F3E] hover:bg-[#120A2A] transition text-left"
+                  "w-full p-5 flex items-start gap-3 border-b border-[#1A0F3E] transition text-left",
+                  selectedId === conversation.id
+                    ? "bg-[#120A2A]" // Selected style
+                    : conversation.unread
+                      ? "bg-[#1A0F3E]/50" // Slight styling for unread items not selected
+                      : "hover:bg-[#120A2A]" // Default hover
                 )}
               >
                 <div className="relative">
@@ -153,7 +158,7 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
                     </span>
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
                     <h4 className="text-[16px] text-white truncate">{conversation.name}</h4>
@@ -179,7 +184,7 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
                       <div className="w-2 h-2 bg-[#0038FF] rounded-full flex-shrink-0"></div>
                     )}
                   </div>
-                  
+
                   {/* Trade tags */}
                   {conversation.requests && (
                     <div className="flex flex-wrap items-center gap-1.5 mt-2 w-full">

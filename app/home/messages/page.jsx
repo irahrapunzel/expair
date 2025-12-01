@@ -115,6 +115,8 @@ export default function MessagesPage() {
             }
           }
 
+          const apiUnreadCount = c.unread_count || 0;
+
           return {
             id: c.conversation_id,
             name: userName,
@@ -128,8 +130,8 @@ export default function MessagesPage() {
               return `${speaker}: ${c.last_message}`;
             })(),
             time: c.last_timestamp ? new Date(c.last_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""),
-            unread: (storedCounts && storedCounts[String(c.conversation_id)] > 0) || false,
-            unreadCount: Number(storedCounts[String(c.conversation_id)] || 0),
+            unread: apiUnreadCount > 0, 
+            unreadCount: apiUnreadCount,
             level: 1,
             rating: "0.0",
             ratingLabel: "",
@@ -268,7 +270,7 @@ export default function MessagesPage() {
   const handleDeleteConversation = async (conversationId) => {
     try {
       console.log('Deleting conversation:', conversationId);
-      
+
       const response = await fetch(
         `${BACKEND_URL}/conversations/${conversationId}/delete/`,
         {
@@ -315,7 +317,7 @@ export default function MessagesPage() {
     }
   };
 
-  
+
   // Function to mark a conversation as read when viewed
   const markConversationAsRead = (conversationId) => {
     setConversations(prevConversations => {
@@ -338,34 +340,34 @@ export default function MessagesPage() {
   };
 
   return (
-  <div 
-    className={`w-full px-0 md:px-4 mx-auto text-white ${inter.className} overflow-hidden h-[calc(100vh-60px)] md:h-[calc(100vh-140px)] pb-0 md:pb-5`} 
-  >
-    <div className="flex md:gap-6 h-full overflow-hidden relative">
-      
-      {/* Left side - Message list */}
+    <div
+      className={`w-full px-0 md:px-4 mx-auto text-white ${inter.className} overflow-hidden h-[calc(100vh-60px)] md:h-[calc(100vh-140px)] pb-0 md:pb-5`}
+    >
+      <div className="flex md:gap-6 h-full overflow-hidden relative">
 
-      <div className={`w-full md:w-[350px] lg:w-[400px] h-full ${selectedConversation ? 'hidden md:block' : 'block'}`}>
-        <MessageList
-          conversations={conversations}
-          selectedId={selectedConversation}
-          onSelect={(id) => setSelectedConversation(id)}
-          onDeleteConversation={handleDeleteConversation}
-        />
+        {/* Left side - Message list */}
+
+        <div className={`w-full md:w-[350px] lg:w-[400px] h-full ${selectedConversation ? 'hidden md:block' : 'block'}`}>
+          <MessageList
+            conversations={conversations}
+            selectedId={selectedConversation}
+            onSelect={(id) => setSelectedConversation(id)}
+            onDeleteConversation={handleDeleteConversation}
+          />
+        </div>
+
+        {/* Right side - Current conversation */}
+        <div className={`w-full md:flex-1 h-full ${!selectedConversation ? 'hidden md:block' : 'block'}`}>
+          <MessageConversation
+            conversation={conversations.find(c => c.id === selectedConversation)}
+            onBack={() => setSelectedConversation(null)}
+            onSendMessage={(message) => updateConversation(selectedConversation, message)}
+            onConversationViewed={() => markConversationAsRead(selectedConversation)}
+            onDeleteConversation={handleDeleteConversation}
+          />
+        </div>
+
       </div>
-
-      {/* Right side - Current conversation */}
-      <div className={`w-full md:flex-1 h-full ${!selectedConversation ? 'hidden md:block' : 'block'}`}>
-        <MessageConversation
-          conversation={conversations.find(c => c.id === selectedConversation)}
-          onBack={() => setSelectedConversation(null)} 
-          onSendMessage={(message) => updateConversation(selectedConversation, message)}
-          onConversationViewed={() => markConversationAsRead(selectedConversation)}
-          onDeleteConversation={handleDeleteConversation}
-        />
-      </div>
-
     </div>
-  </div>
   );
 }

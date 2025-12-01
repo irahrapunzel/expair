@@ -176,6 +176,12 @@ def list_conversations(request):
                 other_user_username = f"deleted_user_{other_user_id}"
                 print(f"WARNING: Conversation {c.conversation_id} references non-existent user ID {other_user_id}")
             
+            # Assumes you added 'is_read' to Message model from the previous step
+            unread_count = Message.objects.filter(
+                conversation=c,
+                is_read=False
+            ).exclude(sender=request.user).count()
+            
             # Get last message safely with encoding handling
             last_msg = Message.objects.filter(conversation=c).order_by('-created_at').first()
             last_message_content = None
@@ -193,7 +199,6 @@ def list_conversations(request):
                 'trade_request_id': c.trade_request_id,
                 'reqname': getattr(c.trade_request, 'reqname', None),
                 'exchange': getattr(c.trade_request, 'exchange', None),
-                # ✅ ADD requester_id and responder_id for frontend perspective logic
                 'requester_id': getattr(c.trade_request, 'requester_id', None),
                 'responder_id': getattr(c.trade_request, 'responder_id', None),
                 'other_user_id': other_user_id,
@@ -204,6 +209,7 @@ def list_conversations(request):
                 'last_message': last_message_content,
                 'last_sender_id': last_msg.sender_id if last_msg else None,
                 'last_timestamp': last_msg.created_at.isoformat() if last_msg else None,
+                'unread_count': unread_count,
             })
         return Response({'conversations': data})
     except Exception as e:
@@ -227,6 +233,13 @@ def messages_handler(request, conversation_id):
         return Response({"error": "Forbidden"}, status=403)
 
     if request.method == 'GET':
+        unread_messages = Message.objects.filter(
+            conversation=convo,
+            is_read=False
+        ).exclude(sender=request.user)
+        
+        unread_messages.update(is_read=True)
+        
         msgs = Message.objects.filter(conversation=convo).order_by('created_at')
         messages_data = []
         for m in msgs:
@@ -259,6 +272,23 @@ def messages_handler(request, conversation_id):
         'content': msg.content,
         'created_at': msg.created_at,
     }, status=201)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_unread_message_count(request):
+    """
+    Counts total unread messages for the current user across all conversations.
+    """
+    # Count messages where the conversation involves the user, 
+    # the user is NOT the sender, and is_read is False.
+    count = Message.objects.filter(
+        conversation__in=Conversation.objects.filter(
+            Q(requester=request.user) | Q(responder=request.user)
+        ),
+        is_read=False
+    ).exclude(sender=request.user).count()
+    
+    return Response({'count': count})
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])

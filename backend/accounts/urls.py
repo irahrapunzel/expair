@@ -119,6 +119,7 @@ urlpatterns = [
     path('conversations/', views.list_conversations, name='list_conversations'),
     path('conversations/<int:conversation_id>/messages/', views.messages_handler, name='messages_handler'),
     path('conversations/<int:conversation_id>/delete/', views.delete_conversation, name='delete_conversation'),
+    path('messages/unread-count/', views.get_unread_message_count, name='get_unread_message_count'),
 
     # Ticketing endpoints
     path('reports/', create_report, name='create-report'),
