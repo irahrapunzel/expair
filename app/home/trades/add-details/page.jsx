@@ -307,10 +307,30 @@ export default function AddTradeDetailsPage() {
                   <span className="text-[16px] text-white truncate max-w-[80%] overflow-hidden whitespace-nowrap">
                     {photo ? photo.name : "Upload photo"}
                   </span>
-                  <Icon
-                    icon="material-symbols:upload"
-                    className="text-white w-[24px] h-[24px]"
-                  />
+                  
+                  {photo ? (
+                    <div
+                      onClick={(e) => {
+                        e.preventDefault(); 
+                        setPhoto(null);     
+                        
+                        const fileInput = document.getElementById('photo-upload');
+                        if (fileInput) fileInput.value = '';
+                      }}
+                      className="z-10" 
+                    >
+                      <Icon
+                        icon="material-symbols:close"
+                        className="text-white w-[24px] h-[24px]"
+                      />
+                    </div>
+                  ) : (
+                    <Icon
+                      icon="material-symbols:upload"
+                      className="text-white w-[24px] h-[24px]"
+                    />
+                  )}
+
                 </label>
               </div>
             </div>
