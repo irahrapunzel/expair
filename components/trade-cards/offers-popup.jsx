@@ -48,10 +48,6 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
     }
 
     console.log("=== OFFERS POPUP DEBUG ===");
-    console.log("Trade data:", trade);
-    console.log("Trade.interested_users:", trade.interested_users);
-    console.log("Service:", service);
-
     // Get a fallback skill name from available skills
     const getFallbackSkill = () => {
       if (availableSkills.length > 0) {
@@ -62,31 +58,16 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
 
     // Primary: use data passed from parent
     if (trade?.interested_users?.length) {
-      console.log("Using interested_users from parent data");
-      console.log("Raw interested_users data:", trade.interested_users);
-
       // Transform the interested_users data to match the expected format
-      // ✅ Filter out declined/accepted offers
       const transformedOffers = trade.interested_users
         .filter(user => {
-          // Show only PENDING if trade is NULL/available
-          // Show only ACCEPTED if trade is PENDING (locked)
           if (trade.status === 'PENDING') {
             return user.status === 'ACCEPTED';
           }
           return user.status === 'PENDING';
         })
         .map(user => {
-          console.log("Processing user:", user);
-          console.log("User interest_id:", user.interest_id);
-          console.log("User trade_interests_id:", user.trade_interests_id);
-          console.log("User status:", user.status);
-          console.log("User profilePic:", user.profilePic); // Debug profile pic
-
-          // FIX: Use trade_interests_id as a fallback for interest_id
           const current_interest_id = user.interest_id || user.trade_interests_id;
-          console.log("Using interest ID:", current_interest_id);
-
 
           return {
             id: user.id,
@@ -96,31 +77,27 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
             rating: user.rating?.toFixed(1) || "0.0",
             reviews: user.rating_count?.toString() || "0",
             level: user.level?.toString() || "1",
-            needs: user.matching_skill || getFallbackSkill(), // ✅ Use actual skill or fallback
+            needs: user.matching_skill || getFallbackSkill(),
             offers: service,
             until: trade.deadline || trade.until || "No deadline",
             isBestPick: user.level > 15 && user.rating > 4.5,
-            // ✅ Use actual profile picture URL or fallback to default
             avatar: user.profilePic || "/assets/defaultavatar.png",
-            status: user.status // Include status for debugging
+            status: user.status
           };
         });
 
-      // Sort so best picks come first
       transformedOffers.sort((a, b) => {
         if (a.isBestPick && !b.isBestPick) return -1;
         if (!a.isBestPick && b.isBestPick) return 1;
         return 0;
       });
 
-      console.log("Transformed offers (filtered):", transformedOffers);
       setOffers(transformedOffers);
       return;
     }
 
-    // Fallback: fetch from API if tradereq_id exists but no interested_users data
+    // Fallback: fetch from API
     if (trade?.tradereq_id) {
-      console.log("Fetching interests from API for tradereq_id:", trade.tradereq_id);
       setLoading(true);
 
       (async () => {
@@ -134,9 +111,7 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
           }
 
           const data = await resp.json();
-          console.log("API response:", data);
 
-          // Transform API response and filter pending only
           const transformedOffers = (data.interests || [])
             .filter(interest => interest.status === 'PENDING')
             .map(interest => ({
@@ -148,10 +123,9 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
               reviews: "0",
               level: interest.level?.toString() || "1",
               needs: service,
-              offers: getFallbackSkill(), // ✅ Use actual skill or fallback
+              offers: getFallbackSkill(),
               until: trade.deadline || trade.until || "No deadline",
               isBestPick: interest.level > 15 && interest.rating > 4.5,
-              // ✅ Use profile picture from API response or fallback
               avatar: interest.profilePic || "/assets/defaultavatar.png"
             }));
 
@@ -164,7 +138,6 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
         }
       })();
     } else {
-      console.log("No trade data available");
       setOffers([]);
     }
   }, [isOpen, trade, service, availableSkills]);
@@ -180,16 +153,7 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
   };
 
   const handleDeclineOffer = async (offer) => {
-    console.log('=== DECLINE OFFER DEBUG ===');
-    console.log('Full offer object:', offer);
-    console.log('Offer interest_id:', offer.interest_id);
-    console.log('Declining offer from:', offer.name, 'Interest ID:', offer.interest_id);
-
-    if (!offer.interest_id) {
-      console.error('No interest_id found for offer');
-      console.error('Available offer fields:', Object.keys(offer));
-      return;
-    }
+    if (!offer.interest_id) return;
 
     try {
       const response = await fetch(
@@ -205,59 +169,32 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
 
       if (!response.ok) {
         const errorData = await response.json();
-
-        // Handle the case where it's already declined gracefully
         if (response.status === 400 && errorData.error?.includes('already been declined')) {
-          console.log('Offer was already declined, removing from UI');
-          // Remove from popup UI immediately
           setOffers(prevOffers => prevOffers.filter(o => o.interest_id !== offer.interest_id));
-
-          // ✅ Immediately notify parent to refresh its data
-          if (onTradeUpdate) {
-            await onTradeUpdate();
-          }
-
+          if (onTradeUpdate) await onTradeUpdate();
           return;
         }
-
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('Decline successful:', data);
-
-      // ✅ First remove from popup state immediately for instant UI feedback
       setOffers(prevOffers => prevOffers.filter(o => o.interest_id !== offer.interest_id));
+      if (onTradeUpdate) await onTradeUpdate();
 
-      // ✅ Then immediately refresh parent data
-      if (onTradeUpdate) {
-        await onTradeUpdate(); // Wait for parent refresh to complete
-      }
-
-      // ✅ Optional: If there are no more offers, close popup automatically
       const remainingOffers = offers.filter(o => o.interest_id !== offer.interest_id);
       if (remainingOffers.length === 0) {
-        console.log('No more offers, closing popup');
         setTimeout(() => {
           onClose();
-        }, 500); // Small delay for better UX
+        }, 500);
       }
 
     } catch (error) {
       console.error('Error declining offer:', error);
-      // ✅ Show user-friendly error message
       alert(`Failed to decline offer: ${error.message}`);
     }
   };
 
   const handleConfirmAccept = async () => {
-    if (!selectedOffer || !selectedOffer.interest_id) {
-      console.error('No selected offer or interest_id');
-      alert('Cannot accept offer: Missing offer ID.');
-      return;
-    }
-
-    console.log('Accepting offer from:', selectedOffer.name, 'Interest ID:', selectedOffer.interest_id);
+    if (!selectedOffer || !selectedOffer.interest_id) return;
 
     try {
       const response = await fetch(
@@ -277,15 +214,10 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
       }
 
       const data = await response.json();
-      console.log('Accept successful:', data);
-
       setShowConfirmModal(false);
 
-      if (onTradeUpdate) {
-        await onTradeUpdate();
-      }
+      if (onTradeUpdate) await onTradeUpdate();
 
-      // Immediately go to Messages after a successful accept
       onClose?.();
       const targetUser = selectedOffer?.username || selectedOffer?.name || "";
       const url = data?.conversation_id
@@ -300,9 +232,7 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
     }
   };
 
-  // Handle image loading errors
   const handleImageError = (e) => {
-    console.log('Image failed to load, falling back to default avatar');
     e.target.src = '/assets/defaultavatar.png';
   };
 
@@ -312,19 +242,20 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
         <>
           <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
           <div
-            className="relative w-[743px] max-h-[90vh] overflow-y-auto flex flex-col items-center p-[50px_25px] gap-10 bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50"
+            // ✅ Responsive: Width changed to % and max-width, padding responsive
+            className="relative w-[95%] max-w-[743px] max-h-[90vh] overflow-y-auto flex flex-col items-center p-6 md:p-[50px_25px] gap-6 md:gap-10 bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-50"
           >
             {/* Close button */}
             <button
-              className="absolute top-8 right-8 text-white hover:text-gray-300 cursor-pointer"
+              className="absolute top-4 right-4 md:top-8 md:right-8 text-white hover:text-gray-300 cursor-pointer"
               onClick={onClose}
             >
               <X className="w-[15px] h-[15px]" />
             </button>
 
-            <div className="flex flex-col items-center justify-center gap-[15px] w-[622px]">
-              {/* Title */}
-              <h2 className="font-[700] text-[25px] text-center text-white">
+            <div className="flex flex-col items-center justify-center gap-[15px] w-full max-w-[622px]">
+              {/* Title - Responsive text size */}
+              <h2 className="font-[700] text-xl md:text-[25px] text-center text-white px-6">
                 Offers you received for {service}
               </h2>
 
@@ -355,16 +286,17 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
                 {offers.map((offer) => (
                   <div
                     key={`${offer.id}-${offer.interest_id}`}
-                    className="w-full p-[25px] flex flex-col gap-[15px] rounded-[20px] border-[3px] border-[#284CCC]/80 transition-all duration-300 overflow-hidden"
+                    // ✅ Responsive: Padding adjusted
+                    className="w-full p-4 md:p-[25px] flex flex-col gap-[15px] rounded-[20px] border-[3px] border-[#284CCC]/80 transition-all duration-300 overflow-hidden"
                     style={{
                       background: "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
                       boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)"
                     }}
                   >
-                    <div className="flex justify-between items-start w-full">
-                      {/* ✅ User Info - NOW CLICKABLE */}
+                    {/* ✅ Responsive: Stack columns on mobile, row on desktop */}
+                    <div className="flex flex-col md:flex-row justify-between items-start w-full gap-4 md:gap-0">
+                      {/* User Info */}
                       <div className="flex items-start gap-[10px]">
-                        {/* Avatar - Clickable with ring hover */}
                         <Link
                           href={`/home/profile/${offer.username || offer.id}`}
                           className="flex-shrink-0"
@@ -383,7 +315,6 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
                         </Link>
 
                         <div className="flex flex-col items-start gap-[5px]">
-                          {/* Name - Clickable with color change */}
                           <Link
                             href={`/home/profile/${offer.username || offer.id}`}
                             className="text-[16px] text-white hover:text-[#0038FF] transition-colors cursor-pointer"
@@ -404,26 +335,28 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
                         </div>
                       </div>
 
-                      {/* Best Pick Badge */}
-                      {offer.isBestPick && (
-                        <div className="flex items-center gap-1 px-2 py-1 bg-[#906EFF]/20 border border-[#906EFF] rounded-full">
-                          <StarIcon className="w-3 h-3" />
-                          <span className="text-xs text-white">Best Pick</span>
-                        </div>
-                      )}
-
-                      {/* Needs/Offers */}
-                      <div className="flex items-start gap-[10px]">
-                        <div className="flex flex-col items-end gap-[10px]">
-                          <span className="text-[13px] text-white">Needs</span>
-                          <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px]">
-                            <span className="text-[13px] text-white leading-tight">{offer.needs}</span>
+                      <div className="flex flex-col w-full md:w-auto md:items-end gap-[10px]">
+                        {/* Best Pick Badge */}
+                        {offer.isBestPick && (
+                          <div className="flex items-center gap-1 px-2 py-1 bg-[#906EFF]/20 border border-[#906EFF] rounded-full self-start md:self-end">
+                            <StarIcon className="w-3 h-3" />
+                            <span className="text-xs text-white">Best Pick</span>
                           </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-[10px]">
-                          <span className="text-[13px] text-white">Can offer</span>
-                          <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px]">
-                            <span className="text-[13px] text-white leading-tight">{offer.offers}</span>
+                        )}
+
+                        {/* Needs/Offers - Responsive spacing */}
+                        <div className="flex justify-between md:justify-end items-start gap-[10px] w-full md:w-auto">
+                          <div className="flex flex-col items-start md:items-end gap-[5px] flex-1 md:flex-none">
+                            <span className="text-[13px] text-white">Needs</span>
+                            <div className="px-[10px] py-[5px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] w-full md:w-auto text-center md:text-right">
+                              <span className="text-[13px] text-white leading-tight break-words">{offer.needs}</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-[5px] flex-1 md:flex-none">
+                            <span className="text-[13px] text-white">Can offer</span>
+                            <div className="px-[10px] py-[5px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] w-full md:w-auto text-center md:text-right">
+                              <span className="text-[13px] text-white leading-tight break-words">{offer.offers}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -431,7 +364,6 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
 
                     {/* Date and Buttons */}
                     <div className="flex flex-col gap-[10px]">
-                      {/* ✅ ADD: Status Indicator for PENDING trades */}
                       {trade?.status === 'PENDING' && (
                         <div className="flex justify-end">
                           <div className="px-[10px] py-[5px] bg-[#6DDFFF]/20 border border-[#6DDFFF] rounded-[10px]">
@@ -444,9 +376,10 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
                         <span className="text-[13px] text-white/60">until {offer.until}</span>
                       </div>
 
-                      <div className="flex justify-end gap-[15px]">
+                      {/* ✅ Responsive: Buttons fill width on small screens */}
+                      <div className="flex flex-row justify-between sm:justify-end gap-3 sm:gap-[15px]">
                         <button
-                          className={`w-[120px] h-[30px] flex justify-center items-center border-2 rounded-[10px] transition-colors ${trade?.status === 'PENDING'
+                          className={`flex-1 sm:flex-none sm:w-[120px] h-[30px] flex justify-center items-center border-2 rounded-[10px] transition-colors ${trade?.status === 'PENDING'
                               ? 'border-gray-500 text-gray-500 cursor-not-allowed opacity-50'
                               : 'border-[#0038FF] text-[#0038FF] hover:bg-[#0038FF]/10 cursor-pointer'
                             }`}
@@ -456,7 +389,7 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
                           <span className="text-[13px]">Decline</span>
                         </button>
                         <button
-                          className={`w-[120px] h-[30px] flex justify-center items-center rounded-[10px] transition-colors ${trade?.status === 'PENDING'
+                          className={`flex-1 sm:flex-none sm:w-[120px] h-[30px] flex justify-center items-center rounded-[10px] transition-colors ${trade?.status === 'PENDING'
                               ? 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'
                               : 'bg-[#0038FF] text-white shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] cursor-pointer'
                             }`}
@@ -484,29 +417,29 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
       {showConfirmModal && (
         <div className="fixed inset-0 flex items-center justify-center z-[60]">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowConfirmModal(false)}></div>
-          <div className="relative w-[600px] h-[220px] flex flex-col items-center justify-center bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[40px] rounded-[15px] z-[60]">
-            {/* Close button */}
+          {/* ✅ Responsive Modal Size */}
+          <div className="relative w-[90%] max-w-[600px] min-h-[220px] flex flex-col items-center justify-center bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#284CCC] backdrop-blur-[40px] rounded-[15px] z-[60] p-6">
             <button
-              className="absolute top-7 right-7 text-white hover:text-gray-300 cursor-pointer"
+              className="absolute top-4 right-4 md:top-7 md:right-7 text-white hover:text-gray-300 cursor-pointer"
               onClick={() => setShowConfirmModal(false)}
             >
               <X className="w-[15px] h-[15px]" />
             </button>
 
-            <div className="flex flex-col items-center gap-[25px] w-[450px]">
-              <h2 className="font-bold text-[22px] text-center text-white">
+            <div className="flex flex-col items-center gap-[25px] w-full max-w-[450px]">
+              <h2 className="font-bold text-lg md:text-[22px] text-center text-white">
                 Are you sure you want to accept this trade?
               </h2>
 
-              <div className="flex flex-row gap-[25px]">
+              <div className="flex flex-row gap-4 md:gap-[25px] w-full justify-center">
                 <button
-                  className="w-[160px] h-[40px] flex justify-center items-center border-2 border-[#0038FF] text-[#0038FF] rounded-[15px] hover:bg-[#0038FF]/10 transition-colors cursor-pointer shadow-[0px_0px_15px_#284CCC]"
+                  className="flex-1 md:flex-none md:w-[160px] h-[40px] flex justify-center items-center border-2 border-[#0038FF] text-[#0038FF] rounded-[15px] hover:bg-[#0038FF]/10 transition-colors cursor-pointer shadow-[0px_0px_15px_#284CCC]"
                   onClick={() => setShowConfirmModal(false)}
                 >
                   <span className="text-[16px]">Cancel</span>
                 </button>
                 <button
-                  className="w-[168px] h-[40px] flex justify-center items-center bg-[#0038FF] text-white rounded-[15px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors cursor-pointer"
+                  className="flex-1 md:flex-none md:w-[168px] h-[40px] flex justify-center items-center bg-[#0038FF] text-white rounded-[15px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors cursor-pointer"
                   onClick={handleConfirmAccept}
                 >
                   <span className="text-[16px]">Confirm</span>
@@ -521,22 +454,22 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
       {showSuccessModal && (
         <div className="fixed inset-0 flex items-center justify-center z-[60]">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowSuccessModal(false)}></div>
-          <div className="relative w-[600px] h-[220px] flex flex-col items-center justify-center bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-[60]">
-            {/* Close button */}
+          {/* ✅ Responsive Modal Size */}
+          <div className="relative w-[90%] max-w-[600px] min-h-[220px] flex flex-col items-center justify-center bg-black/40 border-2 border-[#0038FF] shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[40px] rounded-[15px] z-[60] p-6">
             <button
-              className="absolute top-7 right-7 text-white hover:text-gray-300 cursor-pointer"
+              className="absolute top-4 right-4 md:top-7 md:right-7 text-white hover:text-gray-300 cursor-pointer"
               onClick={() => setShowSuccessModal(false)}
             >
               <X className="w-[15px] h-[15px]" />
             </button>
 
-            <div className="flex flex-col items-center gap-[25px] w-[450px]">
-              <h2 className="font-bold text-[22px] text-center text-white">
+            <div className="flex flex-col items-center gap-[25px] w-full max-w-[450px]">
+              <h2 className="font-bold text-lg md:text-[22px] text-center text-white">
                 Success! Trade accepted and moved to finalization.
               </h2>
 
               <button
-                className="w-[168px] h-[40px] flex justify-center items-center bg-[#0038FF] text-white rounded-[15px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors cursor-pointer"
+                className="w-full md:w-[168px] h-[40px] flex justify-center items-center bg-[#0038FF] text-white rounded-[15px] shadow-[0px_0px_15px_#284CCC] hover:bg-[#1a4dff] transition-colors cursor-pointer"
                 onClick={async () => {
                   setShowSuccessModal(false);
                   onClose();
