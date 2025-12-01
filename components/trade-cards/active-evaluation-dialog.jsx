@@ -2,12 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-// We no longer need useSession here, as the parent handles the fetch
-// import { useSession } from "next-auth/react";
 
 const StarLogo = () => (
-  <svg width="100" height="100" viewBox="0 0 162 181" fill="none" xmlns="http://www.w3.org/2000/svg" className="filter drop-shadow-[0px_4px_40px_#D78DE5]">
-    {/* ... (StarLogo SVG content remains the same) ... */}
+  <svg width="100" height="100" viewBox="0 0 162 181" fill="none" xmlns="http://www.w3.org/2000/svg" className="filter drop-shadow-[0px_4px_40px_#D78DE5] w-[60px] h-[60px] md:w-[100px] md:h-[100px]">
     <g filter="url(#filter0_d_2180_7319)">
       <path d="M81 136.5L90.0723 86.5L81 36.5L71.9277 86.5L81 136.5Z" fill="white"/>
       <path d="M40.5917 55.6433L79.8637 94.3593L91.2485 78.4686L40.5917 55.6433Z" fill="#0038FF"/>
@@ -31,13 +28,9 @@ const StarLogo = () => (
 );
 
 export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
-
-  // We get the loading state directly from the parent prop
   const loading = tradeData?.isLoading || false;
-  // Parent component handles errors, but we can set a default here
   const error = null;
 
-  // Animated progress states
   const [progress, setProgress] = useState({
     tradeScore: 0,
     taskComplexity: 0,
@@ -45,12 +38,8 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
     skillLevel: 0,
   });
 
-  // Trigger staggered animations
-  // This now depends on the 'tradeData' prop instead of an internal state
   useEffect(() => {
-    // Use tradeData.tradeScore to check if data is ready
     if (isOpen && !loading && tradeData?.tradeScore > 0) {
-      // Reset progress
       setProgress({
         tradeScore: 0,
         taskComplexity: 0,
@@ -58,42 +47,36 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
         skillLevel: 0,
       });
 
-      // Animate each metric based on props
       setTimeout(() => {
         setProgress(prev => ({ 
           ...prev, 
-          // Use the prop: tradeData.tradeScore
-          tradeScore: (tradeData.tradeScore / 10) * 100  // Convert 0-10 to 0-100% for progress bar
+          tradeScore: (tradeData.tradeScore / 10) * 100 
         }));
       }, 200);
 
       setTimeout(() => {
         setProgress(prev => ({ 
           ...prev, 
-          // Use the prop: tradeData.taskComplexity
-          taskComplexity: tradeData.taskComplexity  // Already 0-100
+          taskComplexity: tradeData.taskComplexity
         }));
       }, 600);
 
       setTimeout(() => {
         setProgress(prev => ({ 
           ...prev, 
-          // Use the prop: tradeData.timeCommitment
-          timeCommitment: tradeData.timeCommitment  // Already 0-100
+          timeCommitment: tradeData.timeCommitment
         }));
       }, 900);
 
       setTimeout(() => {
         setProgress(prev => ({ 
           ...prev, 
-          // Use the prop: tradeData.skillLevel
-          skillLevel: tradeData.skillLevel  // Already 0-100
+          skillLevel: tradeData.skillLevel
         }));
       }, 1200);
     }
-  }, [tradeData, isOpen, loading]); // Depend on the tradeData prop
+  }, [tradeData, isOpen, loading]);
 
-  // Handle close
   const handleClose = (e) => {
     if (e) {
       e.preventDefault();
@@ -102,14 +85,12 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
     onClose();
   };
 
-  // Handle backdrop click
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
       handleClose(e);
     }
   };
 
-  // Handle escape key
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape" && isOpen) {
@@ -125,8 +106,6 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
 
   if (!isOpen) return null;
 
-  // Data now comes *directly* from the tradeData prop
-  // We map it to 'data' for easier reading in the JSX
   const data = {
     requestTitle: tradeData?.requestTitle || "Trade Request",
     offerTitle: tradeData?.offerTitle || "Trade Offer",
@@ -144,9 +123,9 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
         onClick={handleBackdropClick}
       ></div>
 
-      <div className="relative w-[940px] h-[790px] flex flex-col justify-center items-center p-[80px_60px] bg-black/10 shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[50px] rounded-[15px] z-60 isolate">
+      <div className="relative w-[95%] max-w-[940px] max-h-[90vh] overflow-y-auto flex flex-col items-center p-6 md:p-[80px_60px] bg-black/10 shadow-[0px_4px_15px_#D78DE5] backdrop-blur-[50px] rounded-[15px] z-60 isolate border border-white/10">
         <button
-          className="absolute top-[35px] right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] transition-all duration-200 hover:bg-white/10 hover:text-[#D78DE5] rounded-full z-[100]"
+          className="absolute top-4 right-4 md:top-[35px] md:right-[35px] text-white cursor-pointer flex items-center justify-center w-[30px] h-[30px] transition-all duration-200 hover:bg-white/10 hover:text-[#D78DE5] rounded-full z-[100]"
           onClick={handleClose}
           onMouseDown={(e) => e.stopPropagation()}
           aria-label="Close dialog"
@@ -154,55 +133,52 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
           <X className="w-[15px] h-[15px]" />
         </button>
 
-        {/* ... (Background blur divs) ... */}
-        <div className="absolute w-[942px] h-[218px] left-[-1px] top-0 z-[1]">
+        {/* Background Blur Effects - Hidden on Mobile to prevent layout breaks */}
+        <div className="hidden md:block absolute w-[942px] h-[218px] left-[-1px] top-0 z-[1]">
           <div className="absolute w-[421px] h-[218px] left-[calc(50%-421px/2-260.5px)] top-0 bg-[#906EFF] blur-[175px]"></div>
           <div className="absolute w-[421px] h-[218px] left-[calc(50%-421px/2+260.5px)] top-0 bg-[#0038FF] blur-[175px]"></div>
           <div className="absolute w-[225px] h-[105.09px] left-[calc(50%-225px/2+283.5px)] top-[83.85px] bg-[#906EFF] blur-[60px]"></div>
           <div className="absolute w-[225px] h-[105.09px] left-[calc(50%-225px/2-283.5px)] top-[83.85px] bg-[#0038FF] blur-[60px]"></div>
         </div>
 
-        <div className="flex flex-col justify-center items-center gap-[40px] w-[792px] h-[613px] z-[2]">
-          <div className="flex flex-col items-center gap-[20px] w-[792px]">
-            <div className="flex flex-row justify-between items-center w-[792px]">
-              <div className="flex flex-col items-start gap-[6px] w-[300px]">
-                <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-white">
-                  {/* Use data from prop */}
+        <div className="flex flex-col justify-start items-center gap-[30px] md:gap-[40px] w-full z-[2]">
+          {/* Headers */}
+          <div className="flex flex-col items-center gap-[20px] w-full">
+            <div className="flex flex-col md:flex-row justify-between items-center w-full gap-6 md:gap-0">
+              <div className="flex flex-col items-center md:items-start gap-[6px] w-full md:w-[300px]">
+                <h3 className="w-full font-[700] text-[20px] md:text-[25px] leading-[120%] text-center md:text-left text-white">
                   {data.requestTitle}
                 </h3>
-                <p className="w-[300px] h-[19px] text-[16px] leading-[120%] text-white">
+                <p className="w-full text-[14px] md:text-[16px] leading-[120%] text-center md:text-left text-white/80">
                   What you'll provide
                 </p>
               </div>
 
-              <div className="flex items-center justify-center w-[140px] h-[140px]">
+              <div className="flex items-center justify-center w-[80px] h-[80px] md:w-[140px] md:h-[140px]">
                 <StarLogo />
               </div>
 
-              <div className="flex flex-col items-end gap-[6px] w-[300px]">
-                <h3 className="w-[300px] font-[700] text-[25px] leading-[120%] text-right text-white">
-                  {/* Use data from prop */}
+              <div className="flex flex-col items-center md:items-end gap-[6px] w-full md:w-[300px]">
+                <h3 className="w-full font-[700] text-[20px] md:text-[25px] leading-[120%] text-center md:text-right text-white">
                   {data.offerTitle}
                 </h3>
-                <p className="w-[300px] h-[19px] text-[16px] leading-[120%] text-right text-white">
+                <p className="w-full text-[14px] md:text-[16px] leading-[120%] text-center md:text-right text-white/80">
                   What you'll get in return
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Use the 'loading' state from the prop */
-          loading ? (
-            <div className="flex flex-col items-center gap-4">
+          {loading ? (
+            <div className="flex flex-col items-center gap-4 py-10">
               <div className="w-16 h-16 border-4 border-[#D78DE5] border-t-transparent rounded-full animate-spin"></div>
-              {/* Updated loading text */}
               <p className="text-white text-lg">Hang tight — loading evaluation...</p>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center gap-4 py-10">
               <p className="text-red-400 text-center">{error}</p>
               <button
-                onClick={handleClose} // Just close the dialog
+                onClick={handleClose}
                 className="px-4 py-2 bg-[#0038FF] text-white rounded-lg hover:bg-[#0038FF]/80"
               >
                 Close
@@ -211,9 +187,8 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
           ) : (
             <>
               {/* Trade score */}
-              <div className="flex flex-col items-center gap-[15px] w-[300px] h-[83px]">
-                {/* Progress bar will fill based on 'progress.tradeScore' */}
-                <div className="relative flex items-center w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+              <div className="flex flex-col items-center gap-[15px] w-full max-w-[300px]">
+                <div className="relative flex items-center w-full h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
                   <div
                     className="h-full rounded-[30px] z-[2] transition-all duration-700 ease-out relative"
                     style={{
@@ -222,7 +197,6 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
                       boxShadow: progress.tradeScore > 0 ? "0px 0px 20px rgba(126, 89, 248, 0.4)" : "none"
                     }}
                   >
-                    {/* ... (shimmer effects) ... */}
                     <div 
                       className="absolute inset-0 rounded-[30px] opacity-60"
                       style={{
@@ -245,30 +219,27 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
                 </div>
                 
                 <div className="flex flex-col items-center gap-[5px]">
-                  <h4 className="w-[110px] h-[24px] font-bold text-[20px] leading-[120%] text-center text-white">
-                    {/* Use data from prop */}
+                  <h4 className="font-bold text-[20px] leading-[120%] text-center text-white">
                     {data.tradeScore >= 8 ? "Excellent" : 
                     data.tradeScore >= 6 ? "Great" : 
                     data.tradeScore >= 4 ? "Good" : 
                     data.tradeScore >= 2 ? "Fair" : "Poor"}
                   </h4>
                   <p className="text-[16px] leading-[120%] text-center text-white whitespace-nowrap">
-                    {/* Use data from prop */}
                     {data.tradeScore.toFixed(1)} out of 10
                   </p>
                 </div>
               </div>
 
               {/* Metrics */}
-              <div className="flex flex-col items-end gap-[15px] w-[457px]">
+              <div className="flex flex-col items-center md:items-end gap-[15px] w-full md:w-[457px]">
                 {/* Task complexity */}
-                <div className="flex flex-row items-end gap-[20px] w-[452px] h-[20px]">
-                  <span className="w-[132px] h-[19px] text-[16px] leading-[120%] text-right text-white whitespace-nowrap">
+                <div className="flex flex-col md:flex-row items-center md:items-end gap-2 md:gap-[20px] w-full">
+                  <span className="w-full md:w-auto text-[16px] leading-[120%] text-left md:text-right text-white whitespace-nowrap">
                     Task complexity
                   </span>
 
-                  {/* Progress bar will fill based on 'progress.taskComplexity' */}
-                  <div className="relative flex items-center w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+                  <div className="relative flex items-center w-full md:w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
                     <div
                       className="h-full rounded-[30px] transition-all duration-800 ease-out relative"
                       style={{
@@ -277,25 +248,12 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
                         boxShadow: progress.taskComplexity > 0 ? "0px 0px 15px rgba(251, 150, 150, 0.5)" : "none"
                       }}
                     >
-                      {/* ... (shimmer effects) ... */}
                       <div 
                         className="absolute inset-0 rounded-[30px] opacity-60"
                         style={{
                           background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%, rgba(0,0,0,0.1) 100%)"
                         }}
                       />
-                      {progress.taskComplexity > 10 && (
-                        <div className="absolute inset-0 rounded-[30px] overflow-hidden">
-                          <div 
-                            className="absolute top-0 left-[-100%] w-full h-full opacity-50"
-                            style={{
-                              background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)",
-                              animation: "shimmer 2s infinite ease-in-out"
-                            }}
-                          />
-                        </div>
-                      )}
-
                       {progress.taskComplexity > 5 && (
                         <div 
                           className="absolute top-1/2 right-0 w-[6px] h-[6px] rounded-full opacity-90"
@@ -312,13 +270,12 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
                 </div>
                 
                 {/* Time commitment */}
-                <div className="flex flex-row items-end gap-[20px] w-[457px] h-[20px]">
-                  <span className="w-[137px] h-[19px] text-[16px] leading-[120%] text-right text-white">
+                <div className="flex flex-col md:flex-row items-center md:items-end gap-2 md:gap-[20px] w-full">
+                  <span className="w-full md:w-auto text-[16px] leading-[120%] text-left md:text-right text-white">
                     Time commitment
                   </span>
 
-                  {/* Progress bar will fill based on 'progress.timeCommitment' */}
-                  <div className="relative flex items-center w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+                  <div className="relative flex items-center w-full md:w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
                     <div
                       className="h-full rounded-[30px] transition-all duration-900 ease-out relative"
                       style={{
@@ -327,26 +284,12 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
                         boxShadow: progress.timeCommitment > 0 ? "0px 0px 15px rgba(215, 141, 229, 0.5)" : "none"
                       }}
                     >
-                      {/* ... (shimmer effects) ... */}
                       <div 
                         className="absolute inset-0 rounded-[30px] opacity-60"
                         style={{
                           background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%, rgba(0,0,0,0.1) 100%)"
                         }}
                       />
-                      {progress.timeCommitment > 10 && (
-                        <div className="absolute inset-0 rounded-[30px] overflow-hidden">
-                          <div 
-                            className="absolute top-0 left-[-100%] w-full h-full opacity-50"
-                            style={{
-                              background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)",
-                              animation: "shimmer 2.2s infinite ease-in-out",
-                              animationDelay: "0.3s"
-                            }}
-                          />
-                        </div>
-                      )}
-
                       {progress.timeCommitment > 5 && (
                         <div 
                           className="absolute top-1/2 right-0 w-[6px] h-[6px] rounded-full opacity-90"
@@ -363,13 +306,12 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
                 </div>
                 
                 {/* Skill level */}
-                <div className="flex flex-row items-end gap-[20px] w-[390px] h-[20px]">
-                  <span className="w-[70px] h-[19px] text-[16px] leading-[120%] text-right text-white">
+                <div className="flex flex-col md:flex-row items-center md:items-end gap-2 md:gap-[20px] w-full">
+                  <span className="w-full md:w-auto text-[16px] leading-[120%] text-left md:text-right text-white">
                     Skill level
                   </span>
 
-                  {/* Progress bar will fill based on 'progress.skillLevel' */}
-                  <div className="relative flex items-center w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
+                  <div className="relative flex items-center w-full md:w-[300px] h-[20px] p-[2px] bg-white shadow-[0px_5px_19px_rgba(0,0,0,0.15)] rounded-[32px] overflow-hidden">
                     <div
                       className="h-full rounded-[30px] transition-all duration-1000 ease-out relative"
                       style={{
@@ -378,26 +320,12 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
                         boxShadow: progress.skillLevel > 0 ? "0px 0px 15px rgba(109, 223, 255, 0.5)" : "none"
                       }}
                     >
-                      {/* ... (shimmer effects) ... */}
                       <div 
                         className="absolute inset-0 rounded-[30px] opacity-60"
                         style={{
                           background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%, rgba(0,0,0,0.1) 100%)"
                         }}
                       />
-                      {progress.skillLevel > 10 && (
-                        <div className="absolute inset-0 rounded-[30px] overflow-hidden">
-                          <div 
-                            className="absolute top-0 left-[-100%] w-full h-full opacity-50"
-                            style={{
-                              background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)",
-                              animation: "shimmer 2.5s infinite ease-in-out",
-                              animationDelay: "0.6s"
-                            }}
-                          />
-                        </div>
-                      )}
-
                       {progress.skillLevel > 5 && (
                         <div 
                           className="absolute top-1/2 right-0 w-[6px] h-[6px] rounded-full opacity-90"
@@ -415,17 +343,16 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
               </div>
 
               {/* Feedback section */}
-              <div className="flex flex-col items-start gap-[15px] w-[792px]">
-                <div className="flex flex-row items-center gap-[15px] w-[792px] h-[19px]">
+              <div className="flex flex-col items-start gap-[15px] w-full">
+                <div className="flex flex-row items-center gap-[15px] w-full h-[19px]">
                   <svg width="15" height="16" viewBox="0 0 15 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M7.57483 0.5C8.08409 4.35956 11.1404 7.41579 15 7.92506V8.07483C11.1404 8.58409 8.08409 11.6404 7.57483 15.5H7.42517C6.91591 11.6404 3.85956 8.58409 0 8.07483V7.92506C3.85956 7.41579 6.91591 4.35956 7.42517 0.5H7.57483Z" fill="#D9D9D9"/>
                   </svg>
-                  <span className="w-[122px] h-[19px] italic text-[16px] leading-[120%] text-white">
+                  <span className="italic text-[16px] leading-[120%] text-white">
                     What we think...
                   </span>
                 </div>
-                <p className="w-[792px] text-[16px] leading-[120%] text-white">
-                  {/* Use data from prop */}
+                <p className="w-full text-[14px] md:text-[16px] leading-[120%] text-white text-justify md:text-left">
                   {data.description || "Evaluation in progress..."}
                 </p>
               </div>
@@ -433,7 +360,8 @@ export default function ActiveEvaluationDialog({ isOpen, onClose, tradeData }) {
           )}
         </div>
         
-        <p className="absolute w-[847px] h-[19px] left-[calc(50%-847px/2+4.5px)] bottom-[25px] text-[12px] leading-[120%] text-center text-white/80 opacity-60 z-[3]">
+        {/* Footer Text - Moved to relative positioning with margin */}
+        <p className="mt-8 text-[12px] leading-[120%] text-center text-white/80 opacity-60 z-[3] w-full max-w-[800px]">
           This response is generated by AI and may be inaccurate sometimes. This should only serve as a guide for users.
         </p>
 
