@@ -2856,7 +2856,7 @@ def confirm_trade_evaluation(request, tradereq_id):
                     sender=request.user,
                     message=f"{request.user.first_name or request.user.username} confirmed your trade for \"{trade_request.reqname}\"",
                     notification_type=Notification.NotificationType.TRADE_CONFIRMED,
-                    link=f"/home/trades/active/"
+                    link=f"/home/trades/pending/"
                 )
             except Exception as e:
                 print(f"Failed to create TRADE_CONFIRMED notification: {e}")
