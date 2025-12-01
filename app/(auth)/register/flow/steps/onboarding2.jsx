@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Button } from "../../../../../components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Inter } from "next/font/google";
 import {
   Search,
@@ -726,12 +726,14 @@ export default function Onboarding2({ onNext, onPrev, tradereq_id }) {
                     </div>
 
                     {/* Bottom Button */}
-                    <button
-                      className="px-[30px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium cursor-pointer transition-colors mt-3"
+                    <Button
+                      variant="default"
+                      size="default"
+                      className="w-full md:w-auto px-[15px] py-[10px] text-white bg-[#0038FF] hover:bg-[#1a4dff] rounded-[15px] shadow-[0_0_15px_0_#284CCC] text-sm font-medium mt-3"
                       onClick={() => handleInterested(item)}
                     >
                       I'm interested
-                    </button>
+                    </Button>
                   </div>
                 ))
               ) : (
