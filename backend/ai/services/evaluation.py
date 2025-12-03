@@ -1,7 +1,11 @@
 import json
 import os
+import re
+import logging
 from google import genai
 from ai.config import GEMINI_PRO
+
+logger = logging.getLogger(__name__)
 
 def evaluate_trade(tradereq_id: int) -> dict:
     """
@@ -112,22 +116,41 @@ Respond ONLY with valid JSON:
 }}"""
 
     try:
+        logger.info(f"Sending evaluation prompt for trade {tradereq_id} to Gemini...")
         response = client.models.generate_content(
             model=GEMINI_PRO,
             contents=prompt
         )
+        
+        # Handle potential safety blocking or empty responses
+        if not response.text:
+            logger.error(f"Gemini returned empty response for trade {tradereq_id}. Safety ratings: {response.prompt_feedback}")
+            raise Exception("AI returned empty response (possibly blocked by safety filters)")
+
         result_text = response.text.strip()
+        logger.info(f"Gemini response received. Length: {len(result_text)}")
         
-        # Parse JSON
-        if result_text.startswith("```json"):
-            result_text = result_text.replace("```json", "").replace("```", "").strip()
+        # Robust JSON extraction using Regex
+        # Finds the first occurrence of { ... } including nested braces
+        json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
         
-        result = json.loads(result_text)
+        if json_match:
+            json_str = json_match.group(0)
+            result = json.loads(json_str)
+        else:
+            # Fallback: try parsing the whole text if regex fails
+            logger.warning(f"Regex failed to find JSON. Attempting to parse raw text: {result_text[:100]}...")
+            result = json.loads(result_text)
         
         # Truncate description to 500 chars
-        result['evaluationdescription'] = result['evaluationdescription'][:500]
+        if 'evaluationdescription' in result:
+            result['evaluationdescription'] = result['evaluationdescription'][:500]
         
         return result
         
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON Parse Error for trade {tradereq_id}. Response text: {result_text}")
+        raise Exception(f"Failed to parse AI response: {str(e)}")
     except Exception as e:
+        logger.error(f"AI evaluation failed for trade {tradereq_id}: {str(e)}")
         raise Exception(f"AI evaluation failed: {str(e)}")

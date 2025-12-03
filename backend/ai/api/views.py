@@ -467,7 +467,7 @@ def api_evaluate(request):
                 'evaluationdescription': result['evaluationdescription'],
             }
         )
-        
+
         # Return evaluation with display-friendly scores
         return Response({
             'evaluation_id': evaluation.evaluation_id,
@@ -495,6 +495,9 @@ def api_evaluate(request):
         })
         
     except Exception as e:
+        # Log full traceback for debugging
+        logger.error(f"API Evaluate Error for trade {tradereq_id}: {str(e)}", exc_info=True)
+        
         return Response(
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -509,9 +512,15 @@ def api_get_evaluation(request, tradereq_id):
     Used in Pending Trades, Active Trades, and Messages tabs.
     """
     try:
-        evaluation = Evaluation.objects.select_related('trade_request').get(
+        evaluation = Evaluation.objects.filter(
             trade_request_id=tradereq_id
-        )
+        ).select_related('trade_request').order_by('-evaluation_id').first()
+        
+        if not evaluation:
+            return Response(
+                {"error": "No evaluation found for this trade. Both parties must submit details and evaluate first."},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
         return Response({
             'evaluation_id': evaluation.evaluation_id,
@@ -536,12 +545,8 @@ def api_get_evaluation(request, tradereq_id):
             'responder_responded_at': evaluation.responder_responded_at,
         })
         
-    except Evaluation.DoesNotExist:
-        return Response(
-            {"error": "No evaluation found for this trade. Both parties must submit details and evaluate first."},
-            status=status.HTTP_404_NOT_FOUND
-        )
     except Exception as e:
+        logger.error(f"Error getting evaluation for trade {tradereq_id}: {str(e)}", exc_info=True)
         return Response(
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

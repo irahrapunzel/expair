@@ -110,7 +110,7 @@ useEffect(() => {
         // TE1: New evaluation, call AI endpoint (only in Pending Trades)
         console.log('🤖 Generating new AI evaluation...');
         const evalResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/evaluate-trade/`,
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/evaluate/`,
           {
             method: 'POST',
             headers: {

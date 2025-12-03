@@ -2695,7 +2695,7 @@ def get_active_trades(request):
 def get_evaluation_details(request, tradereq_id):
     """
     Get evaluation details for a trade request.
-    Creates evaluation if both users have submitted trade details.
+    Creates AI evaluation if both users have submitted trade details.
     """
     try:
         trade_request = TradeRequest.objects.select_related('requester', 'responder').get(
@@ -2718,75 +2718,102 @@ def get_evaluation_details(request, tradereq_id):
                 "error": "Both users must submit trade details before evaluation"
             }, status=400)
         
-        # Calculate evaluation scores based on trade details
-        def calculate_complexity(req_detail, resp_detail):
-            complexity_map = {
-                TradeDetail.RequestType.OUTPUT: 40,
-                TradeDetail.RequestType.SERVICE: 60,
-                TradeDetail.RequestType.PROJECT: 80,
-            }
-            req_complexity = complexity_map.get(req_detail.reqtype, 50)
-            resp_complexity = complexity_map.get(resp_detail.reqtype, 50)
-            return min(100, max(20, (req_complexity + resp_complexity) // 2))
+        # Check if evaluation already exists
+        evaluation = Evaluation.objects.filter(
+            trade_request=trade_request
+        ).order_by('-evaluation_id').first()
         
-        def calculate_time_commitment(req_detail, resp_detail):
-            time_map = {
-                TradeDetail.RequestType.OUTPUT: 30,
-                TradeDetail.RequestType.SERVICE: 50,
-                TradeDetail.RequestType.PROJECT: 80,
-            }
-            req_time = time_map.get(req_detail.reqtype, 40)
-            resp_time = time_map.get(resp_detail.reqtype, 40)
-            return min(100, max(20, (req_time + resp_time) // 2))
-        
-        def calculate_skill_level(req_detail, resp_detail):
-            skill_map = {
-                TradeDetail.SkillProficiency.BEGINNER: 40,
-                TradeDetail.SkillProficiency.INTERMEDIATE: 60,
-                TradeDetail.SkillProficiency.ADVANCED: 80,
-                TradeDetail.SkillProficiency.CERTIFIED: 90,
-            }
-            req_skill = skill_map.get(req_detail.skillprof, 50)
-            resp_skill = skill_map.get(resp_detail.skillprof, 50)
-            return min(100, max(20, (req_skill + resp_skill) // 2))
-        
-        # Calculate dynamic values
-        task_complexity = calculate_complexity(requester_detail, responder_detail)
-        time_commitment = calculate_time_commitment(requester_detail, responder_detail)
-        skill_level = calculate_skill_level(requester_detail, responder_detail)
-        
-        # Generate dynamic feedback
-        complexity_desc = "challenging" if task_complexity > 70 else "moderate" if task_complexity > 40 else "simple"
-        time_desc = "high" if time_commitment > 70 else "moderate" if time_commitment > 40 else "low"
-        skill_desc = "advanced" if skill_level > 70 else "intermediate" if skill_level > 40 else "basic"
-        
-        dynamic_feedback = (
-            f"This trade between {trade_request.requester.first_name} and {trade_request.responder.first_name} "
-            f"involves {complexity_desc} tasks with {time_desc} time commitment and requires {skill_desc} skill levels. "
-            f"The exchange of {trade_request.reqname} for {trade_request.exchange} offers valuable learning opportunities "
-            f"for both parties and represents a well-balanced trade arrangement."
-        )
-        
-        # Get or create evaluation with calculated values
-        evaluation, created = Evaluation.objects.get_or_create(
-            trade_request=trade_request,
-            defaults={
-                'taskcomplexity': task_complexity,
-                'timecommitment': time_commitment,
-                'skilllevel': skill_level,
-                'evaluationdescription': dynamic_feedback
-            }
-        )
-        
-        # If evaluation already exists but was created with defaults, update it
-        if not created and evaluation.evaluationdescription.startswith("Trade evaluation for"):
-            evaluation.taskcomplexity = task_complexity
-            evaluation.timecommitment = time_commitment
-            evaluation.skilllevel = skill_level
-            evaluation.evaluationdescription = dynamic_feedback
-            evaluation.save()
-        
-        print(f"Evaluation data: complexity={task_complexity}, time={time_commitment}, skill={skill_level}")
+        if evaluation:
+            print(f"✅ Found existing evaluation for trade {tradereq_id}")
+        else:
+            # No evaluation exists - call AI service to create one
+            print(f"🤖 No evaluation found for trade {tradereq_id}, calling AI service...")
+            
+            try:
+                # Import and call AI evaluation service
+                from ai.services.evaluation import evaluate_trade
+                
+                ai_result = evaluate_trade(tradereq_id)
+                print(f"✅ AI evaluation result: {ai_result}")
+                
+                # ✅ FIXED: Use get_or_create to prevent race conditions
+                evaluation, created = Evaluation.objects.get_or_create(
+                    trade_request=trade_request,
+                    defaults={
+                        'taskcomplexity': ai_result['taskcomplexity'],
+                        'timecommitment': ai_result['timecommitment'],
+                        'skilllevel': ai_result['skilllevel'],
+                        'evaluationdescription': ai_result['evaluationdescription']
+                    }
+                )
+                if created:
+                    print(f"✅ Created AI-powered evaluation for trade {tradereq_id}")
+                else:
+                    print(f"⚠️ Evaluation already existed (race condition prevented)")
+                
+            except Exception as ai_error:
+                # AI failed - use fallback calculation
+                print(f"⚠️ AI evaluation failed: {ai_error}, using fallback...")
+                import traceback
+                traceback.print_exc()
+                
+                # Fallback calculation (only if AI fails)
+                def calculate_complexity(req_detail, resp_detail):
+                    complexity_map = {
+                        TradeDetail.RequestType.OUTPUT: 40,
+                        TradeDetail.RequestType.SERVICE: 60,
+                        TradeDetail.RequestType.PROJECT: 80,
+                    }
+                    req_complexity = complexity_map.get(req_detail.reqtype, 50)
+                    resp_complexity = complexity_map.get(resp_detail.reqtype, 50)
+                    return min(100, max(20, (req_complexity + resp_complexity) // 2))
+                
+                def calculate_time_commitment(req_detail, resp_detail):
+                    time_map = {
+                        TradeDetail.RequestType.OUTPUT: 30,
+                        TradeDetail.RequestType.SERVICE: 50,
+                        TradeDetail.RequestType.PROJECT: 80,
+                    }
+                    req_time = time_map.get(req_detail.reqtype, 40)
+                    resp_time = time_map.get(resp_detail.reqtype, 40)
+                    return min(100, max(20, (req_time + resp_time) // 2))
+                
+                def calculate_skill_level(req_detail, resp_detail):
+                    skill_map = {
+                        TradeDetail.SkillProficiency.BEGINNER: 40,
+                        TradeDetail.SkillProficiency.INTERMEDIATE: 60,
+                        TradeDetail.SkillProficiency.ADVANCED: 80,
+                        TradeDetail.SkillProficiency.CERTIFIED: 90,
+                    }
+                    req_skill = skill_map.get(req_detail.skillprof, 50)
+                    resp_skill = skill_map.get(resp_detail.skillprof, 50)
+                    return min(100, max(20, (req_skill + resp_skill) // 2))
+                
+                task_complexity = calculate_complexity(requester_detail, responder_detail)
+                time_commitment = calculate_time_commitment(requester_detail, responder_detail)
+                skill_level = calculate_skill_level(requester_detail, responder_detail)
+                
+                complexity_desc = "challenging" if task_complexity > 70 else "moderate" if task_complexity > 40 else "simple"
+                time_desc = "high" if time_commitment > 70 else "moderate" if time_commitment > 40 else "low"
+                skill_desc = "advanced" if skill_level > 70 else "intermediate" if skill_level > 40 else "basic"
+                
+                dynamic_feedback = (
+                    f"This trade between {trade_request.requester.first_name} and {trade_request.responder.first_name} "
+                    f"involves {complexity_desc} tasks with {time_desc} time commitment and requires {skill_desc} skill levels. "
+                    f"The exchange of {trade_request.reqname} for {trade_request.exchange} offers valuable learning opportunities "
+                    f"for both parties and represents a well-balanced trade arrangement."
+                )
+                
+                # ✅ FIXED: Use get_or_create for fallback too
+                evaluation, created = Evaluation.objects.get_or_create(
+                    trade_request=trade_request,
+                    defaults={
+                        'taskcomplexity': task_complexity,
+                        'timecommitment': time_commitment,
+                        'skilllevel': skill_level,
+                        'evaluationdescription': dynamic_feedback
+                    }
+                )
         
         return Response({
             "evaluation": {
