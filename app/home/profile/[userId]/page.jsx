@@ -3764,7 +3764,7 @@ export default function ProfilePage() {
                       {isOwnProfile ? (
                         // ✅ OWNER VIEW CARD (delete + offers)
                         <div
-                          className="w-full md:w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[20px] sm:p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
+                          className="w-full md:w-[445px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[20px] sm:p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
                           style={{
                             background:
                               "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
