@@ -1157,7 +1157,7 @@ export default function PendingTradesPage() {
                 >
                   <div
                     className={`${expandedFinalizationCardId === trade.id
-                      ? "w-[945px]"
+                      ? "w-[920px]"
                       : "w-[455px]"
                     } transition-all duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${isClickable ? "cursor-pointer" : "cursor-default"
                       } flex flex-col gap-[15px] relative`}
@@ -1413,7 +1413,7 @@ export default function PendingTradesPage() {
                                           alt="Logo"
                                           className="w-[14px] h-[14px]"
                                         />
-                                        <span className="text-[13px] text-white">
+                                        <span className="text-[14px] text-white">
                                           {trade.detailsStatus?.submission_status
                                             ?.both_submitted
                                             ? "Evaluate"
@@ -1443,7 +1443,7 @@ export default function PendingTradesPage() {
                                         icon="lucide:message-square"
                                         className="w-4 h-4 text-white"
                                       />
-                                      <span className="text-[13px] font-normal text-white">
+                                      <span className="text-[14px] font-normal text-white">
                                         Message
                                       </span>
                                     </div>
