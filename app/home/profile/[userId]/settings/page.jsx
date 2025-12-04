@@ -106,7 +106,7 @@ export default function SettingsPage() {
   const [searchQuery, setSearchQuery] = useState(location || "");
   const [suggestions, setSuggestions] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isUserInteracted, setIsUserInteracted] = useState(false); 
+  const [isUserInteracted, setIsUserInteracted] = useState(false);
 
   const DEFAULT_AVATAR = "/assets/defaultavatar.png";
   const [previewUrl, setPreviewUrl] = useState(DEFAULT_AVATAR);
@@ -134,6 +134,7 @@ export default function SettingsPage() {
 
   const menuItems = [
     { key: "profile", label: "Profile" },
+    // Removed Privacy per previous request
   ];
 
   const checkAvailability = async (field, value) => {
@@ -141,18 +142,17 @@ export default function SettingsPage() {
       field === "username" &&
       value.toLowerCase() === originalUsername.toLowerCase()
     ) {
-      return false; 
+      return false;
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl; 
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl;
     if (!baseUrl) {
       console.error("[settings] NEXT_PUBLIC_BACKEND_URL is not set!");
       setError("Configuration Error: Backend URL not found.");
-      return true; 
+      return true;
     }
 
     try {
-      // NOTE: Using native fetch here, which is fine
       const response = await fetch(`${baseUrl}/api/validate-field/`, {
         method: "POST",
         headers: {
@@ -177,7 +177,7 @@ export default function SettingsPage() {
       setError(
         `Network Error: Could not verify ${field} availability. Please try again.`
       );
-      return true; 
+      return true;
     }
   };
 
@@ -202,7 +202,7 @@ export default function SettingsPage() {
   }, [debouncedUsername, originalUsername]);
 
   useEffect(() => {
-    if (!session) return; 
+    if (!session) return;
 
     const run = async () => {
       try {
@@ -211,8 +211,7 @@ export default function SettingsPage() {
           {},
           session
         );
-        // FIX 1: Handle if res is already data or a Response
-        const data = (res && typeof res.json === 'function') ? await res.json() : res;
+        const data = res && typeof res.json === "function" ? await res.json() : res;
         console.log("Me endpoint:", data);
       } catch (err) {
         console.error("[settings] load error", err);
@@ -223,16 +222,15 @@ export default function SettingsPage() {
   }, [session]);
 
   useEffect(() => {
-    console.log("🔍 Session object in Settings page:", session); 
+    console.log("🔍 Session object in Settings page:", session);
 
     let uid = null;
-
     if (params?.userId) {
-      uid = params.userId; 
+      uid = params.userId;
     } else if (pathname) {
       const m = pathname.match(/\/profile\/([^\/]+)/i);
       if (m) {
-        uid = m[1]; 
+        uid = m[1];
       }
     }
 
@@ -288,21 +286,17 @@ export default function SettingsPage() {
         }
 
         const res = await authFetch(url, { credentials: "include" });
-        
-        // FIX 2: Check if 'res' is a Response object or plain data
         let data;
         if (res && typeof res.json === "function") {
-            // It is a standard Fetch Response
-            if (!res.ok) {
-              const t = await res.text();
-              throw new Error(`Load failed (${res.status}): ${t.slice(0, 160)}`);
-            }
-            data = await res.json();
+          if (!res.ok) {
+            const t = await res.text();
+            throw new Error(`Load failed (${res.status}): ${t.slice(0, 160)}`);
+          }
+          data = await res.json();
         } else {
-            // It is already parsed data (custom authFetch behavior)
-            if (!res) throw new Error("No data returned from server");
-            if (res.error) throw new Error(res.error); // Handle custom error objects
-            data = res;
+          if (!res) throw new Error("No data returned from server");
+          if (res.error) throw new Error(res.error);
+          data = res;
         }
 
         let linksValue = [];
@@ -433,7 +427,7 @@ export default function SettingsPage() {
       }
     };
 
-    fetchCoords(); 
+    fetchCoords();
   }, [location]);
 
   const norm = (v) => String(v ?? "").trim();
@@ -561,10 +555,10 @@ export default function SettingsPage() {
           "One or more links are invalid. Please enter valid URLs (e.g. instagram.com/username)."
         );
         setSaving(false);
-        return; 
+        return;
       }
 
-      setLinkError(""); 
+      setLinkError("");
       fd.append("links", JSON.stringify(cleanLinks));
 
       const targetUrl =
@@ -583,19 +577,16 @@ export default function SettingsPage() {
         body: fd,
       });
 
-      // FIX 3: Robust check for Response vs Data
       let updated;
       if (res && typeof res.json === "function") {
-         // It is a Response
-         if (!res.ok) {
-            const txt = await res.text();
-            throw new Error(`Save failed (${res.status}): ${txt.slice(0, 200)}`);
-         }
-         updated = await res.json();
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(`Save failed (${res.status}): ${txt.slice(0, 200)}`);
+        }
+        updated = await res.json();
       } else {
-         // It is Data
-         if (!res) throw new Error("Save returned no data");
-         updated = res;
+        if (!res) throw new Error("Save returned no data");
+        updated = res;
       }
 
       console.log("✅ Backend response:", updated);
@@ -642,7 +633,7 @@ export default function SettingsPage() {
         ) {
           newLinks = [updated.links];
         } else {
-          newLinks = links; 
+          newLinks = links;
         }
       } catch {
         newLinks = links;
@@ -741,8 +732,8 @@ export default function SettingsPage() {
   };
 
   const handleSelectSuggestion = (place) => {
-    console.log("Selected place:", place); 
-    setSearchQuery(place.place_name); 
+    console.log("Selected place:", place);
+    setSearchQuery(place.place_name);
     const [longitude, latitude] = place.center;
     setViewport({
       latitude,
@@ -753,9 +744,9 @@ export default function SettingsPage() {
       latitude,
       longitude,
     });
-    setSuggestions([]); 
-    setIsUserInteracted(true); 
-    setErrorMessage(""); 
+    setSuggestions([]);
+    setIsUserInteracted(true);
+    setErrorMessage("");
   };
 
   const handleSearch = async () => {
@@ -782,7 +773,7 @@ export default function SettingsPage() {
           zoom: 14,
         }));
         setMarker({ latitude, longitude });
-        setIsUserInteracted(true); 
+        setIsUserInteracted(true);
         setErrorMessage("");
       } else {
         setErrorMessage("Location not found. Please try again.");
@@ -793,8 +784,8 @@ export default function SettingsPage() {
   };
 
   const handleMarkerChange = async (newMarker) => {
-    console.log("New marker selected:", newMarker); 
-    setMarker(newMarker); 
+    console.log("New marker selected:", newMarker);
+    setMarker(newMarker);
     setViewport((prev) => ({
       ...prev,
       latitude: newMarker.latitude,
@@ -808,8 +799,8 @@ export default function SettingsPage() {
       const data = await res.json();
 
       if (data.features && data.features.length > 0) {
-        setSearchQuery(data.features[0].place_name); 
-        setIsUserInteracted(true); 
+        setSearchQuery(data.features[0].place_name);
+        setIsUserInteracted(true);
       }
     } catch (error) {
       console.error("Reverse geocoding failed:", error);
@@ -846,8 +837,8 @@ export default function SettingsPage() {
 
       if (data.features && data.features.length > 0) {
         const placeName = data.features[0].place_name;
-        setLocation(placeName); 
-        setSearchQuery(placeName); 
+        setLocation(placeName);
+        setSearchQuery(placeName);
       } else {
         const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         setLocation(fallback);
@@ -891,16 +882,16 @@ export default function SettingsPage() {
     <div
       className={`${inter.className} min-h-screen bg-[#050015] text-white py-10 px-4`}
     >
-      <div className="max-w-[940px] mx-auto flex gap-10">
-        {/* Left Sidebar */}
-        <aside className="w-[220px] flex-shrink-0">
+      <div className="max-w-[940px] mx-auto flex flex-col md:flex-row gap-6 md:gap-10">
+        {/* Left Sidebar (Top Nav on Mobile) */}
+        <aside className="w-full md:w-[220px] flex-shrink-0 mb-6 md:mb-0">
           <Link
             href={`/home/profile/${userId ?? ""}`}
             className="flex items-center gap-2 mb-6 text-white/70 hover:text-white"
           >
             <ChevronLeft className="w-5 h-5" /> Back to Profile
           </Link>
-          <nav className="flex flex-col gap-2">
+          <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 whitespace-nowrap hide-scrollbar">
             {menuItems.map((item) => (
               <button
                 key={item.key}
@@ -918,8 +909,8 @@ export default function SettingsPage() {
         </aside>
 
         {/* Right Content */}
-        <main className="flex-1">
-          <h1 className="text-3xl font-semibold mb-6">
+        <main className="flex-1 w-full">
+          <h1 className="text-2xl md:text-3xl font-semibold mb-6">
             {menuItems.find((m) => m.key === activeTab)?.label} Settings
           </h1>
 
@@ -938,8 +929,8 @@ export default function SettingsPage() {
               {/* Profile Picture */}
               <section className="mb-8">
                 <p className="mb-2 text-sm text-white/70">Profile Picture</p>
-                <div className="flex items-center gap-4">
-                  <div className="relative w-[200px] h-[200px] rounded-full overflow-hidden border border-white/20 bg-[#0B0420]">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                  <div className="relative w-[150px] h-[150px] sm:w-[200px] sm:h-[200px] rounded-full overflow-hidden border border-white/20 bg-[#0B0420]">
                     {file ? (
                       <img
                         src={previewUrl}
@@ -951,13 +942,18 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handlePickImage}
-                    className="bg-[#0038FF] px-5 py-2 rounded-[10px] shadow hover:bg-[#1a4dff] text-sm"
-                  >
-                    Change
-                  </button>
+                  <div className="flex flex-col items-center sm:items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePickImage}
+                      className="bg-[#0038FF] px-5 py-2 rounded-[10px] shadow hover:bg-[#1a4dff] text-sm"
+                    >
+                      Change
+                    </button>
+                    <p className="text-xs text-white/40 text-center sm:text-left max-w-[200px]">
+                      JPG or PNG up to 5MB. Square images work best.
+                    </p>
+                  </div>
 
                   <input
                     ref={fileInputRef}
@@ -968,10 +964,6 @@ export default function SettingsPage() {
                     className="hidden"
                   />
                 </div>
-
-                <p className="mt-2 text-s text-white/40">
-                  JPG or PNG up to 5MB. Square images work best.
-                </p>
               </section>
 
               {/* First Name */}
@@ -1032,7 +1024,7 @@ export default function SettingsPage() {
                       value={bio}
                       onChange={(e) => {
                         setBio(e.target.value);
-                        setCharCount(e.target.value.length); 
+                        setCharCount(e.target.value.length);
                       }}
                       rows={3}
                       maxLength={300}
@@ -1067,7 +1059,7 @@ export default function SettingsPage() {
                       if (editUsername) {
                         setUsernameError("");
                         setIsCheckingUsername(false);
-                        setError(""); 
+                        setError("");
                       }
                     }}
                   />
@@ -1080,7 +1072,7 @@ export default function SettingsPage() {
                       onChange={(e) => {
                         setUsername(e.target.value);
                         setSaved(false);
-                        setUsernameError(""); 
+                        setUsernameError("");
                       }}
                       className={`w-full px-4 py-3 bg-[#120A2A] border rounded-[10px] text-white text-sm ${
                         usernameError ? "border-red-500" : "border-white/40"
@@ -1223,7 +1215,7 @@ export default function SettingsPage() {
                           fetchSuggestions(e.target.value);
                           setSaved(false);
                         }}
-                        placeholder="Search for your location here..."
+                        placeholder="Search location..."
                         onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                         className="w-full h-[50px] sm:h-[57px] pl-12 pr-12 rounded-[12px] sm:rounded-[15px] border border-[rgba(255,255,255,0.4)] bg-[#120A2A] text-white text-[14px] sm:text-[16px] shadow focus:outline-none"
                       />
@@ -1252,7 +1244,7 @@ export default function SettingsPage() {
                       <Map
                         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
                         initialViewState={viewport}
-                        viewState={viewport} 
+                        viewState={viewport}
                         style={{ width: "100%", height: "100%" }}
                         mapStyle="mapbox://styles/mapbox/streets-v11"
                         onMove={(evt) => setViewport(evt.viewState)}
@@ -1265,7 +1257,7 @@ export default function SettingsPage() {
                             ...prev,
                             longitude: lng,
                             latitude: lat,
-                            zoom: prev.zoom < 12 ? 12 : prev.zoom, 
+                            zoom: prev.zoom < 12 ? 12 : prev.zoom,
                           }));
 
                           reverseGeocode(lng, lat);
@@ -1308,7 +1300,7 @@ export default function SettingsPage() {
                 </div>
 
                 {editLinks ? (
-                  <div className="flex-1 min-w-[200px] sm:min-w-[400px] text-left">
+                  <div className="flex-1 w-full min-w-0 text-left">
                     <div className="max-h-[200px] sm:max-h-[310px] overflow-y-auto custom-scrollbar">
                       {links.map((link, index) => (
                         <div
@@ -1341,19 +1333,19 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 ) : (
-                  <div>
+                  <div className="w-full overflow-hidden break-words">
                     {links.filter((l) => l.trim() !== "").length > 0 ? (
                       <ul className="list-disc list-inside text-white/80">
                         {links
-                          .filter((raw) => raw.trim() !== "") 
+                          .filter((raw) => raw.trim() !== "")
                           .map((raw, index) => {
                             const displayText = raw.trim();
                             const href = displayText.startsWith("http")
                               ? displayText
-                              : `https://${displayText}`; 
+                              : `https://${displayText}`;
 
                             return (
-                              <li key={index}>
+                              <li key={index} className="truncate">
                                 <a
                                   href={href}
                                   target="_blank"
@@ -1402,7 +1394,7 @@ export default function SettingsPage() {
           onClose={() => setConfirmOpen(false)}
           onConfirm={async () => {
             setConfirmOpen(false);
-            await handleSave(); 
+            await handleSave();
           }}
           saving={saving}
         />
@@ -1420,9 +1412,9 @@ export default function SettingsPage() {
     if (!isOpen) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]">
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4">
         <div
-          className="w-[420px] min-h-[200px] flex flex-col items-center justify-center p-8 relative text-center"
+          className="w-full max-w-[420px] min-h-[200px] flex flex-col items-center justify-center p-8 relative text-center"
           style={{
             background: "rgba(0, 0, 0, 0.4)",
             border: "2px solid #0038FF",
@@ -1459,10 +1451,10 @@ export default function SettingsPage() {
 function ConfirmSaveModal({ isOpen, onClose, onConfirm, saving }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
-        className="relative w-[420px] p-6 bg-black/70 border-2 border-[#0038FF] rounded-[12px] shadow-[0px_4px_15px_#D78DE5] z-50"
+        className="relative w-full max-w-[420px] p-6 bg-black/70 border-2 border-[#0038FF] rounded-[12px] shadow-[0px_4px_15px_#D78DE5] z-50"
         role="dialog"
         aria-modal="true"
       >
