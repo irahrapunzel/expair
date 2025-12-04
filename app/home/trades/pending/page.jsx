@@ -1160,7 +1160,7 @@ export default function PendingTradesPage() {
                       ? "w-[945px]"
                       : "w-[455px]"
                     } transition-all duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${isClickable ? "cursor-pointer" : "cursor-default"
-                      } p-[25px] flex flex-col gap-[15px] relative`}
+                      } flex flex-col gap-[15px] relative`}
                     style={{
                       background:
                         "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
