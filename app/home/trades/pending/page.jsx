@@ -1342,7 +1342,7 @@ export default function PendingTradesPage() {
 
                           <p className="text-[15px] text-[rgba(255,255,255,0.60)]">
                             {trade.tradeDetails?.reqbio ||
-                              `Trade request: ${trade.needs}`}
+                              `Trade request: ${trade.offers} in exchange for ${trade.needs}`}
                           </p>
                         </div>
 
