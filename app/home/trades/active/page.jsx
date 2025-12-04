@@ -1203,7 +1203,7 @@ export default function ActiveTradesPage() {
                       </div>
 
                       {/* Action Buttons with Status */}
-                      <div className="flex flex-wrap justify-end items-center gap-2 md:gap-[15px]">
+                      <div className="flex flex-nowrap justify-end items-center gap-2 md:gap-[15px]">
                         {/* Status Badge */}
                         <div
                           className={`flex justify-center items-center h-[38px] px-3 md:px-[25px] py-[13px] rounded-[15px] ${
