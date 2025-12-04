@@ -958,7 +958,7 @@ export default function PendingTradesPage() {
             You haven't expressed interest in any trades yet.
           </div>
         ) : (
-          <div className="flex flex-wrap justify-center md:justify-between gap-x-[30px] gap-y-[25px] w-full">
+          <div className="flex flex-wrap justify-center md:justify-between gap-y-[25px] w-full max-w-[940px]">
             {initiatedTrades.map((trade, index) => (
               <div key={trade.id} className="relative w-full md:w-auto">
                 <div
@@ -1144,7 +1144,7 @@ export default function PendingTradesPage() {
             No trades ready for confirmation yet.
           </div>
         ) : (
-          <div className="flex flex-wrap justify-center md:justify-between gap-x-[30px] gap-y-[25px] w-full">
+          <div className="flex flex-wrap justify-center md:justify-between gap-y-[25px] w-full max-w-[940px]">
             {finalizationTrades.map((trade, index) => {
               const bothSubmitted =
                 trade.detailsStatus?.submission_status?.both_submitted;
