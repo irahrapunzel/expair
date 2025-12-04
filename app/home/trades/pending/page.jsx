@@ -1156,13 +1156,11 @@ export default function PendingTradesPage() {
                   className={`relative w-full md:w-auto ${isClickable ? "opacity-100" : "opacity-100"}`}
                 >
                   <div
-                    className={`${
-                      expandedFinalizationCardId === trade.id
-                        ? "w-full md:w-[920px]" 
-                        : "w-full md:w-[455px]"
-                    } transition-all duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${
-                      isClickable ? "cursor-pointer" : "cursor-default"
-                    } flex flex-col gap-[15px] relative max-w-full`} 
+                    className={`${expandedFinalizationCardId === trade.id
+                      ? "w-full md:w-[920px]"
+                      : "w-full md:w-[455px]"
+                    } transition-all duration-300 hover:scale-[1.01] rounded-[20px] border-[3px] border-[#6DDFFF]/80 ${isClickable ? "cursor-pointer" : "cursor-default"
+                      } flex flex-col gap-[15px] relative max-w-full`}
                     style={{
                       background:
                         "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -1177,290 +1175,287 @@ export default function PendingTradesPage() {
                     {expandedFinalizationCardId === trade.id ? (
                       // Expanded View - Full Card with Image
                       <div>
-                        {/* Header */}
-                        <div className="p-4 md:p-[25px] pb-[15px] flex justify-between items-start">
-                          <div className="flex items-start gap-[10px]">
-                            {/* Clickable Profile Picture */}
-                            {(() => {
-                              const otherUser = trade.is_requester
-                                ? trade.responder
-                                : trade.requester;
-                              return otherUser?.username;
-                            })() ? (
-                              <Link
-                                href={`/home/profile/${
-                                  trade.is_requester
-                                    ? trade.responder.username
-                                    : trade.requester.username
-                                }`}
-                                className="flex-shrink-0"
+                            {/* Header */}
+                            <div className="p-4 md:p-[25px] pb-[15px] flex justify-between items-start">
+                              <div className="flex items-start gap-[10px]">
+                                {/* Clickable Profile Picture */}
+                                {(() => {
+                                  const otherUser = trade.is_requester
+                                    ? trade.responder
+                                    : trade.requester;
+                                  return otherUser?.username;
+                                })() ? (
+                                  <Link
+                                    href={`/home/profile/${
+                                      trade.is_requester
+                                        ? trade.responder.username
+                                        : trade.requester.username
+                                    }`}
+                                    className="flex-shrink-0"
+                                  >
+                                    <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#284CCC] transition-all">
+                                      <Image
+                                        src={
+                                          trade.other_user_profile_pic || "/assets/defaultavatar.png"
+                                        }
+                                        alt={`${trade.name}'s profile picture`}
+                                        width={25}
+                                        height={25}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.src = "/assets/defaultavatar.png";
+                                        }}
+                                        unoptimized={trade.other_user_profile_pic?.startsWith("http")}
+                                      />
+                                    </div>
+                                  </Link>
+                                ) : (
+                                  <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
+                                    <Image
+                                      src={
+                                        trade.other_user_profile_pic || "/assets/defaultavatar.png"
+                                      }
+                                      alt={`${trade.name}'s profile picture`}
+                                      width={25}
+                                      height={25}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.src = "/assets/defaultavatar.png";
+                                      }}
+                                      unoptimized={trade.other_user_profile_pic?.startsWith("http")}
+                                    />
+                                  </div>
+                                )}
+
+                                <div>
+                                  {/* Clickable Name */}
+                                  {(() => {
+                                    const otherUser = trade.is_requester
+                                      ? trade.responder
+                                      : trade.requester;
+                                    return otherUser?.username;
+                                  })() ? (
+                                    <Link
+                                      href={`/home/profile/${
+                                        trade.is_requester
+                                          ? trade.responder.username
+                                          : trade.requester.username
+                                      }`}
+                                      className="hover:text-[#284CCC] transition-colors"
+                                    >
+                                      <h3 className="text-[16px] font-normal cursor-pointer">
+                                        {trade.name}
+                                      </h3>
+                                    </Link>
+                                  ) : (
+                                    <h3 className="text-[16px] font-normal text-white">
+                                      {trade.name}
+                                    </h3>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Cancel Button (Replaces Report button position) */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowCancelModalForCard(trade.id);
+                                }}
+                                className="flex items-center justify-center w-8 h-8 text-white hover:text-red-400 rounded-lg transition-colors"
+                                title="Cancel trade"
                               >
-                                <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#284CCC] transition-all">
+                                <Icon
+                                  icon="lucide:x-circle"
+                                  className="text-lg"
+                                />
+                              </button>
+                            </div>
+
+                            {/* Context Image - Only show if contextpic exists */}
+                            {trade.tradeDetails?.contextpic && (
+                              <div className="px-4 md:px-[25px] pb-[20px]">
+                                <div className="w-full h-[200px] md:h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
                                   <Image
                                     src={
-                                      trade.other_user_profile_pic ||
-                                      "/assets/defaultavatar.png"
+                                      trade.tradeDetails.contextpic.startsWith("http")
+                                        ? trade.tradeDetails.contextpic
+                                        : `${process.env.NEXT_PUBLIC_BACKEND_URL}${trade.tradeDetails.contextpic}`
                                     }
-                                    alt={`${trade.name}'s profile picture`}
-                                    width={25}
-                                    height={25}
+                                    alt="Trade Context"
+                                    width={900}
+                                    height={300}
                                     className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.src = "/assets/defaultavatar.png";
-                                    }}
-                                    unoptimized={trade.other_user_profile_pic?.startsWith(
-                                      "http"
-                                    )}
+                                    unoptimized={trade.tradeDetails.contextpic.startsWith("http")}
                                   />
                                 </div>
-                              </Link>
-                            ) : (
-                              <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 flex-shrink-0">
-                                <Image
-                                  src={
-                                    trade.other_user_profile_pic ||
-                                    "/assets/defaultavatar.png"
-                                  }
-                                  alt={`${trade.name}'s profile picture`}
-                                  width={25}
-                                  height={25}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.src = "/assets/defaultavatar.png";
-                                  }}
-                                  unoptimized={trade.other_user_profile_pic?.startsWith(
-                                    "http"
-                                  )}
-                                />
                               </div>
                             )}
 
-                            <div>
-                              {/* Clickable Name */}
-                              {(() => {
-                                const otherUser = trade.is_requester
-                                  ? trade.responder
-                                  : trade.requester;
-                                return otherUser?.username;
-                              })() ? (
-                                <Link
-                                  href={`/home/profile/${
-                                    trade.is_requester
-                                      ? trade.responder.username
-                                      : trade.requester.username
-                                  }`}
-                                  className="hover:text-[#284CCC] transition-colors"
-                                >
-                                  <h3 className="text-[16px] font-normal cursor-pointer break-all">
-                                    {trade.name}
-                                  </h3>
-                                </Link>
-                              ) : (
-                                <h3 className="text-[16px] font-normal text-white break-all">
-                                  {trade.name}
-                                </h3>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Cancel Button */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowCancelModalForCard(trade.id);
-                            }}
-                            className="flex items-center justify-center w-8 h-8 text-white hover:text-red-400 rounded-lg transition-colors"
-                            title="Cancel trade"
-                          >
-                            <Icon icon="lucide:x-circle" className="text-lg" />
-                          </button>
-                        </div>
-
-                        {/* Context Image */}
-                        {trade.tradeDetails?.contextpic && (
-                          <div className="px-4 md:px-[25px] pb-[20px]">
-                            <div className="w-full h-[200px] md:h-[321px] rounded-[15px] overflow-hidden shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
-                              <Image
-                                src={
-                                  trade.tradeDetails.contextpic.startsWith("http")
-                                    ? trade.tradeDetails.contextpic
-                                    : `${process.env.NEXT_PUBLIC_BACKEND_URL}${trade.tradeDetails.contextpic}`
-                                }
-                                alt="Trade Context"
-                                width={900}
-                                height={300}
-                                className="w-full h-full object-cover"
-                                unoptimized={trade.tradeDetails.contextpic.startsWith(
-                                  "http"
-                                )}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Trade Details */}
-                        <div className="px-4 md:px-[25px] pb-[20px]">
-                          {/* Row 1: Requested Badge + XP */}
-                          <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
-                                <span className="text-[14px] md:text-[16px] text-white">
-                                  Requested {trade.offers}
-                                </span>
-                              </div>
-                            </div>
-                            <span className="text-[16px] font-semibold text-[#906EFF]">
-                              {trade.tradeDetails?.total_xp || 111} XP
-                            </span>
-                          </div>
-
-                          <div className="flex flex-col gap-4">
-                            {/* Row 2: Tags and Due Date */}
-                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between w-full gap-3 md:gap-0">
-                              <div className="flex flex-wrap gap-2 md:gap-[15px]">
-                                {getTradeDetailTags(trade).map((tag, tagIndex) => (
-                                  <div
-                                    key={tagIndex}
-                                    className="px-[15px] py-[4px] border-[2px] border-white rounded-[15px]"
-                                  >
-                                    <span className="text-[13px] font-normal text-white">
-                                      {tag}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                              <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap ml-0 md:ml-4">
-                                Due on {trade.until}
-                              </span>
-                            </div>
-
-                            {/* Row 3: In Exchange Badge */}
-                            <div>
-                              <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
-                                <span className="text-[14px] md:text-[16px] text-white">
-                                  In exchange for {trade.needs}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Row 4: Bio/Description */}
-                            <p className="h-auto text-[15px] text-[rgba(255,255,255,0.60)] whitespace-pre-wrap break-words">
-                              {trade.tradeDetails?.reqbio ||
-                                `Trade request: ${trade.offers} in exchange for ${trade.needs}`}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="px-4 md:px-[25px] pb-[25px] flex flex-wrap justify-between items-center gap-4 md:gap-0">
-                          {/* Collapse Button */}
-                          <button
-                            className="flex items-center justify-center"
-                            onClick={() => toggleFinalizationCardExpand(trade.id)}
-                          >
-                            <Icon
-                              icon="lucide:chevron-up"
-                              className="w-[30px] h-[30px] text-white"
-                            />
-                          </button>
-
-                          {/* Action Buttons Group */}
-                          <div className="flex items-center gap-[15px]">
-                            <Tooltip
-                              content="Expair's tailored AI will evaluate your trade using task difficulty, time, and skills. Make sure to add all details before you can run the evaluation."
-                              position="left"
-                            >
-                              <button
-                                className={`relative h-[38px] flex justify-center items-center rounded-[15px] transition-colors p-[2px] ${
-                                  trade.detailsStatus?.submission_status?.both_submitted
-                                    ? "w-[120px] cursor-pointer"
-                                    : "w-[170px] cursor-not-allowed opacity-50"
-                                }`}
-                                disabled={
-                                  !trade.detailsStatus?.submission_status?.both_submitted
-                                }
-                                style={{
-                                  background: trade.detailsStatus?.submission_status
-                                    ?.both_submitted
-                                    ? "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"
-                                    : "#413663",
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  if (
-                                    trade.detailsStatus?.submission_status?.both_submitted
-                                  ) {
-                                    setSelectedTrade({
-                                      tradereq_id: trade.trade_request_id,
-                                      requestTitle: trade.needs,
-                                      offerTitle: trade.offers,
-                                      taskComplexity: 10,
-                                      timeCommitment: 50,
-                                      skillLevel: 80,
-                                      feedback:
-                                        trade.tradeDetails?.reqbio ||
-                                        `Trade request: ${trade.needs} in exchange for ${trade.offers}`,
-                                      evaluationStatus: trade.evaluationStatus,
-                                    });
-                                    setShowEvaluationDialog(true);
-                                  }
-                                }}
-                              >
-                                <div
-                                  className={`w-full h-full rounded-[13px] flex justify-center items-center ${
-                                    trade.detailsStatus?.submission_status?.both_submitted
-                                      ? "bg-[#120A2A]"
-                                      : "bg-[#413663]"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-[8px]">
-                                    <img
-                                      src="/assets/logos/White=Logo S.png"
-                                      alt="Logo"
-                                      className="w-[14px] h-[14px]"
-                                    />
-                                    <span className="text-[14px] text-white">
-                                      {trade.detailsStatus?.submission_status
-                                        ?.both_submitted
-                                        ? "Evaluate"
-                                        : "Waiting for details"}
+                            {/* Trade Details */}
+                            <div className="px-4 md:px-[25px] pb-[20px]">
+                              {/* Row 1: Requested Badge + XP */}
+                              <div className="flex justify-between items-center mb-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="px-[15px] py-[10px] bg-[rgba(40,76,204,0.2)] border-[2px] border-[#0038FF] rounded-[15px] inline-block max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
+                                    <span className="text-[14px] md:text-[16px] text-white">
+                                      Requested {trade.offers}
                                     </span>
                                   </div>
                                 </div>
-                              </button>
-                            </Tooltip>
+                                <span className="text-[16px] font-semibold text-[#906EFF]">
+                                  {trade.tradeDetails?.total_xp || 111} XP
+                                </span>
+                              </div>
 
-                            {/* Message Button */}
-                            <Link
-                              href={`/home/messages${
-                                getOtherUserUsername(trade)
-                                  ? `?user=${encodeURIComponent(
-                                      getOtherUserUsername(trade)
-                                    )}`
-                                  : ""
-                              }`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                            >
-                              <button className="min-w-[120px] h-[38px] flex justify-center items-center rounded-[15px] border-2 border-[#0038FF] bg-[#0038FF] shadow-[0_0_15px_#284CCC] hover:bg-[#1a4dff] transition-colors">
-                                <div className="flex items-center gap-[8px]">
-                                  <Icon
-                                    icon="lucide:message-square"
-                                    className="w-4 h-4 text-white"
-                                  />
-                                  <span className="text-[14px] font-normal text-white">
-                                    Message
+                              <div className="flex flex-col gap-4">
+                                {/* Row 2: Tags and Due Date */}
+                                <div className="flex flex-col md:flex-row items-start md:items-center justify-between w-full gap-3 md:gap-0">
+                                  <div className="flex flex-wrap gap-2 md:gap-[15px]">
+                                    {getTradeDetailTags(trade).map((tag, tagIndex) => (
+                                      <div
+                                        key={tagIndex}
+                                        className="px-[15px] py-[4px] border-[2px] border-white rounded-[15px]"
+                                      >
+                                        <span className="text-[13px] font-normal text-white">
+                                          {tag}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <span className="text-[13px] font-normal text-[rgba(255,255,255,0.60)] whitespace-nowrap ml-0 md:ml-4">
+                                    Due on {trade.until}
                                   </span>
                                 </div>
+
+                                {/* Row 3: In Exchange Badge */}
+                                <div>
+                                  <div className="px-[15px] py-[10px] bg-[rgba(144,110,255,0.2)] border-[2px] border-[#906EFF] rounded-[15px] inline-block">
+                                    <span className="text-[14px] md:text-[16px] text-white">
+                                      In exchange for {trade.needs}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Row 4: Bio/Description */}
+                                <p className="h-auto text-[15px] text-[rgba(255,255,255,0.60)] whitespace-pre-wrap break-words">
+                                  {trade.tradeDetails?.reqbio ||
+                                    `Trade request: ${trade.offers} in exchange for ${trade.needs}`}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="px-4 md:px-[25px] pb-[25px] flex flex-wrap justify-between items-center gap-4 md:gap-0">
+                              {/* Collapse Button */}
+                              <button
+                                className="flex items-center justify-center"
+                                onClick={() => toggleFinalizationCardExpand(trade.id)}
+                              >
+                                <Icon
+                                  icon="lucide:chevron-up"
+                                  className="w-[30px] h-[30px] text-white"
+                                />
                               </button>
-                            </Link>
+
+                              {/* Action Buttons Group */}
+                              <div className="flex items-center gap-[15px]">
+                                <Tooltip
+                                  content="Expair's tailored AI will evaluate your trade using task difficulty, time, and skills. Make sure to add all details before you can run the evaluation."
+                                  position="left"
+                                >
+                                  <button
+                                    className={`relative h-[38px] flex justify-center items-center rounded-[15px] transition-colors p-[2px] ${
+                                      trade.detailsStatus?.submission_status?.both_submitted
+                                        ? "w-[120px] cursor-pointer"
+                                        : "w-[170px] cursor-not-allowed opacity-50"
+                                    }`}
+                                    disabled={
+                                      !trade.detailsStatus?.submission_status?.both_submitted
+                                    }
+                                    style={{
+                                      background:
+                                        trade.detailsStatus?.submission_status?.both_submitted
+                                          ? "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"
+                                          : "#413663",
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      if (
+                                        trade.detailsStatus?.submission_status?.both_submitted
+                                      ) {
+                                        setSelectedTrade({
+                                          tradereq_id: trade.trade_request_id,
+                                          requestTitle: trade.needs,
+                                          offerTitle: trade.offers,
+                                          taskComplexity: 10,
+                                          timeCommitment: 50,
+                                          skillLevel: 80,
+                                          feedback:
+                                            trade.tradeDetails?.reqbio ||
+                                            `Trade request: ${trade.needs} in exchange for ${trade.offers}`,
+                                          evaluationStatus: trade.evaluationStatus,
+                                        });
+                                        setShowEvaluationDialog(true);
+                                      }
+                                    }}
+                                  >
+                                    <div
+                                      className={`w-full h-full rounded-[13px] flex justify-center items-center ${
+                                        trade.detailsStatus?.submission_status?.both_submitted
+                                          ? "bg-[#120A2A]"
+                                          : "bg-[#413663]"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-[8px]">
+                                        <img
+                                          src="/assets/logos/White=Logo S.png"
+                                          alt="Logo"
+                                          className="w-[14px] h-[14px]"
+                                        />
+                                        <span className="text-[14px] text-white">
+                                          {trade.detailsStatus?.submission_status
+                                            ?.both_submitted
+                                            ? "Evaluate"
+                                            : "Waiting for details"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </button>
+                                </Tooltip>
+
+                                {/* Message Button */}
+                                <Link
+                                  href={`/home/messages${
+                                    getOtherUserUsername(trade)
+                                      ? `?user=${encodeURIComponent(getOtherUserUsername(trade))}`
+                                      : ""
+                                  }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                  }}
+                                >
+                                  <button 
+                                      className="min-w-[120px] h-[38px] flex justify-center items-center rounded-[15px] border-2 border-[#0038FF] bg-[#0038FF] shadow-[0_0_15px_#284CCC] hover:bg-[#1a4dff] transition-colors"
+                                  >
+                                    <div className="flex items-center gap-[8px]">
+                                      <Icon
+                                        icon="lucide:message-square"
+                                        className="w-4 h-4 text-white"
+                                      />
+                                      <span className="text-[14px] font-normal text-white">
+                                        Message
+                                      </span>
+                                    </div>
+                                  </button>
+                                </Link>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
                     ) : (
                       // Collapsed View
+                      
+                      
                       <div
                         className="p-[25px] flex flex-col justify-between h-full"
                         onClick={(e) => {
@@ -1484,11 +1479,10 @@ export default function PendingTradesPage() {
                               return otherUser?.username;
                             })() ? (
                               <Link
-                                href={`/home/profile/${
-                                  trade.is_requester
-                                    ? trade.responder.username
-                                    : trade.requester.username
-                                }`}
+                                href={`/home/profile/${trade.is_requester
+                                  ? trade.responder.username
+                                  : trade.requester.username
+                                  }`}
                                 className="flex-shrink-0"
                               >
                                 <div className="w-[25px] h-[25px] rounded-full overflow-hidden bg-gray-400 cursor-pointer hover:ring-2 hover:ring-[#6DDFFF] transition-all">
@@ -1502,7 +1496,8 @@ export default function PendingTradesPage() {
                                     height={25}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
-                                      e.target.src = "/assets/defaultavatar.png";
+                                      e.target.src =
+                                        "/assets/defaultavatar.png";
                                     }}
                                     unoptimized={trade.other_user_profile_pic?.startsWith(
                                       "http"
@@ -1540,17 +1535,16 @@ export default function PendingTradesPage() {
                                 return otherUser?.username;
                               })() ? (
                                 <Link
-                                  href={`/home/profile/${
-                                    trade.is_requester
-                                      ? trade.responder.username
-                                      : trade.requester.username
-                                  }`}
-                                  className="text-[16px] text-white hover:text-[#6DDFFF] transition-colors cursor-pointer break-all"
+                                  href={`/home/profile/${trade.is_requester
+                                    ? trade.responder.username
+                                    : trade.requester.username
+                                    }`}
+                                  className="text-[16px] text-white hover:text-[#6DDFFF] transition-colors cursor-pointer"
                                 >
                                   <span>{trade.name}</span>
                                 </Link>
                               ) : (
-                                <span className="text-[16px] text-white break-all">
+                                <span className="text-[16px] text-white">
                                   {trade.name}
                                 </span>
                               )}
@@ -1590,8 +1584,14 @@ export default function PendingTradesPage() {
                                           gradientUnits="userSpaceOnUse"
                                           gradientTransform="translate(6.00002 6.66516) scale(6.09125 6.58732)"
                                         >
-                                          <stop offset="0.4" stopColor="#933BFF" />
-                                          <stop offset="1" stopColor="#34188D" />
+                                          <stop
+                                            offset="0.4"
+                                            stopColor="#933BFF"
+                                          />
+                                          <stop
+                                            offset="1"
+                                            stopColor="#34188D"
+                                          />
                                         </radialGradient>
                                         <linearGradient
                                           id="paint1_linear_1202_2090"
@@ -1602,7 +1602,10 @@ export default function PendingTradesPage() {
                                           gradientUnits="userSpaceOnUse"
                                         >
                                           <stop stopColor="white" />
-                                          <stop offset="0.5" stopColor="#999999" />
+                                          <stop
+                                            offset="0.5"
+                                            stopColor="#999999"
+                                          />
                                           <stop offset="1" stopColor="white" />
                                         </linearGradient>
                                       </defs>
@@ -1618,11 +1621,10 @@ export default function PendingTradesPage() {
                           <div className="flex items-center gap-2">
                             {!bothSubmitted && (
                               <Tooltip
-                                content={`Please wait for ${
-                                  trade.is_requester
-                                    ? trade.responder?.name?.split(" ")[0]
-                                    : trade.requester?.name?.split(" ")[0]
-                                } to fill out the details.`}
+                                content={`Please wait for ${trade.is_requester
+                                  ? trade.responder?.name?.split(" ")[0]
+                                  : trade.requester?.name?.split(" ")[0]
+                                  } to fill out the details.`}
                                 position="left"
                               >
                                 <div className="cursor-help">
@@ -1638,11 +1640,10 @@ export default function PendingTradesPage() {
                               trade.evaluationStatus?.current_user_response &&
                               !trade.evaluationStatus?.both_users_responded && (
                                 <Tooltip
-                                  content={`Waiting for ${
-                                    trade.is_requester
-                                      ? trade.responder?.name?.split(" ")[0]
-                                      : trade.requester?.name?.split(" ")[0]
-                                  } to respond to evaluation.`}
+                                  content={`Waiting for ${trade.is_requester
+                                    ? trade.responder?.name?.split(" ")[0]
+                                    : trade.requester?.name?.split(" ")[0]
+                                    } to respond to evaluation.`}
                                   position="left"
                                 >
                                   <div className="cursor-help">
@@ -1683,9 +1684,7 @@ export default function PendingTradesPage() {
                         <div className="flex justify-between items-start gap-4 flex-wrap w-full">
                           {/* Needs */}
                           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
-                            <span className="text-sm text-white/80 font-medium">
-                              Needs
-                            </span>
+                            <span className="text-sm text-white/80 font-medium">Needs</span>
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] 
                                         text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
@@ -1697,9 +1696,7 @@ export default function PendingTradesPage() {
 
                           {/* Can offer */}
                           <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-end">
-                            <span className="text-sm text-white/80 font-medium">
-                              Can offer
-                            </span>
+                            <span className="text-sm text-white/80 font-medium" >Can offer</span>
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] 
                                         text-sm text-white/90 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
@@ -1716,7 +1713,7 @@ export default function PendingTradesPage() {
                           </span>
                         </div>
                         {/* Buttons Row */}
-                        <div className="flex justify-between items-center w-full flex-wrap gap-2 md:gap-0">
+                        <div className="flex justify-between items-center w-full">
                           {(() => {
                             const currentUserSubmitted =
                               trade.detailsStatus?.current_user?.has_submitted;
@@ -1724,8 +1721,12 @@ export default function PendingTradesPage() {
                               ? trade.detailsStatus?.responder?.has_submitted
                               : trade.detailsStatus?.requester?.has_submitted;
                             const otherUserName = trade.is_requester
-                              ? trade.detailsStatus?.responder?.name?.split(" ")[0]
-                              : trade.detailsStatus?.requester?.name?.split(" ")[0];
+                              ? trade.detailsStatus?.responder?.name?.split(
+                                " "
+                              )[0]
+                              : trade.detailsStatus?.requester?.name?.split(
+                                " "
+                              )[0];
 
                             if (!currentUserSubmitted) {
                               return (
@@ -1776,25 +1777,27 @@ export default function PendingTradesPage() {
                           })()}
 
                           <button
-                            className={`relative h-[35px] flex justify-center items-center rounded-[10px] transition-colors p-[2px] ${
-                              trade.detailsStatus?.submission_status?.both_submitted
-                                ? "w-[120px] cursor-pointer"
-                                : "w-[170px] cursor-not-allowed opacity-50"
-                            }`}
+                            className={`relative h-[35px] flex justify-center items-center rounded-[10px] transition-colors p-[2px] ${trade.detailsStatus?.submission_status
+                              ?.both_submitted
+                              ? "w-[120px] cursor-pointer"
+                              : "w-[170px] cursor-not-allowed opacity-50"
+                              }`}
                             disabled={
-                              !trade.detailsStatus?.submission_status?.both_submitted
+                              !trade.detailsStatus?.submission_status
+                                ?.both_submitted
                             }
                             style={{
                               background: trade.detailsStatus?.submission_status
                                 ?.both_submitted
                                 ? "linear-gradient(90deg, #7E59F8 0%, #FFF 50%, #7E59F8 100%)"
-                                : "#413663",
+                                : "#413663"
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
                               if (
-                                trade.detailsStatus?.submission_status?.both_submitted
+                                trade.detailsStatus?.submission_status
+                                  ?.both_submitted
                               ) {
                                 setSelectedTrade({
                                   tradereq_id: trade.trade_request_id,
@@ -1810,13 +1813,11 @@ export default function PendingTradesPage() {
                               }
                             }}
                           >
-                            <div
-                              className={`w-full h-[30px] rounded-[8px] flex justify-center items-center ${
-                                trade.detailsStatus?.submission_status?.both_submitted
-                                  ? "bg-[#120A2A]"
-                                  : "bg-[#413663]"
-                              }`}
-                            >
+                            <div className={`w-full h-[30px] rounded-[8px] flex justify-center items-center ${trade.detailsStatus?.submission_status
+                              ?.both_submitted
+                              ? "bg-[#120A2A]"
+                              : "bg-[#413663]"
+                              }`}>
                               <div className="flex items-center gap-[8px] ">
                                 <img
                                   src="/assets/logos/White=Logo S.png"
@@ -1824,7 +1825,8 @@ export default function PendingTradesPage() {
                                   className="w-[14px] h-[14px]"
                                 />
                                 <span className="text-[13px] text-white">
-                                  {trade.detailsStatus?.submission_status?.both_submitted
+                                  {trade.detailsStatus?.submission_status
+                                    ?.both_submitted
                                     ? "Evaluate"
                                     : "Waiting for details"}
                                 </span>
@@ -1839,6 +1841,8 @@ export default function PendingTradesPage() {
               );
             })}
           </div>
+        )}
+      </div>
 
       {/* Offers Popup */}
       <OffersPopup
