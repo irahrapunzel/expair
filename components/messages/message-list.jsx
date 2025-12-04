@@ -146,7 +146,7 @@ export default function MessageList({ conversations = [], selectedId, onSelect, 
                     alt={conversation.name || "User"}
                     width={45}
                     height={45}
-                    className="rounded-full"
+                    className="rounded-full object-cover"
                     onError={(e) => {
                       e.currentTarget.src = "/assets/defaultavatar.png";
                     }}

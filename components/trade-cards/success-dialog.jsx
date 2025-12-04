@@ -192,7 +192,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                   {/* Left Box: Service Request */}
                   <div className="w-full sm:flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg sm:border-none">
                     <span 
-                      className="text-[14px] truncate block" 
+                      className="text-[16px] truncate block" 
                       title={trade?.requested || trade?.reqname || "Service Request"}
                     >
                       {trade?.requested || trade?.reqname || "Service Request"}
@@ -204,7 +204,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                   {/* Right Box: Skill Exchange */}
                   <div className="w-full sm:flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg sm:border-none">
                     <span 
-                      className="text-[14px] truncate block"
+                      className="text-[16px] truncate block"
                       title={trade?.offering || trade?.exchange || "Skill Exchange"}
                     >
                       {trade?.offering || trade?.exchange || "Skill Exchange"}
@@ -303,7 +303,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                   {/* Left Box */}
                   <div className="w-full sm:flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg sm:border-none">
                     <span 
-                      className="text-[14px] truncate block" 
+                      className="text-[16px] truncate block" 
                       title={trade?.requested || trade?.reqname || "Service Request"}
                     >
                       {trade?.requested || trade?.reqname || "Service Request"}
@@ -315,7 +315,7 @@ export default function SuccessDialog({ isOpen, onClose, trade }) {
                   {/* Right Box */}
                   <div className="w-full sm:flex-1 min-w-0 px-3 py-2 border border-white/10 rounded-lg sm:border-none">
                     <span 
-                      className="text-[14px] truncate block"
+                      className="text-[16px] truncate block"
                       title={trade?.offering || trade?.exchange || "Skill Exchange"}
                     >
                       {trade?.offering || trade?.exchange || "Skill Exchange"}
