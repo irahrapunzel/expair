@@ -374,6 +374,7 @@ export default function XpGainedDialog({
                           : "0px 0px 20px rgba(126, 89, 248, 0.6)") : "none"
                       }}
                     >
+                      {/* Inner glow effect */}
                       <div 
                         className="absolute inset-0 rounded-[100px] opacity-60"
                         style={{

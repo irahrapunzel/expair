@@ -875,7 +875,7 @@ export default function ActiveTradesPage() {
             return (
               <div
                 key={trade.id}
-                className={`w-full md:w-[945px] rounded-[20px] border-[3px] border-[#284CCC]/80 transition-all duration-300 hover:scale-[1.01] overflow-hidden`}
+                className={`w-full md:w-[945px] h-auto rounded-[20px] border-[3px] border-[#284CCC]/80 transition-all duration-300 hover:scale-[1.01] overflow-hidden`}
                 style={{
                   background:
                     "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
