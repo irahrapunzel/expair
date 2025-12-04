@@ -106,7 +106,7 @@ export default function SettingsPage() {
   const [searchQuery, setSearchQuery] = useState(location || "");
   const [suggestions, setSuggestions] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isUserInteracted, setIsUserInteracted] = useState(false); // Track user interaction
+  const [isUserInteracted, setIsUserInteracted] = useState(false); 
 
   const DEFAULT_AVATAR = "/assets/defaultavatar.png";
   const [previewUrl, setPreviewUrl] = useState(DEFAULT_AVATAR);
@@ -118,11 +118,6 @@ export default function SettingsPage() {
 
   const [details, setDetails] = useState("");
   const [charCount, setCharCount] = useState(0);
-
-  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
-  const [show2FAModal, setShow2FAModal] = useState(false);
-  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
-  const [twoFACode, setTwoFACode] = useState("");
 
   const handleDetailsChange = (e) => {
     const text = e.target.value;
@@ -139,26 +134,25 @@ export default function SettingsPage() {
 
   const menuItems = [
     { key: "profile", label: "Profile" },
-    { key: "privacy", label: "Privacy & Safety" },
   ];
 
   const checkAvailability = async (field, value) => {
-    // Check if the new username is the same as the original (no need to check API)
     if (
       field === "username" &&
       value.toLowerCase() === originalUsername.toLowerCase()
     ) {
-      return false; // Not taken (it's the current user's username)
+      return false; 
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl; // Use default if env is not set
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl; 
     if (!baseUrl) {
       console.error("[settings] NEXT_PUBLIC_BACKEND_URL is not set!");
       setError("Configuration Error: Backend URL not found.");
-      return true; // Block submission
+      return true; 
     }
 
     try {
+      // NOTE: Using native fetch here, which is fine
       const response = await fetch(`${baseUrl}/api/validate-field/`, {
         method: "POST",
         headers: {
@@ -183,13 +177,12 @@ export default function SettingsPage() {
       setError(
         `Network Error: Could not verify ${field} availability. Please try again.`
       );
-      return true; // Safer default: block submission on network failure
+      return true; 
     }
   };
 
   // for Username Validation
   useEffect(() => {
-    // Only check if username is changed and is not empty
     if (
       !debouncedUsername ||
       debouncedUsername.length < 3 ||
@@ -209,7 +202,7 @@ export default function SettingsPage() {
   }, [debouncedUsername, originalUsername]);
 
   useEffect(() => {
-    if (!session) return; // wait until session is ready
+    if (!session) return; 
 
     const run = async () => {
       try {
@@ -218,7 +211,8 @@ export default function SettingsPage() {
           {},
           session
         );
-        const data = await res.json();
+        // FIX 1: Handle if res is already data or a Response
+        const data = (res && typeof res.json === 'function') ? await res.json() : res;
         console.log("Me endpoint:", data);
       } catch (err) {
         console.error("[settings] load error", err);
@@ -229,22 +223,19 @@ export default function SettingsPage() {
   }, [session]);
 
   useEffect(() => {
-    console.log("🔍 Session object in Settings page:", session); // 👈 add here
+    console.log("🔍 Session object in Settings page:", session); 
 
     let uid = null;
 
-    // Get user identifier from URL params or pathname
     if (params?.userId) {
-      uid = params.userId; // This could be username or numeric ID
+      uid = params.userId; 
     } else if (pathname) {
-      // Extract username/ID from path like /profile/nehemmdizon/settings
       const m = pathname.match(/\/profile\/([^\/]+)/i);
       if (m) {
-        uid = m[1]; // This captures "nehemmdizon" or any user identifier
+        uid = m[1]; 
       }
     }
 
-    // Fallback to URL search params if needed
     if (!uid && typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
       uid = sp.get("uid");
@@ -260,11 +251,9 @@ export default function SettingsPage() {
       setError("");
       setSaved(false);
 
-      // Check if backend is available
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
       if (!backendUrl) {
         console.warn("[settings] No backend URL configured");
-        // Initialize with empty values
         setFirstName("");
         setLastName("");
         setUsername("");
@@ -273,8 +262,6 @@ export default function SettingsPage() {
         setLocation("");
         setLinks([]);
         setProfilePicUrl("/assets/defaultavatar.png");
-
-        // Store as original values (empty)
         setOriginalFirstName("");
         setOriginalLastName("");
         setOriginalUsername("");
@@ -282,7 +269,6 @@ export default function SettingsPage() {
         setOriginalBio("");
         setOriginalLocation("");
         setOriginalLinks([]);
-
         setLoading(false);
         return;
       }
@@ -292,43 +278,36 @@ export default function SettingsPage() {
 
         let url;
         if (userId != null) {
-          // Check if userId is numeric (user ID) or string (username)
           if (/^\d+$/.test(String(userId))) {
-            // It's a numeric ID - use the existing endpoint
             url = `${joinUrl(API_BASE, "users", String(userId))}/`;
           } else {
-            // It's a username - use the username endpoint
             url = `${joinUrl(API_BASE, "users", "username", String(userId))}/`;
           }
         } else {
-          // Fallback to /me endpoint for authenticated user
           url = `${joinUrl(API_BASE, "me")}/`;
         }
 
-        console.log(
-          "[callsite] calling authFetch for",
-          url,
-          "session preview:",
-          !!session,
-          session
-            ? session.access
-              ? "has access"
-              : Object.keys(session)
-            : session
-        );
-
         const res = await authFetch(url, { credentials: "include" });
-
-        if (!res.ok) {
-          const t = await res.text();
-          throw new Error(`Load failed (${res.status}): ${t.slice(0, 160)}`);
+        
+        // FIX 2: Check if 'res' is a Response object or plain data
+        let data;
+        if (res && typeof res.json === "function") {
+            // It is a standard Fetch Response
+            if (!res.ok) {
+              const t = await res.text();
+              throw new Error(`Load failed (${res.status}): ${t.slice(0, 160)}`);
+            }
+            data = await res.json();
+        } else {
+            // It is already parsed data (custom authFetch behavior)
+            if (!res) throw new Error("No data returned from server");
+            if (res.error) throw new Error(res.error); // Handle custom error objects
+            data = res;
         }
-        const data = await res.json();
 
         let linksValue = [];
 
         if (Array.isArray(data.links)) {
-          // ✅ Already an array, just clean each element
           linksValue = data.links.map((l) =>
             String(l)
               .replace(/^https?:\/\//, "")
@@ -382,7 +361,6 @@ export default function SettingsPage() {
           String(data.profilePic || "/assets/defaultavatar.png")
         );
 
-        // Store original values for change detection
         setOriginalFirstName(firstNameValue);
         setOriginalLastName(lastNameValue);
         setOriginalUsername(usernameValue);
@@ -397,7 +375,6 @@ export default function SettingsPage() {
           e.message.includes("ERR_CONNECTION_REFUSED")
         ) {
           setError("Backend server is not available.");
-          // Initialize with empty values so user can still interact with the form
           setOriginalUsername("");
           setOriginalEmailAdd("");
           setOriginalBio("");
@@ -413,14 +390,12 @@ export default function SettingsPage() {
     run();
   }, [userId]);
 
-  // Keep preview in sync with server photo when no new file is picked
   useEffect(() => {
     if (!file) {
       setPreviewUrl(profilePicUrl || DEFAULT_AVATAR);
     }
   }, [profilePicUrl, file]);
 
-  // When a new file is chosen, create/revoke an object URL
   useEffect(() => {
     if (!file) return;
     const objectUrl = URL.createObjectURL(file);
@@ -428,7 +403,6 @@ export default function SettingsPage() {
     return () => URL.revokeObjectURL(objectUrl);
   }, [file]);
 
-  // 📍 When location string changes (from DB or user typing), geocode it into coords
   useEffect(() => {
     if (!location) return;
 
@@ -459,7 +433,7 @@ export default function SettingsPage() {
       }
     };
 
-    fetchCoords(); // ✅ actually call it
+    fetchCoords(); 
   }, [location]);
 
   const norm = (v) => String(v ?? "").trim();
@@ -524,14 +498,11 @@ export default function SettingsPage() {
       return;
     }
 
-    // Check if backend is available
     const configuredBackendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl;
     if (!configuredBackendUrl) {
       console.warn("[settings] No backend URL configured, simulating save");
-      // Simulate save without backend
       setTimeout(() => {
-        // Update original values to current values (simulate successful save)
         setOriginalFirstName(firstName);
         setOriginalLastName(lastName);
         setOriginalUsername(username);
@@ -578,12 +549,10 @@ export default function SettingsPage() {
         fd.append("password", password);
       }
 
-      // --- Build cleanLinks: store exactly what user typed (trimmed) and validate
       const cleanLinks = (Array.isArray(links) ? links : [])
         .map((l) => (typeof l === "string" ? l.trim() : ""))
         .filter((l) => l.length > 0);
 
-      // Check if there are invalid links
       const invalidLinks = cleanLinks.filter(
         (l) => l.trim() !== "" && !isValidLink(l)
       );
@@ -592,10 +561,10 @@ export default function SettingsPage() {
           "One or more links are invalid. Please enter valid URLs (e.g. instagram.com/username)."
         );
         setSaving(false);
-        return; // Stop save here
+        return; 
       }
 
-      setLinkError(""); // Clear old error if all links valid
+      setLinkError(""); 
       fd.append("links", JSON.stringify(cleanLinks));
 
       const targetUrl =
@@ -614,15 +583,23 @@ export default function SettingsPage() {
         body: fd,
       });
 
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`Save failed (${res.status}): ${txt.slice(0, 200)}`);
+      // FIX 3: Robust check for Response vs Data
+      let updated;
+      if (res && typeof res.json === "function") {
+         // It is a Response
+         if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(`Save failed (${res.status}): ${txt.slice(0, 200)}`);
+         }
+         updated = await res.json();
+      } else {
+         // It is Data
+         if (!res) throw new Error("Save returned no data");
+         updated = res;
       }
 
-      const updated = await res.json();
       console.log("✅ Backend response:", updated);
 
-      // ✅ Extract new values from response
       const newFirstName = String(updated.first_name ?? firstName);
       const newLastName = String(updated.last_name ?? lastName);
       const newUsername = String(updated.username ?? username);
@@ -634,7 +611,6 @@ export default function SettingsPage() {
       console.log("🖼️ New profile pic URL from backend:", newProfilePic);
       console.log("🔍 Current session before update:", session);
 
-      // ✅ Update local state
       setFirstName(newFirstName);
       setLastName(newLastName);
       setUsername(newUsername);
@@ -643,10 +619,8 @@ export default function SettingsPage() {
       setLocation(newLocation);
       setProfilePicUrl(newProfilePic);
 
-      // ✅ CRITICAL: Update preview to Cloudinary URL (not blob)
       setPreviewUrl(newProfilePic);
 
-      // ✅ Update session for navbar
       await update({
         ...session,
         user: {
@@ -658,7 +632,6 @@ export default function SettingsPage() {
         },
       });
 
-      // Handle links
       let newLinks = [];
       try {
         if (Array.isArray(updated.links)) {
@@ -667,10 +640,9 @@ export default function SettingsPage() {
           typeof updated.links === "string" &&
           updated.links.trim() !== ""
         ) {
-          // If backend accidentally sends a string, wrap it in an array
           newLinks = [updated.links];
         } else {
-          newLinks = links; // fallback
+          newLinks = links; 
         }
       } catch {
         newLinks = links;
@@ -678,7 +650,6 @@ export default function SettingsPage() {
 
       setLinks(newLinks);
 
-      // Update original values after successful save
       setOriginalFirstName(newFirstName);
       setOriginalLastName(newLastName);
       setOriginalUsername(newUsername);
@@ -687,7 +658,6 @@ export default function SettingsPage() {
       setOriginalLocation(newLocation);
       setOriginalLinks(newLinks.filter((l) => l.trim() !== ""));
 
-      // ✅ Reset edit modes so fields go back to read-only
       setEditFirstName(false);
       setEditLastName(false);
       setEditBio(false);
@@ -696,7 +666,6 @@ export default function SettingsPage() {
       setEditLocation(false);
       setEditLinks(false);
 
-      // ✅ CRITICAL: Clear file state so preview uses Cloudinary URL
       setFile(null);
       setPassword("");
       setConfirmPassword("");
@@ -712,7 +681,6 @@ export default function SettingsPage() {
         setError(
           "Backend server is not available. Changes saved locally only."
         );
-        // Still update the original values to simulate save
         setOriginalUsername(username);
         setOriginalEmailAdd(emailAdd);
         setOriginalBio(bio);
@@ -728,7 +696,6 @@ export default function SettingsPage() {
   };
 
   const handleCancel = () => {
-    // Revert values to original
     setFirstName(originalFirstName);
     setLastName(originalLastName);
     setUsername(originalUsername);
@@ -740,7 +707,6 @@ export default function SettingsPage() {
     setPassword("");
     setConfirmPassword("");
 
-    // Revert all edit modes to read-only
     setEditFirstName(false);
     setEditLastName(false);
     setEditBio(false);
@@ -749,12 +715,10 @@ export default function SettingsPage() {
     setEditLocation(false);
     setEditLinks(false);
 
-    // Reset state
     setSaved(false);
     setError("");
   };
 
-  // Fetch autocomplete suggestions
   const fetchSuggestions = async (query) => {
     if (!query) {
       setSuggestions([]);
@@ -776,10 +740,9 @@ export default function SettingsPage() {
     }
   };
 
-  // Select suggestion
   const handleSelectSuggestion = (place) => {
-    console.log("Selected place:", place); // Debugging
-    setSearchQuery(place.place_name); // Set the location to the text field
+    console.log("Selected place:", place); 
+    setSearchQuery(place.place_name); 
     const [longitude, latitude] = place.center;
     setViewport({
       latitude,
@@ -790,12 +753,11 @@ export default function SettingsPage() {
       latitude,
       longitude,
     });
-    setSuggestions([]); // Clear suggestions
-    setIsUserInteracted(true); // User interacted with the location
-    setErrorMessage(""); // Clear error if location is valid
+    setSuggestions([]); 
+    setIsUserInteracted(true); 
+    setErrorMessage(""); 
   };
 
-  // Manual search via Enter or icon
   const handleSearch = async () => {
     if (!searchQuery) {
       setErrorMessage("Please enter a location to search.");
@@ -820,7 +782,7 @@ export default function SettingsPage() {
           zoom: 14,
         }));
         setMarker({ latitude, longitude });
-        setIsUserInteracted(true); // Mark that the user interacted with the location
+        setIsUserInteracted(true); 
         setErrorMessage("");
       } else {
         setErrorMessage("Location not found. Please try again.");
@@ -831,8 +793,8 @@ export default function SettingsPage() {
   };
 
   const handleMarkerChange = async (newMarker) => {
-    console.log("New marker selected:", newMarker); // Debugging
-    setMarker(newMarker); // Update marker state
+    console.log("New marker selected:", newMarker); 
+    setMarker(newMarker); 
     setViewport((prev) => ({
       ...prev,
       latitude: newMarker.latitude,
@@ -846,8 +808,8 @@ export default function SettingsPage() {
       const data = await res.json();
 
       if (data.features && data.features.length > 0) {
-        setSearchQuery(data.features[0].place_name); // Update searchQuery with place name
-        setIsUserInteracted(true); // User interacted with the map
+        setSearchQuery(data.features[0].place_name); 
+        setIsUserInteracted(true); 
       }
     } catch (error) {
       console.error("Reverse geocoding failed:", error);
@@ -875,7 +837,6 @@ export default function SettingsPage() {
     setSaved(false);
   };
 
-  // Reusable reverse geocoding
   const reverseGeocode = async (lng, lat) => {
     try {
       const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -885,8 +846,8 @@ export default function SettingsPage() {
 
       if (data.features && data.features.length > 0) {
         const placeName = data.features[0].place_name;
-        setLocation(placeName); // save to backend value
-        setSearchQuery(placeName); // reflect in input
+        setLocation(placeName); 
+        setSearchQuery(placeName); 
       } else {
         const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         setLocation(fallback);
@@ -900,11 +861,9 @@ export default function SettingsPage() {
     }
   };
 
-  // Basic link validator (allows example.com, sub.example.co.uk/path, etc.)
   const isValidLink = (url) => {
     const s = String(url || "").trim();
     if (!s) return false;
-    // Accept http://, https://, or no scheme
     return /^(https?:\/\/)?[\w\-]+(\.[\w\-]+)+([\/?#].*)?$/i.test(s);
   };
 
@@ -982,14 +941,12 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4">
                   <div className="relative w-[200px] h-[200px] rounded-full overflow-hidden border border-white/20 bg-[#0B0420]">
                     {file ? (
-                      // Use regular img for blob URLs
                       <img
                         src={previewUrl}
                         alt="Profile preview"
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      // Use ProfileAvatar for server URLs
                       <ProfileAvatar src={previewUrl} size={200} />
                     )}
                   </div>
@@ -1060,7 +1017,6 @@ export default function SettingsPage() {
               </section>
 
               {/* Bio */}
-              {/* Bio */}
               <section className="mb-8">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-white/70">Bio</p>
@@ -1076,7 +1032,7 @@ export default function SettingsPage() {
                       value={bio}
                       onChange={(e) => {
                         setBio(e.target.value);
-                        setCharCount(e.target.value.length); // ✅ update counter
+                        setCharCount(e.target.value.length); 
                       }}
                       rows={3}
                       maxLength={300}
@@ -1108,11 +1064,10 @@ export default function SettingsPage() {
                     className="w-4 h-4 text-white/60 cursor-pointer"
                     onClick={() => {
                       setEditUsername(!editUsername);
-                      // Clear error when toggling out of edit mode
                       if (editUsername) {
                         setUsernameError("");
                         setIsCheckingUsername(false);
-                        setError(""); // Also clear general error in case it's set
+                        setError(""); 
                       }
                     }}
                   />
@@ -1125,13 +1080,12 @@ export default function SettingsPage() {
                       onChange={(e) => {
                         setUsername(e.target.value);
                         setSaved(false);
-                        setUsernameError(""); // Clear error on change
+                        setUsernameError(""); 
                       }}
                       className={`w-full px-4 py-3 bg-[#120A2A] border rounded-[10px] text-white text-sm ${
                         usernameError ? "border-red-500" : "border-white/40"
                       }`}
                     />
-                    {/* NEW: Username validation feedback */}
                     {isCheckingUsername && (
                       <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
                         <Loader2 className="w-3 h-3 animate-spin" />
@@ -1143,7 +1097,6 @@ export default function SettingsPage() {
                         {usernameError}
                       </p>
                     )}
-                    {/* Display success only if different from original and not an error */}
                     {!isCheckingUsername &&
                       !usernameError &&
                       username.trim() !== "" &&
@@ -1170,7 +1123,6 @@ export default function SettingsPage() {
                 </div>
                 {editPassword ? (
                   <>
-                    {/* Password field with toggle */}
                     <div className="relative mb-3">
                       <input
                         type={showPassword ? "text" : "password"}
@@ -1195,7 +1147,6 @@ export default function SettingsPage() {
                       </button>
                     </div>
 
-                    {/* Confirm Password field with toggle */}
                     <div className="relative mb-2">
                       <input
                         type={showConfirmPassword ? "text" : "password"}
@@ -1259,7 +1210,6 @@ export default function SettingsPage() {
 
                 {editLocation ? (
                   <div className="relative w-full">
-                    {/* Search bar */}
                     <div className="relative w-full">
                       <Search
                         className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -1284,7 +1234,6 @@ export default function SettingsPage() {
                       />
                     </div>
 
-                    {/* Dropdown suggestions */}
                     {suggestions.length > 0 && (
                       <ul className="absolute top-full left-0 right-0 mt-1 bg-[#120A2A] border border-[rgba(255,255,255,0.4)] rounded-[15px] shadow-lg overflow-hidden z-20">
                         {suggestions.map((place) => (
@@ -1299,12 +1248,11 @@ export default function SettingsPage() {
                       </ul>
                     )}
 
-                    {/* Mapbox map */}
                     <div className="mt-4 h-64 w-full rounded-lg overflow-hidden">
                       <Map
                         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
                         initialViewState={viewport}
-                        viewState={viewport} // <-- bind viewport properly
+                        viewState={viewport} 
                         style={{ width: "100%", height: "100%" }}
                         mapStyle="mapbox://styles/mapbox/streets-v11"
                         onMove={(evt) => setViewport(evt.viewState)}
@@ -1317,7 +1265,7 @@ export default function SettingsPage() {
                             ...prev,
                             longitude: lng,
                             latitude: lat,
-                            zoom: prev.zoom < 12 ? 12 : prev.zoom, // keep zoom reasonable
+                            zoom: prev.zoom < 12 ? 12 : prev.zoom, 
                           }));
 
                           reverseGeocode(lng, lat);
@@ -1394,16 +1342,15 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <div>
-                    {/* ✅ filter out empty strings so they don't render as empty bullets */}
                     {links.filter((l) => l.trim() !== "").length > 0 ? (
                       <ul className="list-disc list-inside text-white/80">
                         {links
-                          .filter((raw) => raw.trim() !== "") // 🚫 no empty bullets
+                          .filter((raw) => raw.trim() !== "") 
                           .map((raw, index) => {
                             const displayText = raw.trim();
                             const href = displayText.startsWith("http")
                               ? displayText
-                              : `https://${displayText}`; // only prepend when actually creating href
+                              : `https://${displayText}`; 
 
                             return (
                               <li key={index}>
@@ -1425,7 +1372,6 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {/* 🚨 Validation error display */}
                 {linkError && (
                   <p className="text-red-400 text-sm mt-2">{linkError}</p>
                 )}
@@ -1449,132 +1395,6 @@ export default function SettingsPage() {
               </div>
             </>
           )}
-
-          {activeTab === "privacy" && (
-            <section className="flex flex-col gap-8">
-              {/* Two-Factor Authentication Section */}
-              <div className="p-6 border border-white/20 rounded-[15px] bg-[#120A2A]">
-                <h3 className="text-lg font-semibold mb-2 text-white">
-                  Two-Factor Authentication (2FA)
-                </h3>
-                <p className="text-white/70 mb-4 text-sm leading-relaxed">
-                  Add an extra layer of security to your account. When 2FA is
-                  enabled, you’ll need to enter a 6-digit verification code sent
-                  to your email whenever you log in from a new device.
-                </p>
-
-                {/* Toggle */}
-                <div className="flex items-center justify-end gap-3">
-                  <span className="text-white/90 text-sm">Enable 2FA</span>
-                  <button
-                    onClick={() => {
-                      if (!twoFAEnabled) setShow2FAModal(true);
-                      else setShowDisableConfirm(true);
-                    }}
-                    className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${
-                      twoFAEnabled ? "bg-[#0038FF]" : "bg-gray-600"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-[3px] left-[3px] w-5 h-5 rounded-full bg-white transition-transform duration-300 ${
-                        twoFAEnabled ? "translate-x-7" : ""
-                      }`}
-                    ></span>
-                  </button>
-                </div>
-              </div>
-
-              {/* 2FA Enable Modal */}
-              {show2FAModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                  <div className="bg-[#120A2A] border-2 border-[#0038FF] rounded-[15px] shadow-[0px_4px_15px_#284CCC] w-[420px] p-6 relative">
-                    <button
-                      className="absolute top-3 right-3 text-white/70 hover:text-white"
-                      onClick={() => setShow2FAModal(false)}
-                    >
-                      ✕
-                    </button>
-                    <h3 className="text-lg font-semibold text-white mb-3">
-                      Verify your email
-                    </h3>
-                    <p className="text-white/70 text-sm mb-4">
-                      We’ve sent a 6-digit verification code to your email.
-                      Enter it below to enable 2FA.
-                    </p>
-
-                    <input
-                      type="text"
-                      placeholder="Enter 6-digit code"
-                      maxLength={6}
-                      className="w-full px-4 py-3 text-center bg-[#0B0420] border border-white/30 rounded-[10px] text-white text-lg tracking-[6px]"
-                      value={twoFACode}
-                      onChange={(e) =>
-                        setTwoFACode(e.target.value.replace(/\D/g, ""))
-                      }
-                    />
-
-                    <div className="flex justify-end gap-3 mt-6">
-                      <button
-                        onClick={() => setShow2FAModal(false)}
-                        className="px-4 py-2 rounded-[8px] bg-[#1a1a3d] text-white/90 text-sm"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => {
-                          setTwoFAEnabled(true);
-                          setShow2FAModal(false);
-                          setTwoFACode("");
-                        }}
-                        disabled={twoFACode.length !== 6}
-                        className="px-4 py-2 rounded-[8px] bg-[#0038FF] text-white text-sm disabled:bg-[#0038FF]/50"
-                      >
-                        Verify
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Disable Confirmation Modal */}
-              {showDisableConfirm && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                  <div className="bg-[#120A2A] border-2 border-[#0038FF] rounded-[15px] shadow-[0px_4px_15px_#284CCC] w-[400px] p-6 relative">
-                    <button
-                      className="absolute top-3 right-3 text-white/70 hover:text-white"
-                      onClick={() => setShowDisableConfirm(false)}
-                    >
-                      ✕
-                    </button>
-                    <h3 className="text-lg font-semibold text-white mb-3">
-                      Disable Two-Factor Authentication?
-                    </h3>
-                    <p className="text-white/70 text-sm mb-5">
-                      You’ll no longer be asked for a verification code when
-                      logging in.
-                    </p>
-                    <div className="flex justify-end gap-3">
-                      <button
-                        onClick={() => setShowDisableConfirm(false)}
-                        className="px-4 py-2 rounded-[8px] bg-[#1a1a3d] text-white/90 text-sm"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => {
-                          setTwoFAEnabled(false);
-                          setShowDisableConfirm(false);
-                        }}
-                        className="px-4 py-2 rounded-[8px] bg-red-600 text-white text-sm hover:bg-red-700"
-                      >
-                        Disable
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
         </main>
         {/* Confirm before saving */}
         <ConfirmSaveModal
@@ -1582,7 +1402,7 @@ export default function SettingsPage() {
           onClose={() => setConfirmOpen(false)}
           onConfirm={async () => {
             setConfirmOpen(false);
-            await handleSave(); // call your existing handleSave
+            await handleSave(); 
           }}
           saving={saving}
         />
