@@ -3734,7 +3734,7 @@ export default function ProfilePage() {
         {/* SECTION 4: Trades You Posted */}
         {(isOwnProfile || !isOwnProfile) && (
           <div className="mb-10">
-            <h5 className="text-white text-lg font-semibold flex items-center gap-[15px] mb-[20px]">
+            <h5 className="text-white text-[20px] font-[500] mb-5">
               Trades
             </h5>
 
@@ -3751,7 +3751,7 @@ export default function ProfilePage() {
                 No trades to be seen here.
               </div>
             ) : (
-              <div className="flex flex-wrap gap-6 md:gap-[25px] justify-center md:justify-start">
+              <div className="flex flex-wrap justify-center md:justify-between gap-y-[25px] w-full">
                 {postedTrades.map((trade, index) => {
                   console.log(
                     "🪄 Rendering card:",
@@ -3764,10 +3764,10 @@ export default function ProfilePage() {
                       {isOwnProfile ? (
                         // ✅ OWNER VIEW CARD (delete + offers)
                         <div
-                          className="transition-all duration-300 hover:scale-[1.01] w-full md:w-[440px] min-h-[240px] h-auto p-5 md:p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+                          className="w-full md:w-[455px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[20px] sm:p-[25px] gap-[15px] flex flex-col relative transition-all duration-300 hover:scale-[1.01]"
                           style={{
                             background:
-                              "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
+                              "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
                             boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
                           }}
                         >
