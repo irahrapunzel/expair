@@ -2958,8 +2958,7 @@ export default function ProfilePage() {
             <ProfileAvatar
               src={user?.profilePic}
               alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
-              size={200}
-              className="shadow-[0_0_50px_#906EFF99] object-cover w-full h-full"
+              className="w-[150px] h-[150px] sm:w-[200px] sm:h-[200px]"
             />
           </div>
         </div>
