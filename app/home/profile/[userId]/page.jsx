@@ -2658,13 +2658,13 @@ export default function ProfilePage() {
 
     return (
       <div
-        className="flex flex-col gap-[20px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-[25px] relative transition-all duration-300 hover:scale-[1.01]"
+        className="flex flex-col gap-[20px] rounded-[20px] border-[3px] border-[#284CCC]/80 p-5 md:p-[25px] relative transition-all duration-300 hover:scale-[1.01]"
         style={{
           background:
             "radial-gradient(circle at top right, #3D2490 0%, #120A2A 69%)",
         }}
       >
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-4 md:gap-0">
           {/* User and Partner Avatars with 'X' separator, names, and date */}
           <div className="flex items-start gap-[15px]">
             <div className="flex flex-col">
@@ -2768,7 +2768,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Review Text Section */}
-          <div className="flex-1 flex flex-col gap-2 md:text-right">
+          <div className="flex-1 flex flex-col gap-2 text-left md:text-right">
             <p className="text-white text-base">{reviewDescription}</p>
           </div>
         </div>
@@ -2944,29 +2944,32 @@ export default function ProfilePage() {
   // Original Profile Page content
   return (
     <div
-      className={`w-[950px] mx-auto pt-10 pb-20 text-white ${inter.className}`}
+      className={`w-full max-w-[950px] mx-auto pt-10 pb-20 px-4 md:px-6 text-white ${inter.className}`}
     >
       {/* SECTION 0 - PAGE TITLE */}
       <h4 className="text-[22px] font-semibold mb-10">My Profile</h4>
 
       {/* SECTION 1 - BASIC INFORMATION */}
-      <div className="flex gap-[50px] relative">
-        {/* Profile Picture */}
-        <div className="w-[200px] h-[200px] relative flex-shrink-0">
-          <ProfileAvatar
-            src={user?.profilePic}
-            alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
-            size={200}
-            className="rounded-full shadow-[0_0_50px_#906EFF99] object-cover"
-          />
+      <div className="flex flex-col md:flex-row gap-10 md:gap-[50px] relative items-center md:items-start">
+
+        {/* Profile Picture - Center on mobile */}
+        <div className="w-[150px] h-[150px] md:w-[200px] md:h-[200px] relative flex-shrink-0 overflow-hidden rounded-full">
+          <div className="w-[150px] h-[150px] md:w-[200px] md:h-[200px] relative flex-shrink-0 overflow-hidden rounded-full">
+            <ProfileAvatar
+              src={user?.profilePic}
+              alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
+              size={200}
+              className="shadow-[0_0_50px_#906EFF99] object-cover w-full h-full"
+            />
+          </div>
         </div>
 
-        {/* Right Section */}
-        <div className="flex-1 flex flex-col">
-          {/* Top Row: Name + Verified Badge */}
-          <div className="flex items-center gap-6 mb-[5px]">
+        {/* Right Section - Info */}
+        <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left w-full">
+
+          <div className="flex flex-col md:flex-row items-center gap-2 md:gap-6 mb-[5px]">
             {basicInfoEditing ? (
-              <div className="flex gap-3">
+              <div className="flex flex-col md:flex-row gap-3">
                 <input
                   type="text"
                   placeholder="First name"
@@ -2983,10 +2986,12 @@ export default function ProfilePage() {
                 />
               </div>
             ) : (
-              <h3 className="text-[26px] font-semibold">
+              <h3 className="text-[22px] md:text-[26px] font-semibold break-words">
                 {`${user.firstname} ${user.lastname}`.trim() || "—"}
               </h3>
             )}
+
+            {/* Verified Badge */}
             {(user.is_verified ||
               verificationStatus?.toLowerCase() === "verified") && (
                 <div className="relative group">
@@ -3006,14 +3011,17 @@ export default function ProfilePage() {
                 </div>
               )}
           </div>
-          {/* Username + Joined Date */}
-          <div className="flex text-white/50 text-[16px] mb-[20px] gap-[25px]">
+
+          {/* Username + Joined */}
+          <div className="flex flex-col md:flex-row text-white/50 text-[14px] md:text-[16px] mb-[20px] gap-1 md:gap-[25px]">
             <span>@{user.username || "—"}</span>
+            <span className="hidden md:inline">•</span>
             <span>Joined {user.joined || "—"}</span>
           </div>
+
           {/* Buttons: Edit (only if own profile) */}
           {isOwnProfile ? (
-            <div className="absolute top-0 right-0 flex gap-4">
+            <div className="md:absolute top-0 right-0 flex gap-4 mb-4 md:mb-0">
               <button
                 className="text-white hover:bg-[#1A0F3E] px-3 py-2 flex items-center gap-2 rounded-[10px] transition"
                 onClick={() =>
@@ -3027,8 +3035,9 @@ export default function ProfilePage() {
           ) : (
             <div className="absolute top-0 right-0"></div>
           )}
+
           {/* Rating + Level */}
-          <div className="flex items-center gap-6 mb-[20px]">
+          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 mb-[20px]">
             <div className="flex items-center gap-2">
               <Icon
                 icon="lucide:star"
@@ -3048,7 +3057,7 @@ export default function ProfilePage() {
               </span>
 
               {/* Track */}
-              <div className="relative w-[220px] h-[20px] rounded-[32px] border-2 border-white overflow-hidden">
+              <div className="relative w-[180px] md:w-[220px] h-[20px] rounded-[32px] border-2 border-white overflow-hidden">
                 {/* Fill */}
                 <div
                   className="h-full rounded-[32px] transition-all duration-500"
@@ -3072,8 +3081,9 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
+
           {/* Bio */}
-          <div className="w-full mb-4">
+          <div className="w-full mb-4 text-sm md:text-base">
             {basicInfoEditing ? (
               <textarea
                 value={editableBio}
@@ -3155,9 +3165,10 @@ export default function ProfilePage() {
               )}
             </div>
           )}
+
           {/* Get Verified Button area */}
           {isOwnProfile && (
-            <div className="w-full flex justify-end items-center gap-3">
+            <div className="w-full flex justify-center md:justify-end items-center gap-3 mt-4 md:mt-0">
               {/* UNVERIFIED → Get Verified */}
               {verificationStatus === "unverified" && (
                 <button
@@ -3205,7 +3216,7 @@ export default function ProfilePage() {
 
       {/* ==== YOUR SKILLS ==== */}
       <div className="mt-[50px] flex flex-col gap-[25px]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-[15px]">
             <h5 className="text-lg font-semibold">Skills</h5>
 
@@ -3268,7 +3279,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-x-4 gap-y-[10px]">
+        <div className="flex flex-wrap gap-x-2 gap-y-2 md:gap-x-4 md:gap-y-[10px]">
           {selectedSkillGroups &&
             selectedSkillGroups.map((group, index) => (
               <div key={group.category} className="relative">
@@ -3353,7 +3364,7 @@ export default function ProfilePage() {
         </div>
 
         {showAddSkillForm && skillsEditing && (
-          <div className="mt-3 flex flex-col gap-3 bg-[#120A2A] p-4 rounded-[15px]">
+          <div className="mt-3 flex flex-col gap-3 bg-[#120A2A] p-4 rounded-[15px] w-full">
             <select
               value={addSkillCategory}
               onChange={(e) => {
@@ -3435,7 +3446,7 @@ export default function ProfilePage() {
 
       {/* ==== YOUR INTERESTS ==== */}
       <div className="mt-[50px] flex flex-col gap-[25px]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-[15px]">
             <h5 className="text-lg font-semibold">Interests</h5>
 
@@ -3491,7 +3502,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-[15px]">
+        <div className="flex flex-wrap gap-2 md:gap-[15px]">
           {userInterests.map((interest) => (
             <div
               key={interest}
@@ -3525,7 +3536,7 @@ export default function ProfilePage() {
         </div>
 
         {showAddInterestForm && interestsEditing && (
-          <div className="mt-3 flex flex-col gap-2 bg-[#120A2A] p-4 rounded-[15px]">
+          <div className="mt-3 flex flex-col gap-2 bg-[#120A2A] p-4 rounded-[15px] w-full">
             {/* fixed interests only — checkbox list */}
             {mainCategories.map((c) => (
               <label
@@ -3576,7 +3587,7 @@ export default function ProfilePage() {
 
         {/* SECTION 3 - Licenses & Certifications */}
         <div className="flex flex-col gap-[25px] mt-[25px]">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h5 className="text-white text-lg font-semibold flex items-center gap-[15px]">
               Licenses & Certifications
               {/* Edit all credentials button */}
@@ -3622,7 +3633,7 @@ export default function ProfilePage() {
           {/* The scrollable container for the credentials */}
           <div
             className={clsx(
-              "grid gap-[25px] grid-cols-2",
+              "grid gap-4 md:gap-[25px] grid-cols-1 md:grid-cols-2",
               !showAllCreds && "max-h-[420px] overflow-y-auto"
             )}
           >
@@ -3630,7 +3641,7 @@ export default function ProfilePage() {
               (userCredentials || []).map((cred, index) => (
                 <div
                   key={index}
-                  className="border border-white/20 rounded-[15px] p-[25px] flex flex-col justify-between relative"
+                  className="border border-white/20 rounded-[15px] p-5 md:p-[25px] flex flex-col justify-between relative"
                 >
                   {/* Pencil icon for editing a single credential */}
                   {isOwnProfile && (
@@ -3741,7 +3752,7 @@ export default function ProfilePage() {
                 No trades to be seen here.
               </div>
             ) : (
-              <div className="flex flex-wrap gap-[25px]">
+              <div className="flex flex-wrap gap-6 md:gap-[25px] justify-center md:justify-start">
                 {postedTrades.map((trade, index) => {
                   console.log(
                     "🪄 Rendering card:",
@@ -3750,19 +3761,17 @@ export default function ProfilePage() {
                     isOwnProfile
                   );
                   return (
-                    <div key={trade.id} className="relative">
+                    <div key={trade.id} className="relative w-full md:w-auto">
                       {isOwnProfile ? (
                         // ✅ OWNER VIEW CARD (delete + offers)
                         <div
-                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] h-[240px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
+                          className="transition-all duration-300 hover:scale-[1.01] w-full md:w-[440px] min-h-[240px] h-auto p-5 md:p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#D78DE5]/80"
                           style={{
                             background:
                               "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
                             boxShadow: "0px 5px 40px rgba(40, 76, 204, 0.2)",
                           }}
                         >
-                          {/* 💥 Copy-paste the header, needs, interested section, date & view button */}
-                          {/* Exactly the same structure from PendingTradesPage */}
 
                           {/* Header */}
                           <div className="flex justify-between items-start w-full">
@@ -3968,7 +3977,7 @@ export default function ProfilePage() {
                       ) : (
                         // 🌐 PUBLIC VIEW CARD (Explore-style)
                         <div
-                          className="transition-all duration-300 hover:scale-[1.01] w-[440px] min-h-[220px] p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
+                          className="transition-all duration-300 hover:scale-[1.01] w-full md:w-[440px] min-h-[220px] p-5 md:p-[25px] flex flex-col justify-between rounded-[20px] border-[3px] border-[#5A5AFF]/80"
                           style={{
                             background:
                               "radial-gradient(100% 275% at 100% 0%, #3D2490 0%, #120A2A 69.23%)",
@@ -4054,7 +4063,7 @@ export default function ProfilePage() {
                           </div>
 
                           {/* Needs + Offer */}
-                          <div className="flex justify-between items-start gap-4 flex-wrap mb-3">
+                          <div className="flex justify-between items-start gap-6 md:gap-4 flex-wrap mb-3">
                             <div className="flex flex-col gap-2 flex-1 min-w-[45%] items-start">
                               <span className="text-sm text-white/80 font-medium">
                                 Needs
@@ -4216,7 +4225,7 @@ export default function ProfilePage() {
 
         {/* SECTION 5 - REVIEWS */}
         <div className="flex flex-col gap-[25px] mt-[25px]">
-          <div className="flex items-start justify-between w-full">
+          <div className="flex flex-col md:flex-row items-start justify-between w-full gap-4">
 
             {/* LEFT SIDE */}
             <div className="flex flex-col">
@@ -4229,21 +4238,21 @@ export default function ProfilePage() {
             </div>
 
             {/* RIGHT SIDE */}
-            <div className="flex flex-col items-end">
+            <div className="flex flex-col items-start md:items-end w-full md:w-auto gap-3 md:gap-0">
 
               {/* Row 1: Latest */}
               {reviews.length > 0 && (
-                <div className="relative mb-[6px]">
+                <div className="relative z-50">
                   <button
                     onClick={() => setShowSortDropdown(!showSortDropdown)}
-                    className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3"
+                    className="flex items-center text-white text-[16px] md:text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3 bg-[#120A2A] hover:bg-white/10 transition-colors"
                   >
                     {sortOption}
                     <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
                   </button>
 
                   {showSortDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-40 bg-[#120A2A] rounded-xl border border-white/20 shadow-lg py-1 z-10">
+                    <div className="absolute top-full right-0 md:right-0 left-0 md:left-auto mt-2 w-40 min-w-[150px] bg-[#120A2A] rounded-xl border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.5)] py-1 z-50">
                       {["Latest", "Highest Rating", "Lowest Rating"].map((option) => (
                         <button
                           key={option}
@@ -4265,12 +4274,11 @@ export default function ProfilePage() {
 
               {/* Row 2: Generate Report */}
               {user.reviews > 0 && isOwnProfile && (
-                <div className="relative">
+                <div className="relative z-40">
                   <button
                     onClick={() => setShowReportDropdown(!showReportDropdown)}
                     className="flex items-center text-white text-[16px] border border-white/20 rounded-[10px] h-[30px] px-3 bg-[#120A2A] hover:bg-white/10 transition-colors"
                   >
-                    <Download className="mr-2 h-4 w-4" />
                     Generate Report
                     <ChevronDownIcon className="ml-2 h-4 w-4 text-white" />
                   </button>
@@ -4321,7 +4329,7 @@ export default function ProfilePage() {
 
           {/* Rating Analytics - only show if there are reviews */}
           {reviews.length > 0 && (
-            <div className="flex items-start gap-[50px]">
+            <div className="flex flex-col md:flex-row items-start gap-8 md:gap-[50px]">
               {/* Overall Rating Group */}
               <div className="flex flex-col">
                 <div className="flex items-end gap-[10px]">
@@ -4338,13 +4346,13 @@ export default function ProfilePage() {
               </div>
 
               {/* Rating Bars */}
-              <div className="flex flex-col gap-[10px]">
+              <div className="flex flex-col gap-[10px] w-full md:w-auto">
                 {Object.keys(reviewRatings)
                   .reverse()
                   .map((rating) => (
                     <div key={rating} className="flex items-center gap-[15px]">
                       <span className="text-[16px] w-[15px]">{rating}</span>
-                      <div className="w-[270px] h-[15px] bg-white/20 rounded-full">
+                      <div className="w-full md:w-[270px] h-[15px] bg-white/20 rounded-full">
                         <div
                           style={{
                             width:
