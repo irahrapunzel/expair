@@ -164,8 +164,7 @@ export default function SettingsPage() {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `API call failed with status: ${
-            response.status
+          `API call failed with status: ${response.status
           }. Response: ${errorText.substring(0, 100)}...`
         );
       }
@@ -896,11 +895,10 @@ export default function SettingsPage() {
               <button
                 key={item.key}
                 onClick={() => setActiveTab(item.key)}
-                className={`text-left px-4 py-2 rounded-[8px] transition ${
-                  activeTab === item.key
+                className={`text-left px-4 py-2 rounded-[8px] transition ${activeTab === item.key
                     ? "bg-[#120A2A] text-white"
                     : "text-white/70 hover:bg-[#1A0F3E]"
-                }`}
+                  }`}
               >
                 {item.label}
               </button>
@@ -935,10 +933,13 @@ export default function SettingsPage() {
                       <img
                         src={previewUrl}
                         alt="Profile preview"
-                        className="w-full h-full object-cover"
+                        className="w-[150px] h-[150px] sm:w-[200px] sm:h-[200px]"
                       />
                     ) : (
-                      <ProfileAvatar src={previewUrl} size={200} />
+                      <ProfileAvatar
+                        src={previewUrl}
+                        className="w-[150px] h-[150px] sm:w-[200px] sm:h-[200px]"
+                      />
                     )}
                   </div>
 
@@ -1033,9 +1034,8 @@ export default function SettingsPage() {
                     />
                     <div className="flex justify-end">
                       <span
-                        className={`text-[13px] ${
-                          charCount >= 300 ? "text-red-400" : "text-[#413663]"
-                        }`}
+                        className={`text-[13px] ${charCount >= 300 ? "text-red-400" : "text-[#413663]"
+                          }`}
                       >
                         {charCount}/300 characters
                       </span>
@@ -1074,9 +1074,8 @@ export default function SettingsPage() {
                         setSaved(false);
                         setUsernameError("");
                       }}
-                      className={`w-full px-4 py-3 bg-[#120A2A] border rounded-[10px] text-white text-sm ${
-                        usernameError ? "border-red-500" : "border-white/40"
-                      }`}
+                      className={`w-full px-4 py-3 bg-[#120A2A] border rounded-[10px] text-white text-sm ${usernameError ? "border-red-500" : "border-white/40"
+                        }`}
                     />
                     {isCheckingUsername && (
                       <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
@@ -1093,7 +1092,7 @@ export default function SettingsPage() {
                       !usernameError &&
                       username.trim() !== "" &&
                       username.toLowerCase() !==
-                        originalUsername.toLowerCase() && (
+                      originalUsername.toLowerCase() && (
                         <p className="text-emerald-400 text-xs mt-1">
                           Username is available.
                         </p>
