@@ -1092,14 +1092,12 @@ export default function PendingTradesPage() {
                   </div>
 
                   {/* Needs/Offers Section */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start w-full gap-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start w-full sm:flex-wrap gap-4">
                     {/* Needs */}
-                    <div className="flex flex-col gap-2 flex-1 w-full sm:min-w-[45%] items-start">
-                      <span className="text-sm text-white/80 font-medium">
-                        Needs
-                      </span>
+                    <div className="flex flex-col gap-2 w-full sm:flex-1 sm:min-w-[45%] items-start">
+                      <span className="text-sm text-white/80 font-medium">Needs</span>
                       <div
-                        className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 w-full sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                        className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] text-sm text-white/90 w-full sm:w-auto sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
                         title={trade.needs}
                       >
                         {trade.needs}
@@ -1107,12 +1105,12 @@ export default function PendingTradesPage() {
                     </div>
 
                     {/* Can offer */}
-                    <div className="flex flex-col gap-2 flex-1 w-full sm:min-w-[45%] items-start sm:items-end">
+                    <div className="flex flex-col gap-2 w-full sm:flex-1 sm:min-w-[45%] items-start sm:items-end">
                       <span className="text-sm text-white/80 font-medium">
                         Can offer
                       </span>
                       <div
-                        className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 w-full sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap sm:text-right"
+                        className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] text-sm text-white/90 w-full sm:w-auto sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-left sm:text-right"
                         title={trade.offers}
                       >
                         {trade.offers}
@@ -1685,15 +1683,13 @@ export default function PendingTradesPage() {
                           </div>
                         </div>
                         {/* Needs/Offers Section */}
-                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 flex-wrap w-full">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 w-full sm:flex-wrap">
                           {/* Needs */}
-                          <div className="flex flex-col gap-2 flex-1 w-full sm:min-w-[45%] items-start">
-                            <span className="text-sm text-white/80 font-medium">
-                              Needs
-                            </span>
+                          <div className="flex flex-col gap-2 w-full sm:flex-1 sm:min-w-[45%] items-start">
+                            <span className="text-sm text-white/80 font-medium">Needs</span>
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#5A5AFF] bg-[#5A5AFF33] 
-                                        text-sm text-white/90 w-full sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+                                        text-sm text-white/90 w-full sm:w-auto sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
                               title={trade.offers}
                             >
                               {trade.offers}
@@ -1701,13 +1697,11 @@ export default function PendingTradesPage() {
                           </div>
 
                           {/* Can offer */}
-                          <div className="flex flex-col gap-2 flex-1 w-full sm:min-w-[45%] items-start sm:items-end">
-                            <span className="text-sm text-white/80 font-medium">
-                              Can offer
-                            </span>
+                          <div className="flex flex-col gap-2 w-full sm:flex-1 sm:min-w-[45%] items-start sm:items-end">
+                            <span className="text-sm text-white/80 font-medium" >Can offer</span>
                             <div
                               className="inline-block px-[15px] py-[7px] rounded-[15px] border-[2px] border-[#906EFF] bg-[#906EFF33] 
-                                        text-sm text-white/90 w-full sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap sm:text-right"
+                                        text-sm text-white/90 w-full sm:w-auto sm:max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-left sm:text-right"
                               title={trade.needs}
                             >
                               {trade.needs}
