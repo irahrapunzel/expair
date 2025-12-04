@@ -1144,7 +1144,7 @@ export default function PendingTradesPage() {
             No trades ready for confirmation yet.
           </div>
         ) : (
-          <div className="flex flex-wrap justify-between gap-x-[30px] gap-y-[25px] w-full max-w-[940px]">
+          <div className="flex flex-col gap-[25px]">
             {finalizationTrades.map((trade, index) => {
               const bothSubmitted =
                 trade.detailsStatus?.submission_status?.both_submitted;
