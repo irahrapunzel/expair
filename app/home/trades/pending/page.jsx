@@ -1350,7 +1350,7 @@ export default function PendingTradesPage() {
                             </div>
                           </div>
 
-                          <p className="h-auto text-[15px] text-[rgba(255,255,255,0.60)]">
+                          <p className="h-auto text-[15px] text-[rgba(255,255,255,0.60)] whitespace-pre-wrap break-words">
                             {trade.tradeDetails?.reqbio ||
                               `Trade request: ${trade.needs}`}
                           </p>

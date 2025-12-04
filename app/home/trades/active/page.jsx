@@ -1013,7 +1013,7 @@ export default function ActiveTradesPage() {
                           </div>
                         </div>
 
-                        <p className="text-[14px] md:text-[15px] text-[rgba(255,255,255,0.60)]">
+                        <p className="h-auto text-[15px] text-[rgba(255,255,255,0.60)] whitespace-pre-wrap break-words">
                           {trade.requestBio}
                         </p>
                       </div>
