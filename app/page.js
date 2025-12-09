@@ -255,6 +255,31 @@ export default function LandingPage() {
           </div>
         </div>
 
+        {/* Learn More Video Section (NEW) */}
+        <div className="w-full py-16 sm:py-20 px-4 sm:px-6 md:px-10 lg:px-20 bg-[#050015] text-white">
+          <h2
+            className={`text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-12 sm:mb-16 ${inter.className}`}
+          >
+            Learn more about Expair here:
+          </h2>
+          <div className="max-w-5xl mx-auto">
+            {/* Responsive Iframe Container (16:9 Aspect Ratio) */}
+            <div
+              className="relative w-full overflow-hidden rounded-xl shadow-[0px_0px_20px_0px_#284CCC]"
+              style={{ paddingTop: "56.25%" /* 16:9 Aspect Ratio (9/16 = 0.5625) */ }}
+            >
+              <iframe
+                className="absolute top-0 left-0 w-full h-full"
+                src="https://www.youtube.com/embed/J-7dGjUHrI0"
+                title="Learn more about Expair"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+          </div>
+        </div>
+
         <BrowseSection />
 
         {/* FAQ Section */}
