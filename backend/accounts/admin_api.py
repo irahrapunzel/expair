@@ -565,6 +565,7 @@ def admin_users_list(request):
         verification_filter = request.GET.get('verification', 'all').lower()
         flagged_filter = request.GET.get('flagged', 'false').lower() == 'true'
         sort_by = request.GET.get('sort', 'joined')
+        direction = request.GET.get('direction', 'desc')
         page = int(request.GET.get('page', 1))
         per_page = int(request.GET.get('per_page', 20))
         
@@ -614,15 +615,34 @@ def admin_users_list(request):
         
         # Sorting
         if sort_by == 'joined':
-            users = users.order_by('-created_at')
+            field = 'created_at'
+            users = users.order_by(f'-{field}' if direction == 'desc' else field)
+            
         elif sort_by == 'name':
-            users = users.order_by('username')
+            field = 'username'
+            users = users.order_by(f'-{field}' if direction == 'desc' else field)
+            
         elif sort_by == 'email':
-            users = users.order_by('email')
+            field = 'email'
+            users = users.order_by(f'-{field}' if direction == 'desc' else field)
+            
         elif sort_by == 'rating':
-            users = users.order_by(F('avgStars').desc(nulls_last=True))
+            # Handle nulls for ratings
+            from django.db.models import F
+            if direction == 'desc':
+                users = users.order_by(F('avgStars').desc(nulls_last=True))
+            else:
+                users = users.order_by(F('avgStars').asc(nulls_last=True))
+                
         elif sort_by == 'level':
-            users = users.order_by(F('level').desc(nulls_last=True))
+            from django.db.models import F
+            if direction == 'desc':
+                users = users.order_by(F('level').desc(nulls_last=True))
+            else:
+                users = users.order_by(F('level').asc(nulls_last=True))
+                
+        elif sort_by == 'status':
+             users = users.order_by('-created_at')
         
         # Get total before pagination
         total_count = users.count()
@@ -1259,6 +1279,8 @@ def admin_bulk_resolve_reports(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# In admin_api.py
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_report_stats(request):
@@ -1273,25 +1295,44 @@ def admin_report_stats(request):
         )
         
     try:
+        # 1. Total Reports
         total_reports = Report.objects.count()
-        pending_reports = Report.objects.filter(status='PENDING').count()
-        resolved_reports = Report.objects.filter(status='RESOLVED').count()
         
-        # Priority breakdown
-        # Count users by their pending report count
+        # 2. Pending Reports (Case-insensitive fix)
+        pending_reports = Report.objects.filter(status__iexact='PENDING').count()
+        
+        # 3. Resolved Reports (Case-insensitive fix)
+        resolved_reports = Report.objects.filter(status__iexact='RESOLVED').count()
+
+        # 4. Specifically Dismissed Reports (For the "Dismissed" card)
+        dismissed_reports = Report.objects.filter(
+            status__iexact='RESOLVED',
+            sanction_applied='DISMISS'
+        ).count()
+        
+        # 5. Priority breakdown (Fix: Count REPORTS, not USERS)
         user_report_counts = Report.objects.filter(
-            status='PENDING',
+            status__iexact='PENDING',
             reported_user__isnull=False
         ).values('reported_user').annotate(
-            report_count=Count('report_id')
+            user_pending_count=Count('report_id')
         )
         
-        critical_count = sum(1 for item in user_report_counts if item['report_count'] >= 5)
-        high_count = sum(1 for item in user_report_counts if 3 <= item['report_count'] < 5)
-        medium_count = sum(1 for item in user_report_counts if item['report_count'] == 2)
-        low_count = sum(1 for item in user_report_counts if item['report_count'] == 1)
+        # Sum the 'user_pending_count' (number of reports) for each category
+        # instead of just counting the number of rows (users)
+        critical_count = sum(item['user_pending_count'] for item in user_report_counts if item['user_pending_count'] >= 5)
+        high_count = sum(item['user_pending_count'] for item in user_report_counts if 3 <= item['user_pending_count'] < 5)
+        medium_count = sum(item['user_pending_count'] for item in user_report_counts if item['user_pending_count'] == 2)
+        low_count = sum(item['user_pending_count'] for item in user_report_counts if item['user_pending_count'] == 1)
         
-        # Category breakdown
+        # Add in reports with no reported_user (Default Low)
+        orphaned_low_reports = Report.objects.filter(
+            status__iexact='PENDING', 
+            reported_user__isnull=True
+        ).count()
+        low_count += orphaned_low_reports
+        
+        # 6. Category breakdown
         category_breakdown = Report.objects.values('category').annotate(
             count=Count('report_id')
         ).order_by('-count')
@@ -1301,6 +1342,7 @@ def admin_report_stats(request):
             'total_reports': total_reports,
             'pending_reports': pending_reports,
             'resolved_reports': resolved_reports,
+            'dismissed_reports': dismissed_reports, # New specific field
             'priority_breakdown': {
                 'critical': critical_count,
                 'high': high_count,

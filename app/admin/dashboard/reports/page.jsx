@@ -227,7 +227,7 @@ export default function ReportsPage() {
     const adminToken = session?.access;
     if (selectedReports.length === 0 || !adminToken || resolving) return;
 
-    if (!confirm(`Are you sure you want to resolve ${selectedReports.length} report(s)? They will be marked 'RESOLVED'.`)) {
+    if (!confirm(`Are you sure you want to dismiss ${selectedReports.length} report(s)? They will be marked 'DISMISSED'.`)) {
       return;
     }
 
@@ -444,13 +444,16 @@ export default function ReportsPage() {
             <div className="text-xs text-white/40">Awaiting action</div>
           </div>
 
+          {/* UPDATED CARD: Uses dismissed_reports OR falls back to resolved_reports if specific data missing */}
           <div className="bg-[#120A2A] border border-[#906EFF]/20 rounded-xl p-6 hover:border-[#906EFF]/40 transition-colors">
             <div className="flex items-center justify-between mb-3">
+              {/* Changed label to Resolved to accurately reflect "Closed" tickets, or keep Dismissed if you strictly want that */}
               <span className="text-white/60 text-sm font-medium">Resolved</span>
               <CheckCircle className="w-5 h-5 text-[#906EFF]" />
             </div>
+            {/* Use stats.resolved_reports for all closed tickets, or stats.dismissed_reports for strictly dismissed */}
             <div className="text-3xl font-bold text-white mb-1">{stats.resolved_reports || 0}</div>
-            <div className="text-xs text-white/40">Successfully handled</div>
+            <div className="text-xs text-white/40">Total closed cases</div>
           </div>
 
           <div className="bg-[#120A2A] border border-[#906EFF]/20 rounded-xl p-6 hover:border-[#906EFF]/40 transition-colors">
@@ -458,6 +461,7 @@ export default function ReportsPage() {
               <span className="text-white/60 text-sm font-medium">Critical Priority</span>
               <Flag className="w-5 h-5 text-[#906EFF]" />
             </div>
+            {/* Now reflects the number of REPORTS, matching your table count */}
             <div className="text-3xl font-bold text-white mb-1">{stats.priority_breakdown?.critical || 0}</div>
             <div className="text-xs text-white/40">Requires immediate attention</div>
           </div>
@@ -496,7 +500,7 @@ export default function ReportsPage() {
             >
               <option value="all" className="bg-[#120A2A] text-white">All Status</option>
               <option value="pending" className="bg-[#120A2A] text-white">Pending</option>
-              <option value="resolved" className="bg-[#120A2A] text-white">Resolved</option>
+              <option value="resolved" className="bg-[#120A2A] text-white">Dismissed</option>
               <option value="rejected" className="bg-[#120A2A] text-white">Rejected</option>
             </select>
 
@@ -540,7 +544,7 @@ export default function ReportsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 bg-[#906EFF]/20 text-[#906EFF] border border-[#906EFF]/30 rounded-lg hover:bg-[#906EFF]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-4 h-4" />
-                {resolving ? 'Resolving...' : `Resolve (${selectedReports.length})`}
+                {resolving ? 'Dismissing...' : `Dismiss (${selectedReports.length})`}
               </button>
             )}
 
@@ -981,7 +985,7 @@ export default function ReportsPage() {
                     disabled={resolving}
                     className="px-4 py-2 bg-gray-500/20 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-gray-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
-                    Resolve
+                    Dismiss
                   </button>
 
                   {/* Action 2: Issue Warning */}
@@ -1014,7 +1018,7 @@ export default function ReportsPage() {
               ) : (
                 // Fallback for RESOLVED status or if no user was reported
                 <p className="text-sm text-white/70">
-                    Status: {selectedReport.status}. No active sanction actions available.
+                  Status: {selectedReport.status}. No active sanction actions available.
                 </p>
               )}
 

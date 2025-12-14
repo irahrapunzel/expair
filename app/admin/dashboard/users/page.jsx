@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react"; // CRITICAL: Import useSession
+import { useSession } from "next-auth/react";
 import {
   Check,
   X,
@@ -53,7 +53,7 @@ const REJECTION_OPTIONS = [
 ];
 
 export default function UsersPage() {
-  const { data: session, status: sessionStatus } = useSession(); // ACTIVATE SESSION HOOK
+  const { data: session, status: sessionStatus } = useSession();
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,13 +69,25 @@ export default function UsersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
 
+  // User Details Modal State
   const [showUserDetailModal, setShowUserDetailModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [userReports, setUserReports] = useState([]); // Store related reports here
+  const [detailLoading, setDetailLoading] = useState(false);
 
+  // Verification Rejection State
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [selectedReason, setSelectedReason] = useState(""); // For the dropdown
-  const [customReason, setCustomReason] = useState(""); // For the textarea
+  const [selectedReason, setSelectedReason] = useState("");
+  const [customReason, setCustomReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sanction Modal State
+  const [showSanctionModal, setShowSanctionModal] = useState(false);
+  const [selectedSanctionUser, setSelectedSanctionUser] = useState(null);
+  const [sanctionReason, setSanctionReason] = useState('');
+  const [suspensionDays, setSuspensionDays] = useState(7);
+  const [applyingSanction, setApplyingSanction] = useState(false);
+  const [sanctionDetailLoading, setSanctionDetailLoading] = useState(false);
 
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
@@ -90,26 +102,17 @@ export default function UsersPage() {
     flaggedTrend: { value: "0%", is_up: false, is_neutral: true }
   });
 
-  const [showSanctionModal, setShowSanctionModal] = useState(false);
-  const [selectedSanctionUser, setSelectedSanctionUser] = useState(null);
-  const [sanctionReason, setSanctionReason] = useState('');
-  const [suspensionDays, setSuspensionDays] = useState(7);
-  const [applyingSanction, setApplyingSanction] = useState(false);
-  const [sanctionDetailLoading, setSanctionDetailLoading] = useState(false);
-
-  // --- CORE FETCH FUNCTIONS (Defined with useCallback) ---
+  // --- FETCHERS ---
 
   const fetchStats = useCallback(async () => {
-    // 1. Get Token
     const adminToken = session?.access;
-    // Only proceed if authenticated and token is present
     if (sessionStatus !== 'authenticated' || !adminToken) return;
 
     try {
       const response = await fetch(`${API_BASE}/api/admin/user-stats/`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${adminToken}`, // FIX: ADD HEADER
+          'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
         }
       });
@@ -132,9 +135,7 @@ export default function UsersPage() {
     }
   }, [session?.access, sessionStatus]);
 
-
   const fetchUsers = useCallback(async () => {
-    // 1. Get Token
     const adminToken = session?.access;
     if (sessionStatus !== 'authenticated' || !adminToken) {
       setLoading(false);
@@ -157,60 +158,55 @@ export default function UsersPage() {
       const response = await fetch(`${API_BASE}/api/admin/users-list/?${params}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${adminToken}`, // FIX: ADD HEADER
+          'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to fetch users: ${response.status} - ${errorData.error || response.statusText}`);
-      }
-
+      if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to load users');
-      }
+      if (!data.success) throw new Error(data.error || 'Failed to load users');
 
-      let fetchedUsers = data.users || [];
-      // Client-side sorting as a fallback (if needed)
-      if (sortBy) {
-        if (sortBy === 'name') {
-          fetchedUsers = fetchedUsers.sort((a, b) =>
-            (a.username || '').localeCompare(b.username || '')
-          );
-        } else if (sortBy === 'email') {
-          fetchedUsers = fetchedUsers.sort((a, b) =>
-            (a.email || '').localeCompare(b.email || '')
-          );
-        } else if (sortBy === 'rating') {
-          fetchedUsers = fetchedUsers.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        } else if (sortBy === 'level') {
-          fetchedUsers = fetchedUsers.sort((a, b) => (b.level || 0) - (a.level || 0));
-        } else if (sortBy === 'joined') {
-          fetchedUsers = fetchedUsers.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        } else if (sortBy === 'status') {
-          const statusOrder = { verified: 0, pending: 1, unverified: 2 };
-          fetchedUsers = fetchedUsers.sort((a, b) =>
-            (statusOrder[a.verification_status] || 3) - (statusOrder[b.verification_status] || 3)
-          );
-        }
-
-        if (sortDirection === 'asc') fetchedUsers.reverse();
-      }
-
-      setUsers(fetchedUsers);
+      setUsers(data.users || []);
       setTotalUsers(data.pagination.total);
       setTotalPages(data.pagination.total_pages);
-
     } catch (err) {
-      console.error("Error fetching users:", err);
+      console.error(err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [session?.access, searchQuery, verificationFilter, showFlaggedOnly, sortBy, sortDirection, currentPage, sessionStatus]);
+  }, [session?.access, searchQuery, verificationFilter, showFlaggedOnly, sortBy, currentPage, sessionStatus]);
+
+  // --- ACTIONS ---
+
+  // Enhanced "View Details" - Fetches extra report history
+  const handleViewUserDetail = async (user) => {
+    setSelectedUser(user);
+    setShowUserDetailModal(true);
+    setDetailLoading(true);
+    setUserReports([]); // Clear previous reports
+
+    const adminToken = session?.access;
+    if (!adminToken) return;
+
+    try {
+      // Reuse the sanction-detail endpoint because it already returns recent reports!
+      const response = await fetch(`${API_BASE}/api/admin/user-sanction-detail/${user.id}/`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      const data = await response.json();
+
+      if (data.success && data.user_detail) {
+        setUserReports(data.user_detail.recent_reports || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch detailed user history:", err);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleOpenSanctionModal = async (userId) => {
     const adminToken = session?.access;
@@ -223,36 +219,19 @@ export default function UsersPage() {
     setShowSanctionModal(true);
 
     try {
-      const response = await fetch(
-        `${API_BASE}/api/admin/user-sanction-detail/${userId}/`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${adminToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
+      const response = await fetch(`${API_BASE}/api/admin/user-sanction-detail/${userId}/`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
       const data = await response.json();
 
-      if (data.success === true && data.user_detail) {
+      if (data.success) {
         setSelectedSanctionUser(data.user_detail);
-        // Pre-fill reason with current sanction reason if one exists
-        const details = data.user_detail.sanction_details;
-        if (details.reason) {
-          setSanctionReason(details.reason);
+        if (data.user_detail.sanction_details?.reason) {
+          setSanctionReason(data.user_detail.sanction_details.reason);
         }
-      } else {
-        throw new Error(data.error || 'Failed to fetch user details.');
       }
     } catch (err) {
-      console.error('❌ Error fetching sanction details:', err);
-      alert(`Failed to load user sanction data: ${err.message}`);
+      console.error(err);
       setShowSanctionModal(false);
     } finally {
       setSanctionDetailLoading(false);
@@ -263,218 +242,40 @@ export default function UsersPage() {
     const adminToken = session?.access;
     if (!adminToken || applyingSanction || !selectedSanctionUser) return;
 
-    // Use the ID of the most recent report for logging purposes
-    const reportId = selectedSanctionUser.recent_reports?.[0]?.report_id || 1; // Fallback ID 
+    // Fallback report ID
+    const reportId = selectedSanctionUser.recent_reports?.[0]?.report_id || 0;
 
-    if (!confirm(`Are you sure you want to apply ${actionType} to @${selectedSanctionUser.username}?`)) {
-      return;
-    }
+    if (!confirm(`Apply ${actionType} to @${selectedSanctionUser.username}?`)) return;
 
+    setApplyingSanction(true);
     try {
-      setApplyingSanction(true);
-
-      const requestBody = {
-        // NOTE: We pass the user's most recent report ID for backend logging
-        report_id: reportId,
-        sanction_type: actionType,
-        reason_note: reasonNote,
-      };
-
-      if (actionType === 'SUSPENSION') {
-        requestBody.duration_days = durationDays;
-      }
-
-      const response = await fetch(
-        `${API_BASE}/api/admin/apply-sanction/`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${adminToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody)
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
+      const response = await fetch(`${API_BASE}/api/admin/apply-sanction/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          report_id: reportId,
+          sanction_type: actionType,
+          reason_note: reasonNote,
+          duration_days: durationDays
+        })
+      });
       const data = await response.json();
-
-      if (data.success !== false) {
-        alert(`Sanction ${actionType} applied successfully!`);
-        // Refresh user list and close modal
+      if (data.success) {
+        alert(`Sanction ${actionType} applied successfully.`);
         fetchUsers();
         setShowSanctionModal(false);
+      } else {
+        alert(data.error);
       }
     } catch (err) {
-      console.error('Error applying sanction:', err);
-      alert(`Failed to apply sanction: ${err.message}`);
+      alert(err.message);
     } finally {
       setApplyingSanction(false);
     }
   };
-
-  // --- ASYNC ACTION HANDLERS (Must use token) ---
-
-  async function handleVerifyUser(userId) {
-    const adminToken = session?.access;
-    if (!adminToken) {
-      alert("Authentication token expired. Please log in again.");
-      return;
-    }
-
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/verify-user/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}` // FIX: ADD HEADER
-        },
-        body: JSON.stringify({ user_id: userId })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`User verified successfully`);
-        fetchUsers();
-        fetchStats();
-        setShowUserDetailModal(false);
-        setSelectedUser(null);
-      } else {
-        alert(`Error: ${data.error}`);
-      }
-    } catch (err) {
-      console.error("Error verifying user:", err);
-      alert("Failed to verify user");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleRejectVerification() {
-    const adminToken = session?.access;
-    if (!adminToken) {
-      alert("Authentication token expired. Please log in again.");
-      return;
-    }
-
-    let finalReason = selectedReason;
-
-    if (selectedReason === "Others") {
-      finalReason = customReason.trim();
-    }
-
-    if (!finalReason) {
-      alert("Please provide a reason for rejection.");
-      return;
-    }
-
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/reject-verification/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}` // FIX: ADD HEADER
-        },
-        body: JSON.stringify({
-          user_id: selectedUser.id,
-          reason: finalReason // Send the determined reason
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`User verification rejected successfully.`);
-        fetchUsers();
-        fetchStats();
-        // Reset and close
-        setShowRejectModal(false);
-        setShowUserDetailModal(false);
-        setSelectedUser(null);
-        setSelectedReason(""); // Reset dropdown
-        setCustomReason("");   // Reset textarea
-      } else {
-        alert(`Error: ${data.error}`);
-      }
-    } catch (err) {
-      console.error("Error rejecting verification:", err);
-      alert("Failed to reject verification");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  // --- USE EFFECT HOOKS (Triggering Fetches) ---
-
-  // Trigger fetchStats when component mounts and filters change
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats, showFlaggedOnly]);
-
-  // Trigger fetchUsers when component mounts and filters change
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers, searchQuery, verificationFilter, showFlaggedOnly, sortBy, sortDirection, currentPage]);
-
-
-  // --- UTILITY FUNCTIONS (Unchanged Logic) ---
-
-  function handleSort(column) {
-    if (sortBy !== column) {
-      setSortBy(column);
-      setSortDirection('desc');
-    } else {
-      if (sortDirection === 'desc') {
-        setSortDirection('asc');
-      } else {
-        setSortBy(null);
-        setSortDirection('desc');
-      }
-    }
-  }
-
-  function getSortIcon(column) {
-    if (sortBy !== column) {
-      return <ArrowUpDown className="w-3.5 h-3.5 text-white/30" />;
-    }
-    return sortDirection === 'asc'
-      ? <ArrowUp className="w-3.5 h-3.5 text-[#906EFF]" />
-      : <ArrowDown className="w-3.5 h-3.5 text-[#906EFF]" />;
-  }
-
-  function getVerificationBadge(user) {
-    if (user.verification_status === 'verified') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-green-500/10 text-green-400 border-green-500/30">
-          <Shield className="w-3 h-3" />
-          Verified
-        </span>
-      );
-    } else if (user.verification_status === 'pending') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
-          <Clock className="w-3 h-3" />
-          Pending
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-red-500/10 text-red-400 border-red-500/30">
-        <XCircle className="w-3 h-3" />
-        Unverified
-      </span>
-    );
-  }
 
   // Direct export to CSV (Excel compatible)
   const escapeCsv = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
@@ -605,33 +406,137 @@ export default function UsersPage() {
       });
   }
 
-  if (loading && users.length === 0) {
-    return <DashboardSkeleton />;
+  const handleVerifyUser = async (userId) => {
+    const adminToken = session?.access;
+    if (!adminToken) {
+      alert("Authentication token expired. Please log in again.");
+      return;
+    }
+
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/verify-user/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}` // FIX: ADD HEADER
+        },
+        body: JSON.stringify({ user_id: userId })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`User verified successfully`);
+        fetchUsers();
+        fetchStats();
+        setShowUserDetailModal(false);
+        setSelectedUser(null);
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (err) {
+      console.error("Error verifying user:", err);
+      alert("Failed to verify user");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  async function handleRejectVerification() {
+    const adminToken = session?.access;
+    if (!adminToken) {
+      alert("Authentication token expired. Please log in again.");
+      return;
+    }
+
+    let finalReason = selectedReason;
+
+    if (selectedReason === "Others") {
+      finalReason = customReason.trim();
+    }
+
+    if (!finalReason) {
+      alert("Please provide a reason for rejection.");
+      return;
+    }
+
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/reject-verification/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}` // FIX: ADD HEADER
+        },
+        body: JSON.stringify({
+          user_id: selectedUser.id,
+          reason: finalReason // Send the determined reason
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`User verification rejected successfully.`);
+        fetchUsers();
+        fetchStats();
+        // Reset and close
+        setShowRejectModal(false);
+        setShowUserDetailModal(false);
+        setSelectedUser(null);
+        setSelectedReason(""); // Reset dropdown
+        setCustomReason("");   // Reset textarea
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (err) {
+      console.error("Error rejecting verification:", err);
+      alert("Failed to reject verification");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#050015] p-6">
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-red-400">
-          <h2 className="text-xl font-bold mb-2">Error Loading Users</h2>
-          <p>{error}</p>
-          <button
-            onClick={() => {
-              // Manually trigger fetchers after error
-              fetchUsers();
-              fetchStats();
-            }}
-            className="mt-4 px-4 py-2 bg-[#906EFF] text-white rounded-lg hover:bg-[#7D5FE6] transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
+  // --- USE EFFECT HOOKS (Triggering Fetches) ---
+
+  // Trigger fetchStats when component mounts and filters change
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats, showFlaggedOnly]);
+
+  // Trigger fetchUsers when component mounts and filters change
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers, searchQuery, verificationFilter, showFlaggedOnly, sortBy, sortDirection, currentPage]);
+
+
+  // --- RENDER HELPERS ---
+
+  function getVerificationBadge(user) {
+    if (user.verification_status === 'verified') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-green-500/10 text-green-400 border-green-500/30"><Shield className="w-3 h-3" />Verified</span>;
+    if (user.verification_status === 'pending') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-yellow-500/10 text-yellow-400 border-yellow-500/30"><Clock className="w-3 h-3" />Pending</span>;
+    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-red-500/10 text-red-400 border-red-500/30"><XCircle className="w-3 h-3" />Unverified</span>;
+  }
+
+  function handleSort(column) {
+    if (sortBy !== column) {
+      setSortBy(column);
+      setSortDirection('desc');
+    } else {
+      setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
+    }
+  }
+
+  function getSortIcon(column) {
+    if (sortBy !== column) return <ArrowUpDown className="w-3.5 h-3.5 text-white/30" />;
+    return sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-[#906EFF]" /> : <ArrowDown className="w-3.5 h-3.5 text-[#906EFF]" />;
   }
 
   return (
-
     <div className="min-h-screen bg-[#050015] p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -729,7 +634,7 @@ export default function UsersPage() {
                   Refresh
                 </button>
 
-                {/* NEW EXPORT DROPDOWN */}
+                {/* EXPORT DROPDOWN */}
                 <div className="relative">
                   <button
                     onClick={() => setShowExportDropdown(!showExportDropdown)}
@@ -763,175 +668,104 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {/* Users Table */}
+        {/* TABLE */}
         <div className="bg-[#120A2A] rounded-xl border border-[#906EFF]/20 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10 bg-[#1A0F3E]">
                   <th
-                    className="text-left py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors group"
+                    className="text-left py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors whitespace-nowrap"
                     onClick={() => handleSort('name')}
                   >
                     <div className="flex items-center gap-2">
-                      User
-                      {getSortIcon('name')}
+                      User {getSortIcon('name')}
                     </div>
                   </th>
+
                   <th
-                    className="text-left py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
+                    className="text-left py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors whitespace-nowrap"
                     onClick={() => handleSort('email')}
                   >
                     <div className="flex items-center gap-2">
-                      Email
-                      {getSortIcon('email')}
+                      Email {getSortIcon('email')}
                     </div>
                   </th>
+
                   <th
-                    className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
+                    className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors whitespace-nowrap"
                     onClick={() => handleSort('level')}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      Level
-                      {getSortIcon('level')}
+                      Level {getSortIcon('level')}
                     </div>
                   </th>
+
                   <th
-                    className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
+                    className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors whitespace-nowrap"
                     onClick={() => handleSort('rating')}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      Rating
-                      {getSortIcon('rating')}
+                      Rating {getSortIcon('rating')}
                     </div>
                   </th>
+
                   <th
-                    className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
+                    className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors whitespace-nowrap"
                     onClick={() => handleSort('status')}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      Status
-                      {getSortIcon('status')}
+                      Status {getSortIcon('status')}
                     </div>
                   </th>
+
                   <th
-                    className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors"
+                    className="text-center py-4 px-6 text-white/60 font-medium text-sm cursor-pointer hover:text-white transition-colors whitespace-nowrap"
                     onClick={() => handleSort('joined')}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      Joined
-                      {getSortIcon('joined')}
+                      Joined {getSortIcon('joined')}
                     </div>
                   </th>
-                  <th className="text-center py-4 px-6 text-white/60 font-medium text-sm">Actions</th>
+
+                  <th className="text-center py-4 px-6 text-white/60 font-medium text-sm whitespace-nowrap">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
-
                 {users.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="text-center py-12">
-                      <div className="flex flex-col items-center gap-2">
-                        <UsersIcon className="w-12 h-12 text-white/20" />
-                        <p className="text-white/40">
-                          {showFlaggedOnly ? 'No flagged users found' : 'No users found'}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
+                  <tr><td colSpan="7" className="text-center py-12 text-white/40">No users found</td></tr>
                 ) : (
                   users.map((user) => (
                     <tr
                       key={user.id}
-                      className="border-b border-white/5 hover:bg-[#1A0F3E] transition-colors group cursor-pointer"
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setShowUserDetailModal(true);
-                      }}
+                      className="border-b border-white/5 hover:bg-[#1A0F3E] transition-colors cursor-pointer"
+                      onClick={() => handleViewUserDetail(user)}
                     >
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
-                          <AvatarNameCell
-                            name={`${user.first_name} ${user.last_name}`.trim() || user.username}
-                            username={`@${user.username}`}
-                            avatarUrl={user.profile_pic}
-                          />
+                          <AvatarNameCell name={user.username} username={`@${user.username}`} avatarUrl={user.profile_pic} />
                           {user.active_reports_count > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
-                              <AlertTriangle className="w-3 h-3" />
-                              {user.active_reports_count}
+                            <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" /> {user.active_reports_count}
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2 text-white/70">
-                          <Mail className="w-4 h-4 text-white/40" />
-                          <span className="text-sm">{user.email}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-[#906EFF]/10 rounded-full border border-[#906EFF]/30">
-                          <Award className="w-3.5 h-3.5 text-[#906EFF]" />
-                          <span className="text-white font-medium text-sm">{user.level || 1}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        {user.rating && user.rating > 0 ? (
-                          <div className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-500/10 rounded-full border border-yellow-500/30">
-                            <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                            <span className="text-yellow-400 font-medium text-sm">
-                              {user.rating.toFixed(1)}
-                            </span>
-                            <span className="text-white/30 text-xs">({user.rating_count || 0})</span>
-                          </div>
-                        ) : (
-                          <span className="text-white/30 text-sm">No ratings</span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        {getVerificationBadge(user)}
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        <div className="flex items-center justify-center gap-1 text-white/60 text-sm">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </div>
-                      </td>
+                      <td className="py-4 px-6 text-white/70 text-sm">{user.email}</td>
+                      <td className="py-4 px-6 text-center text-white/70">{user.level}</td>
+                      <td className="py-4 px-6 text-center text-yellow-400 font-medium">{user.rating?.toFixed(1) || 'N/A'}</td>
+                      <td className="py-4 px-6 text-center">{getVerificationBadge(user)}</td>
+                      <td className="py-4 px-6 text-center text-white/60 text-sm">{new Date(user.created_at).toLocaleDateString()}</td>
                       <td className="py-4 px-6 text-center" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="flex items-center justify-center w-8 h-8 text-white/60 hover:text-[#906EFF] hover:bg-[#906EFF]/10 border border-white/10 rounded-lg transition-all">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
+                            <button className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-[#906EFF] border border-white/10 rounded-lg"><MoreHorizontal className="w-4 h-4" /></button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="bg-[#120A2A] border border-[#906EFF]/30 rounded-lg backdrop-blur-sm shadow-lg"
-                          >
-                            <DropdownMenuItem
-                              onClick={() => {
-                                // 1. View Details logic (keep this)
-                                setSelectedUser(user);
-                                setShowUserDetailModal(true);
-                              }}
-                              className="text-white hover:bg-[#1A0F3E] cursor-pointer"
-                            >
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                              onClick={() => {
-                                // 2. Suspend Account logic (Crucial change)
-                                if (applyingSanction) return; // Prevent double-clicking
-                                handleOpenSanctionModal(user.id);
-                              }}
-                              className="text-red-400 hover:bg-red-500/10 cursor-pointer"
-                            >
-                              <X className="w-4 h-4 mr-2" />
-                              Suspend Account
-                            </DropdownMenuItem>
+                          <DropdownMenuContent align="end" className="bg-[#120A2A] border-[#906EFF]/30 text-white">
+                            <DropdownMenuItem onClick={() => handleViewUserDetail(user)} className="hover:bg-[#1A0F3E] cursor-pointer"><Eye className="w-4 h-4 mr-2" /> View Details</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenSanctionModal(user.id)} className="text-red-400 hover:bg-red-500/10 cursor-pointer"><XCircle className="w-4 h-4 mr-2" /> Suspend/Ban</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -973,165 +807,157 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* User Detail Modal */}
+      {/* --- USER DETAIL MODAL (UPDATED) --- */}
       {showUserDetailModal && selectedUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#120A2A] border border-[#906EFF]/30 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+          <div className="bg-[#120A2A] border border-[#906EFF]/30 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#1A0F3E]">
-              <div>
-                <h2 className="text-xl font-semibold text-white">User Details</h2>
-                <p className="text-sm text-white/60 mt-1">Complete user information and activity</p>
-              </div>
-              <button
-                onClick={() => setShowUserDetailModal(false)}
-                className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
+              <h2 className="text-xl font-semibold text-white">User Details</h2>
+              <button onClick={() => setShowUserDetailModal(false)}><XCircle className="w-6 h-6 text-white/60 hover:text-white" /></button>
             </div>
 
-            <div className="px-6 py-6 overflow-y-auto max-h-[70vh]">
-              <div className="space-y-6">
-                <div className="flex items-center gap-4 p-4 bg-[#1A0F3E] rounded-xl border border-[#906EFF]/20">
-                  <AvatarNameCell
-                    name={`${selectedUser.first_name} ${selectedUser.last_name}`.trim() || selectedUser.username}
-                    username={`@${selectedUser.username}`}
-                    avatarUrl={selectedUser.profile_pic}
-                  />
-                  <div className="ml-auto flex items-center gap-2">
-                    {selectedUser.active_reports_count > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
-                        <AlertTriangle className="w-3 h-3" />
-                        {selectedUser.active_reports_count} Reports
-                      </span>
-                    )}
-                    {getVerificationBadge(selectedUser)}
-                  </div>
-                </div>
+            <div className="px-6 py-6 overflow-y-auto flex-1 space-y-6">
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-[#1A0F3E] rounded-lg p-4 text-center border border-[#906EFF]/20">
-                    <Award className="w-6 h-6 text-[#906EFF] mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-white">{selectedUser.level || 1}</p>
-                    <p className="text-xs text-white/60">Level</p>
-                  </div>
-                  <div className="bg-[#1A0F3E] rounded-lg p-4 text-center border border-[#906EFF]/20">
-                    <TrendingUp className="w-6 h-6 text-green-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-white">{selectedUser.total_xp || 0}</p>
-                    <p className="text-xs text-white/60">Total XP</p>
-                  </div>
-                  <div className="bg-[#1A0F3E] rounded-lg p-4 text-center border border-[#906EFF]/20">
-                    <Star className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-white">{selectedUser.rating?.toFixed(1) || 'N/A'}</p>
-                    <p className="text-xs text-white/60">Rating</p>
-                  </div>
-                </div>
-
-                {/* Verification Document Section */}
-                {selectedUser.id_document && (
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold text-white">Verification Document</h3>
-                    <div className="bg-[#1A0F3E] rounded-lg p-4 border border-[#906EFF]/20 flex items-center justify-between group hover:border-[#906EFF]/40 transition-all">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-[#906EFF]/10 flex items-center justify-center">
-                          <FileText className="w-6 h-6 text-[#906EFF]" />
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">Identity Proof</p>
-                          <p className="text-xs text-white/40 group-hover:text-white/60 transition-colors">
-                            {selectedUser.id_type || "Document"}
-                          </p>
-                        </div>
-                      </div>
-                      <a
-                        href={selectedUser.id_document}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-[#906EFF] text-white text-sm rounded-lg hover:bg-[#7D5FE6] transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View File
-                        <ExternalLink className="w-3 h-3 opacity-70" />
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <h3 className="text-lg font-semibold text-white">Account Information</h3>
-                  <div className="space-y-2 text-sm bg-[#1A0F3E] rounded-lg p-4 border border-[#906EFF]/20">
-                    <div className="flex justify-between py-2 border-b border-white/5">
-                      <span className="text-white/60">Email:</span>
-                      <span className="text-white">{selectedUser.email}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-white/5">
-                      <span className="text-white/60">Joined:</span>
-                      <span className="text-white">{new Date(selectedUser.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-white/5">
-                      <span className="text-white/60">Rating Count:</span>
-                      <span className="text-white">{selectedUser.rating_count || 0} reviews</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-white/5">
-                      <span className="text-white/60">Completed Trades:</span>
-                      <span className="text-white">{selectedUser.completed_trades || 0}</span>
-                    </div>
-                    {selectedUser.active_reports_count > 0 && (
-                      <div className="flex justify-between py-2 border-b border-white/5">
-                        <span className="text-white/60">Active Reports:</span>
-                        <span className="text-red-400 font-semibold">{selectedUser.active_reports_count}</span>
-                      </div>
-                    )}
-                    {selectedUser.location && (
-                      <div className="flex justify-between py-2 border-b border-white/5">
-                        <span className="text-white/60">Location:</span>
-                        <span className="text-white">{selectedUser.location}</span>
-                      </div>
-                    )}
-                    {selectedUser.nationality && (
-                      <div className="flex justify-between py-2">
-                        <span className="text-white/60">Nationality:</span>
-                        <span className="text-white">{selectedUser.nationality}</span>
-                      </div>
-                    )}
-                  </div>
+              {/* 1. Basic Info */}
+              <div className="flex items-center gap-4 p-4 bg-[#1A0F3E] rounded-xl border border-[#906EFF]/20">
+                <AvatarNameCell name={selectedUser.username} username={selectedUser.email} avatarUrl={selectedUser.profile_pic} />
+                <div className="ml-auto flex flex-col items-end gap-1">
+                  {getVerificationBadge(selectedUser)}
+                  <span className="text-xs text-white/40">Joined {new Date(selectedUser.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
+
+              {/* 2. Stats Grid */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-[#1A0F3E] rounded-lg p-3 text-center border border-white/10">
+                  <p className="text-2xl font-bold text-white">{selectedUser.level}</p>
+                  <p className="text-xs text-white/60">Level</p>
+                </div>
+                <div className="bg-[#1A0F3E] rounded-lg p-3 text-center border border-white/10">
+                  <p className="text-2xl font-bold text-white">{selectedUser.total_xp}</p>
+                  <p className="text-xs text-white/60">XP</p>
+                </div>
+                <div className="bg-[#1A0F3E] rounded-lg p-3 text-center border border-white/10">
+                  <p className="text-2xl font-bold text-yellow-400">{selectedUser.rating?.toFixed(1) || 'N/A'}</p>
+                  <p className="text-xs text-white/60">Rating ({selectedUser.rating_count})</p>
+                </div>
+              </div>
+
+              {/* 3. Verification Doc (If applicable) */}
+              {selectedUser.id_document && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-white/80 uppercase">Verification Document</h3>
+                  <div className="bg-[#1A0F3E] rounded-lg p-3 border border-white/10 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-8 h-8 text-[#906EFF]" />
+                      <div>
+                        <p className="text-sm font-medium text-white">{selectedUser.id_type || "ID Document"}</p>
+                        <p className="text-xs text-white/40">Uploaded {new Date().toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <a href={selectedUser.id_document} target="_blank" className="px-3 py-1.5 bg-[#906EFF]/20 text-[#906EFF] rounded text-xs hover:bg-[#906EFF]/30">View</a>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. NEW: RELATED REPORTS SECTION (Placed before Account Info for better visibility) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white/80 uppercase flex items-center gap-2">
+                    <Flag className="w-4 h-4" /> Related Reports
+                  </h3>
+                  {userReports.length > 0 && (
+                    <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">{userReports.length} found</span>
+                  )}
+                </div>
+
+                <div className="bg-[#1A0F3E] rounded-lg border border-white/10 overflow-hidden min-h-[100px]">
+                  {detailLoading ? (
+                    <div className="flex items-center justify-center h-24 text-white/40 text-sm"><RefreshCw className="w-4 h-4 animate-spin mr-2" /> Loading history...</div>
+                  ) : userReports.length === 0 ? (
+                    <div className="flex items-center justify-center h-24 text-white/40 text-sm">No reports filed against this user.</div>
+                  ) : (
+                    <div className="divide-y divide-white/5">
+                      {userReports.map((report) => (
+                        <div key={report.report_id} className="p-3 hover:bg-white/5 transition-colors flex items-center justify-between">
+                          <div>
+                            <div className="text-sm text-white font-medium">{report.category}</div>
+                            <div className="text-xs text-white/60 line-clamp-1">{report.issue_detail || "No details provided"}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${report.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'
+                              }`}>
+                              {report.status}
+                            </div>
+                            <div className="text-[10px] text-white/40 mt-1">{new Date(report.created_at).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 5. Account Information (PRESERVED) */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-white">Account Information</h3>
+                <div className="space-y-2 text-sm bg-[#1A0F3E] rounded-lg p-4 border border-[#906EFF]/20">
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-white/60">Email:</span>
+                    <span className="text-white">{selectedUser.email}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-white/60">Joined:</span>
+                    <span className="text-white">{new Date(selectedUser.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-white/60">Rating Count:</span>
+                    <span className="text-white">{selectedUser.rating_count || 0} reviews</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-white/60">Completed Trades:</span>
+                    <span className="text-white">{selectedUser.completed_trades || 0}</span>
+                  </div>
+                  {selectedUser.active_reports_count > 0 && (
+                    <div className="flex justify-between py-2 border-b border-white/5">
+                      <span className="text-white/60">Active Reports:</span>
+                      <span className="text-red-400 font-semibold">{selectedUser.active_reports_count}</span>
+                    </div>
+                  )}
+                  {selectedUser.location && (
+                    <div className="flex justify-between py-2 border-b border-white/5">
+                      <span className="text-white/60">Location:</span>
+                      <span className="text-white">{selectedUser.location}</span>
+                    </div>
+                  )}
+                  {selectedUser.nationality && (
+                    <div className="flex justify-between py-2">
+                      <span className="text-white/60">Nationality:</span>
+                      <span className="text-white">{selectedUser.nationality}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
 
+            {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-white/10 bg-[#1A0F3E] flex gap-3">
-              <button
-                onClick={() => setShowUserDetailModal(false)}
-                className="flex-1 px-4 py-2 bg-[#120A2A] text-white border border-white/20 rounded-lg hover:bg-[#3C2E64] transition-colors"
-                disabled={isSubmitting}
-              >
-                Close
-              </button>
-
-              {selectedUser.verification_status === 'pending' && (
+              {/* Show Verification Actions ONLY if Pending */}
+              {selectedUser.verification_status === 'pending' ? (
                 <>
-                  <button
-                    onClick={() => setShowRejectModal(true)}
-                    className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Submitting..." : "Reject Verification"}
-                  </button>
-                  <button
-                    onClick={() => handleVerifyUser(selectedUser.id)}
-                    className="flex-1 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30 transition-colors font-medium"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Submitting..." : "Accept Verification"}
-                  </button>
+                  <button onClick={() => setShowRejectModal(true)} className="flex-1 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30">Reject ID</button>
+                  <button onClick={() => handleVerifyUser(selectedUser.id)} className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30">Verify User</button>
                 </>
+              ) : (
+                <button onClick={() => setShowUserDetailModal(false)} className="w-full py-2 bg-white/10 text-white rounded-lg hover:bg-white/20">Close</button>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Rejection Modal */}
+      {/* --- Rejection Modal --- */}
       {showRejectModal && selectedUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#120A2A] border border-[#906EFF]/30 rounded-xl w-full max-w-lg">
@@ -1255,9 +1081,9 @@ export default function UsersPage() {
                         <div className="text-sm mt-1">
                           Current Status:
                           <span className={`inline-block ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${selectedSanctionUser.current_sanction_status === 'BAN' ? 'bg-red-700/50 text-red-300' :
-                              selectedSanctionUser.current_sanction_status === 'SUSPENSION' ? 'bg-orange-700/50 text-orange-300' :
-                                selectedSanctionUser.current_sanction_status === 'WARNING' ? 'bg-yellow-700/50 text-yellow-300' :
-                                  'bg-green-700/50 text-green-300'
+                            selectedSanctionUser.current_sanction_status === 'SUSPENSION' ? 'bg-orange-700/50 text-orange-300' :
+                              selectedSanctionUser.current_sanction_status === 'WARNING' ? 'bg-yellow-700/50 text-yellow-300' :
+                                'bg-green-700/50 text-green-300'
                             }`}>
                             {selectedSanctionUser.current_sanction_status}
                           </span>
