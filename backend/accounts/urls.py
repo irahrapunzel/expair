@@ -148,6 +148,9 @@ urlpatterns = [
     path('api/admin/users-report/pdf/', admin_users_report_pdf, name='admin_users_report_pdf'),
     path('api/admin/dashboard-report-pdf/', admin_api.admin_dashboard_report_pdf, name='admin_dashboard_report_pdf'),
     
+    path('api/admin/trades-list/', admin_api.admin_trades_list, name='admin_trades_list'),
+    path('api/admin/trade-detail/<int:trade_id>/', admin_api.admin_get_trade_detail, name='admin_get_trade_detail'),
+
     path('api/admin/apply-sanction/', admin_api.admin_apply_sanction, name='admin_apply_sanction'),
     path('api/admin/appeal-review/', admin_api.admin_appeal_review, name='admin_appeal_review'),   
     path('api/admin/user-sanction-history/<int:user_id>/', admin_api.admin_user_sanction_history, name='admin_user_sanction_history'), 

@@ -9,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework import status
 import traceback
 from django.shortcuts import get_object_or_404
-from .models import Report, User
-
+from .models import Report, TradeHistory, User
+from rest_framework.pagination import PageNumberPagination
 import io
 from reportlab.lib.pagesizes import letter, landscape 
 from reportlab.lib import colors 
@@ -1279,8 +1279,6 @@ def admin_bulk_resolve_reports(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# In admin_api.py
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_report_stats(request):
@@ -2296,3 +2294,136 @@ def admin_dashboard_report_pdf(request):
     except Exception as e:
         print(f"❌ Error generating PDF: {str(e)}")
         return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_trades_list(request):
+    """
+    GET /api/admin/trades-list/
+    Supports filtering by status, search, and date range.
+    """
+    if not check_admin_access(request):
+        return Response(status=403)
+
+    # 1. Base Query
+    trades = TradeRequest.objects.select_related('requester', 'responder').all()
+
+    # 2. Filtering
+    status_filter = request.GET.get('status')
+    search = request.GET.get('search')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    sort_by = request.GET.get('sort', 'created_at')
+    direction = request.GET.get('direction', 'desc')
+
+    if status_filter and status_filter != 'ALL':
+        trades = trades.filter(status=status_filter)
+    
+    if search:
+        trades = trades.filter(
+            Q(reqname__icontains=search) | 
+            Q(requester__username__icontains=search) |
+            Q(tradereq_id__icontains=search)
+        )
+        
+    if start_date:
+        trades = trades.filter(created_at__gte=start_date)
+    if end_date:
+        trades = trades.filter(created_at__lte=end_date)
+
+    # Sorting
+    # Validate sort_by to prevent 500 errors on invalid fields
+    valid_sort_fields = ['tradereq_id', 'reqname', 'status', 'created_at']
+    if sort_by not in valid_sort_fields:
+        sort_by = 'created_at'
+
+    if direction == 'desc':
+        sort_by = f'-{sort_by}'
+    
+    trades = trades.order_by(sort_by)
+
+    # 3. Pagination
+    paginator = PageNumberPagination()
+    paginator.page_size = 20
+    result_page = paginator.paginate_queryset(trades, request)
+    
+    # 4. Serialization
+    data = [{
+        'id': t.tradereq_id,
+        'title': t.reqname,
+        'exchange': t.exchange,
+        'requester': t.requester.username,
+        'responder': t.responder.username if t.responder else None,
+        'status': t.status,
+        'created_at': t.created_at.isoformat() if t.created_at else None # Added isoformat() for safer frontend parsing
+    } for t in result_page]
+
+    # This matches the structure expected by your frontend: data.success, data.trades
+    return Response({
+        'success': True,
+        'trades': data,
+        'pagination': {
+            'total': paginator.page.paginator.count,
+            'total_pages': paginator.page.paginator.num_pages
+        }
+    }, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_get_trade_detail(request, trade_id):
+    """
+    GET /api/admin/trade-detail/<trade_id>/
+    Returns full details including proofs and reviews for completed trades.
+    """
+    if not check_admin_access(request):
+        return Response(status=403)
+        
+    try:
+        trade = TradeRequest.objects.select_related('requester', 'responder').get(tradereq_id=trade_id)
+        
+        # 1. Get Description/Bio
+        details = TradeDetail.objects.filter(trade_request=trade).first()
+        description = details.reqbio if details else ""
+        
+        # 2. Get Proofs (Trade History)
+        history = TradeHistory.objects.filter(trade_request=trade).first()
+        proofs = {
+            'requester': history.requester_proof if history else [],
+            'responder': history.responder_proof if history else [],
+            'completed_at': history.completed_at.isoformat() if history and history.completed_at else None
+        }
+
+        # 3. Get Reviews (Reputation System)
+        reviews = {}
+        if trade.status == 'COMPLETED':
+            rep = ReputationSystem.objects.filter(trade_request=trade).first()
+            if rep:
+                reviews = {
+                    'requester_rating': rep.requester_starcount,
+                    'requester_comment': rep.requester_rating_desc,
+                    'responder_rating': rep.responder_starcount,
+                    'responder_comment': rep.responder_rating_desc,
+                }
+
+        data = {
+            'id': trade.tradereq_id,
+            'title': trade.reqname,
+            'exchange': trade.exchange, 
+            'description': description,
+            'requester': {
+                'username': trade.requester.username,
+                'profile_pic': trade.requester.profilePic
+            },
+            'responder': {
+                'username': trade.responder.username,
+                'profile_pic': trade.responder.profilePic
+            } if trade.responder else None,
+            'status': trade.status,
+            'created_at': trade.created_at,
+            'proofs': proofs,   
+            'reviews': reviews  
+        }
+        
+        return Response({'success': True, 'trade': data})
+    except TradeRequest.DoesNotExist:
+        return Response({'success': False, 'error': 'Trade not found'}, status=404)

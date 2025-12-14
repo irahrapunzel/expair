@@ -4,9 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { LayoutDashboard, Users, LogOut, Menu, X, FileText } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  Users, 
+  LogOut, 
+  Menu, 
+  X, 
+  FileText, 
+  Briefcase // ✅ Added Briefcase icon for Trades
+} from "lucide-react";
 import ProfileAvatar from "@/components/avatar";
-import { useSession, signOut } from "next-auth/react"; // Added signOut import
+import { useSession, signOut } from "next-auth/react"; 
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +26,6 @@ export default function AdminLayout({ children }) {
 
   // --- LOGIC FOR AUTHENTICATION AND REDIRECTION ---
   useEffect(() => {
-    // Redirect to login if not authenticated after loading is finished
     if (sessionStatus === "unauthenticated") {
         router.push("/admin/login");
     }
@@ -29,8 +36,6 @@ export default function AdminLayout({ children }) {
     try {
       const refresh = session?.refresh;
       if (refresh) {
-        // Call your backend logout endpoint to invalidate the refresh token
-        // Use the same endpoint logic as in navbar.jsx
         await fetch(
           `${
             process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"
@@ -50,15 +55,15 @@ export default function AdminLayout({ children }) {
         );
       }
     } finally {
-      // Regardless of backend success, sign out the NextAuth session
-      // Redirects to the root "/" (or wherever your callbackUrl points)
       await signOut({ redirect: true, callbackUrl: "/" });
     }
   };
 
+  // ✅ ADDED "TRADES" HERE
   const navigationItems = [
     { name: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
     { name: "Users", icon: Users, href: "/admin/dashboard/users" },
+    { name: "Trades", icon: Briefcase, href: "/admin/dashboard/trades" }, // <--- New Button
     { name: "Reports", icon: FileText, href: "/admin/dashboard/reports" },
   ];
 
@@ -71,18 +76,15 @@ export default function AdminLayout({ children }) {
     );
   }
 
-  // If not authenticated, return null to avoid rendering the admin layout
   if (sessionStatus !== "authenticated") {
       return null;
   }
 
-  // Admin user details from session
   const adminUser = {
       username: session?.user?.username || 'Admin',
       name: session?.user?.name || 'Administrator',
       role: session?.user?.role || 'Administrator',
   };
-
 
   return (
     <div className={`flex min-h-screen bg-[#050015] ${inter.className}`}>
@@ -157,7 +159,7 @@ export default function AdminLayout({ children }) {
         {/* Logout Button */}
         <div className="p-4 border-t border-[#906EFF]/20">
           <button
-            onClick={handleLogout} // Calls the updated logout function
+            onClick={handleLogout} 
             className={`flex items-center gap-3 px-3 py-2.5 rounded-[12px] w-full transition-all text-red-400 hover:bg-red-500/10 ${
               !isSidebarOpen && "justify-center"
             }`}
