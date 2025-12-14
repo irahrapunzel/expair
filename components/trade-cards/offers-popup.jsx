@@ -255,7 +255,7 @@ export default function OffersPopup({ isOpen, onClose, service, trade, onTradeUp
 
             <div className="flex flex-col items-center justify-center gap-[15px] w-full max-w-[622px]">
               {/* Title - Responsive text size */}
-              <h2 className="font-[700] text-xl md:text-[25px] text-center text-white px-6">
+              <h2 className="font-[700] text-xl md:text-[25px] text-center text-white px-6 break-words w-full max-w-full leading-tight">
                 Offers you received for {service}
               </h2>
 
