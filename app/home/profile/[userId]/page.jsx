@@ -317,16 +317,18 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return;
-    const s = (
-      user.verification_status
-        ? user.verification_status
-        : user.is_verified
-          ? "VERIFIED"
-          : user.userVerifyId
-            ? "PENDING"
-            : "UNVERIFIED"
-    ).toLowerCase();
-    setVerificationStatus(s);
+
+    let status = "unverified";
+
+    if (user.is_verified) {
+      status = "verified";
+    } else if (user.verification_status) {
+      status = user.verification_status.toLowerCase();
+    } else if (user.userVerifyId) {
+      status = "pending";
+    }
+
+    setVerificationStatus(status);
   }, [user?.verification_status, user?.is_verified, user?.userVerifyId]);
 
   const handleDeleteTrade = async (trade) => {
@@ -634,8 +636,8 @@ export default function ProfilePage() {
           rating: Number(data.avgStars ?? data.rating) || 0,
           reviews: Number(data.ratingCount ?? data.reviews) || 0,
           bio: data.bio || "",
-          is_verified: Boolean(data.is_verified),
-          verification_status: data.verification_status ?? null,
+          is_verified: Boolean(data.is_fully_verified),
+          verification_status: data.id_verification_status ?? null,
           userVerifyId: data.userVerifyId || null,
           links: data.links || "",
 
