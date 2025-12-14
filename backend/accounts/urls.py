@@ -146,6 +146,7 @@ urlpatterns = [
     path('api/admin/bulk-resolve-reports/', admin_api.admin_bulk_resolve_reports, name='admin_bulk_resolve_reports'),
     path('api/admin/report-stats/', admin_api.admin_report_stats, name='admin_report_stats'),
     path('api/admin/users-report/pdf/', admin_users_report_pdf, name='admin_users_report_pdf'),
+    path('api/admin/dashboard-report-pdf/', admin_api.admin_dashboard_report_pdf, name='admin_dashboard_report_pdf'),
     
     path('api/admin/apply-sanction/', admin_api.admin_apply_sanction, name='admin_apply_sanction'),
     path('api/admin/appeal-review/', admin_api.admin_appeal_review, name='admin_appeal_review'),   
